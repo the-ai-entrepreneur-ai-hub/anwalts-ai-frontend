@@ -11,6 +11,10 @@
 </template>
 
 <script setup>
+// Public landing route. We immediately redirect to the static
+// page served from /public/page.html (Framer export). All CTAs
+// on that page link into /dashboard, which has the required
+// sidebar (Übersicht, KI‑Assistent, Dokumente, Vorlagen, E‑Mails, Einstellungen).
 definePageMeta({
   layout: false
 })

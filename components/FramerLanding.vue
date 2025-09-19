@@ -102,7 +102,10 @@
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 
-// Clean component without auth modals
+// Clean landing component. We do not open any modals here.
+// All CTAs navigate to the dashboard. The live static page
+// content is served from /public/page.html which mirrors
+// /var/www/html/preview/clean.
 
 const goToDashboard = () => {
   navigateTo('/dashboard')
@@ -114,7 +117,7 @@ const framerContent = ref('')
 onMounted(async () => {
   // Make the function globally available for Framer/Framer-export integration
   if (process.client) {
-    // Clean landing page - no auth modals
+    // Clean landing page - no auth modals, just navigate to dashboard
     window.openSignInModal = () => navigateTo('/dashboard')
     window.openAuthModal = () => navigateTo('/dashboard')
     window.showSignInModal = () => navigateTo('/dashboard')
@@ -129,7 +132,7 @@ onMounted(async () => {
   }
 
   try {
-    console.log('DISABLED: Skipping Framer content loading to prevent external redirects')
+    console.log('Landing: using fallback content (no remote Framer load)')
     // DISABLED to prevent Framer external links from loading
     // framerContent.value = '' // Keep empty to show fallback
 
