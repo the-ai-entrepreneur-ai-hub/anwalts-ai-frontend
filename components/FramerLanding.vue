@@ -89,23 +89,16 @@
         </div>
       </div>
     </div>
-
-    <!-- Authentication Modal -->
-    <StackAuthModal 
-      :is-open="showAuthModal" 
-      @close="showAuthModal = false"
-      @auth-success="handleAuthSuccess"
-    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 
-// Clean landing component. We do not open any modals here.
-// All CTAs navigate to the dashboard. The live static page
-// content is served from /public/page.html which mirrors
-// /var/www/html/preview/clean.
+// CTAs strictly navigate to the dashboard; we deliberately skip
+// rendering auth modals here to avoid them auto-opening on load.
+// Static landing comes from /public/page.html (mirrors
+// /var/www/html/preview/clean).
 
 const goToDashboard = () => {
   navigateTo('/dashboard')

@@ -1,3 +1,4 @@
+<!-- Sidebar nav intentionally excludes a Cases/Fälle entry per product direction. -->
 <template>
   <div class="min-h-screen">
     <div class="flex h-screen">
@@ -593,7 +594,6 @@ onMounted(() => {
   }
   // Let anchors navigate; keep visual active state for instant feedback
   document.getElementById('linkOverview')?.addEventListener('click', () => { setActive(document.getElementById('linkOverview')) })
-  document.getElementById('linkCases')?.addEventListener('click', () => { setActive(document.getElementById('linkCases')) })
   document.getElementById('linkDocuments')?.addEventListener('click', () => { setActive(document.getElementById('linkDocuments')) })
   document.getElementById('linkEmails')?.addEventListener('click', () => { setActive(document.getElementById('linkEmails')) })
   document.getElementById('linkSettings')?.addEventListener('click', () => { setActive(document.getElementById('linkSettings')) })
