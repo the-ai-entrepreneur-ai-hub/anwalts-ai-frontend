@@ -236,7 +236,7 @@ import { useTour } from '#imports'
 import { onMounted } from 'vue'
 import { useHead, useRuntimeConfig } from '#imports'
 
-definePageMeta({ layout: false, middleware: ['auth-guard'] })
+definePageMeta({ layout: false })
 
 onMounted(() => {
   const $ = (s, r=document) => r.querySelector(s)
