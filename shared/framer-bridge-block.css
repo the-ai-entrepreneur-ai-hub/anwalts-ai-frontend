@@ -1,0 +1,17 @@
+/* --- Hide common Framer editor/bridge surfaces, preserve layout --- */
+#framer-badge,
+.framer-badge,
+.framer-edit-button,
+.framer-controls,
+[data-framer-bridge],
+[data-framer-portal],
+[class*="framer-bridge"],
+[class*="framer"] [class*="edit"],
+a[href*="framer.com"][aria-label*="Edit"],
+a[href*="framer.com"][title*="Edit"],
+/* Explicitly hide any framer.link anchors (editor links) */
+a[href*="framer.link"] {
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}

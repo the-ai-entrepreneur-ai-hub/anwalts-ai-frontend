@@ -1,0 +1,2 @@
+/* Hide only Framer edit anchors; leave all other CTAs untouched */
+a[href*="framer.link"]{ display:none !important; }

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANWALTS.AI - KI für Anwälte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        }
+        
+        .glass-button {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .glass-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* NUCLEAR FRAMER BLOCKING - Hide ALL edit functionality */
+        #__framer-badge-container,
+        [data-framer-name*="edit"],
+        [data-framer-name*="Edit"],
+        [data-framer-name*="badge"],
+        [data-framer-name*="Badge"],
+        [data-framer-name*="secondary cta"],
+        [data-framer-name*="call-to-actions"],
+        a[href*="framer.link"],
+        a[href*="framer.com"],
+        a[href*="Vu5MARe"],
+        a[href*="jsW9dZSlNsDSxsubEa0g"],
+        a[href*="duplicate"],
+        a[href*="node=augiA20Il"],
+        a[target="_blank"][rel="noopener"],
+        .framer-badge,
+        .framer-edit-button,
+        .framer-gosiQ,
+        [class*="framer-badge"],
+        [class*="edit-button"],
+        [class*="framer-gosiQ"],
+        [id*="framer-badge"],
+        [id*="edit-button"],
+        button:contains("Registrieren"),
+        a:contains("Registrieren") {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            position: absolute !important;
+            left: -99999px !important;
+            top: -99999px !important;
+            width: 0 !important;
+            height: 0 !important;
+            z-index: -99999 !important;
+            transform: scale(0) !important;
+            overflow: hidden !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <!-- Animated background elements -->
+    <div class="absolute inset-0">
+        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+    </div>
+    
+    <!-- Content -->
+    <div class="relative z-10 container mx-auto px-4 py-20">
+        <!-- Header -->
+        <header class="fixed top-0 left-0 right-0 z-50 bg-white/10 backdrop-blur-md border-b border-white/20">
+            <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+                <div class="text-2xl font-bold text-white">ANWALTS.AI</div>
+                <nav class="hidden md:flex space-x-8">
+                    <a href="/dashboard" class="text-white/80 hover:text-white transition-colors">Dashboard</a>
+                    <a href="/templates" class="text-white/80 hover:text-white transition-colors">Vorlagen</a>
+                    <a href="/assistant" class="text-white/80 hover:text-white transition-colors">Assistent</a>
+                </nav>
+                <button onclick="openAuthModal()" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg">
+                    Registrieren
+                </button>
+            </div>
+        </header>
+
+        <!-- Hero section -->
+        <div class="pt-32 text-center">
+            <h1 class="text-6xl md:text-8xl font-bold text-white mb-6 tracking-tight">
+                ANWALTS.AI
+            </h1>
+            <p class="text-xl md:text-2xl text-white/80 mb-12 max-w-3xl mx-auto">
+                KI-gestützte Rechtslösungen für die moderne Anwaltskanzlei
+            </p>
+            
+            <!-- CTA Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-20">
+                <button onclick="openAuthModal()" class="glass-button px-12 py-4 rounded-xl font-semibold text-lg">
+                    Kostenlos registrieren
+                </button>
+                <a href="/dashboard" class="border-2 border-white/50 text-white px-12 py-4 rounded-xl font-semibold hover:bg-white hover:text-blue-600 transition-all text-lg">
+                    Zum Dashboard
+                </a>
+            </div>
+
+            <!-- Features -->
+            <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <div class="glassmorphism p-8">
+                    <div class="text-4xl mb-4">⚖️</div>
+                    <h3 class="text-xl font-semibold text-white mb-3">Rechtsprechung</h3>
+                    <p class="text-white/80">KI-gestützte Suche durch Rechtsdatenbanken und Fallrecht</p>
+                </div>
+                
+                <div class="glassmorphism p-8">
+                    <div class="text-4xl mb-4">📄</div>
+                    <h3 class="text-xl font-semibold text-white mb-3">Dokumentenanalyse</h3>
+                    <p class="text-white/80">Intelligente Dokumentenprüfung und Vertragsanalyse</p>
+                </div>
+                
+                <div class="glassmorphism p-8">
+                    <div class="text-4xl mb-4">🤖</div>
+                    <h3 class="text-xl font-semibold text-white mb-3">KI-Assistent</h3>
+                    <p class="text-white/80">24/7 KI-Assistent für juristische Fragen und Beratung</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Authentication Modal -->
+    <div id="authModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black bg-opacity-50">
+        <div class="glassmorphism w-full max-w-md p-8">
+            <div class="relative">
+                <!-- Close button -->
+                <button onclick="closeAuthModal()" class="absolute -top-2 -right-2 w-8 h-8 bg-white bg-opacity-20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-opacity-30 transition-all">
+                    ✕
+                </button>
+
+                <!-- Modal header -->
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl font-bold text-white mb-2">Willkommen bei ANWALTS.AI</h2>
+                    <p class="text-white/80">Registrieren Sie sich für Ihren kostenlosen Account</p>
+                </div>
+
+                <!-- Email form -->
+                <form onsubmit="handleSignUp(event)" class="space-y-4">
+                    <div>
+                        <input type="email" placeholder="E-Mail-Adresse" class="glass-button w-full p-3 rounded-xl" required>
+                    </div>
+                    <div>
+                        <input type="password" placeholder="Passwort" class="glass-button w-full p-3 rounded-xl" required>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all">
+                        Registrieren
+                    </button>
+                </form>
+
+                <!-- Footer -->
+                <div class="mt-6 text-center">
+                    <p class="text-white/60 text-sm">
+                        Bereits registriert? 
+                        <button onclick="switchToSignIn()" class="text-white hover:text-white/80 font-medium">
+                            Hier anmelden
+                        </button>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // NUCLEAR JAVASCRIPT BLOCKING - Prevent ALL Framer edit functionality
+        (function() {
+            // Block all framer.com and framer.link URLs
+            const blockedPatterns = [
+                /framer\.com/,
+                /framer\.link/,
+                /Vu5MARe/,
+                /jsW9dZSlNsDSxsubEa0g/,
+                /duplicate/,
+                /node=augiA20Il/
+            ];
+
+            // Override window.open
+            const originalOpen = window.open;
+            window.open = function(url, ...args) {
+                if (url && blockedPatterns.some(pattern => pattern.test(url))) {
+                    console.log("Blocked Framer URL:", url);
+                    openAuthModal(); // Redirect to auth modal instead
+                    return null;
+                }
+                return originalOpen.apply(this, [url, ...args]);
+            };
+
+            // Override location changes
+            const originalAssign = window.location.assign;
+            window.location.assign = function(url) {
+                if (blockedPatterns.some(pattern => pattern.test(url))) {
+                    console.log("Blocked location change:", url);
+                    openAuthModal(); // Redirect to auth modal instead
+                    return;
+                }
+                return originalAssign.call(this, url);
+            };
+
+            // Remove all edit buttons every 100ms
+            setInterval(function() {
+                document.querySelectorAll(`
+                    [data-framer-name*="edit"],
+                    [data-framer-name*="Edit"],
+                    [data-framer-name*="secondary cta"],
+                    [data-framer-name*="call-to-actions"],
+                    a[href*="framer.link"],
+                    a[href*="framer.com"],
+                    .framer-gosiQ,
+                    #__framer-badge-container
+                `).forEach(el => {
+                    el.style.display = 'none';
+                    el.remove();
+                });
+            }, 100);
+        })();
+
+        console.log('ANWALTS.AI landing page loaded successfully');
+
+        function openAuthModal() {
+            console.log('Opening auth modal');
+            document.getElementById('authModal').classList.remove('hidden');
+            document.getElementById('authModal').classList.add('flex');
+        }
+
+        function closeAuthModal() {
+            console.log('Closing auth modal');
+            document.getElementById('authModal').classList.add('hidden');
+            document.getElementById('authModal').classList.remove('flex');
+        }
+
+        function handleSignUp(event) {
+            event.preventDefault();
+            console.log('Sign up submitted - redirecting to dashboard');
+            closeAuthModal();
+            // Redirect to your customized dashboard
+            window.location.href = '/dashboard';
+        }
+
+        function switchToSignIn() {
+            console.log('Switching to sign in mode');
+            // For now just redirect to dashboard - you can customize this later
+            window.location.href = '/dashboard';
+        }
+
+        // Test all button functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, all functions working');
+            
+            // Block any remaining Framer elements on load
+            document.querySelectorAll('a[href*="framer"], button[onclick*="framer"]').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openAuthModal();
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+    "schema": "https://unframer-schema.vercel.app/schema.json",
+    "outDir": "./framer",
+    "components": {
+        // add here your Framer components urls, the code will be written to outDir/{componentName}.js
+        "example-hero": "https://framer.com/m/Header-WtSW.js",
+    }
+}

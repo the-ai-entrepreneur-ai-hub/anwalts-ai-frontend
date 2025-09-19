@@ -1,0 +1,154 @@
+<template>
+  <div class="min-h-screen bg-white">
+    <header class="bg-white border-b" style="border-color: var(--border)">
+      <div class="max-w-5xl mx-auto px-6">
+        <div class="flex justify-between h-16 items-center">
+          <div class="flex items-center gap-3">
+            <NuxtLink to="/dashboard" class="text-gray-800 hover:opacity-80">← Back</NuxtLink>
+            <h1 class="text-xl font-semibold" style="color: var(--text)">Email</h1>
+          </div>
+          <div v-if="user" class="text-sm note truncate max-w-[220px]" :title="user.email">{{ user.email }}</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="max-w-5xl mx-auto p-6">
+      <!-- 0) Access & Consent -->
+      <section class="card p-6 mb-6" v-if="!connected">
+        <h2 class="text-lg font-semibold mb-2" style="color: var(--text)">Connect your email</h2>
+        <p class="note mb-4">Desktop‑first, privacy‑aware. Connect via OAuth and confirm consent to proceed.</p>
+
+        <div class="space-y-3 mb-4">
+          <label class="flex items-center gap-3">
+            <input type="checkbox" v-model="agreeOAuth" class="h-4 w-4 border-gray-300" />
+            <span class="text-sm" style="color: var(--text)">I agree to connect my email via OAuth 2.0.</span>
+          </label>
+          <label class="flex items-center gap-3">
+            <input type="checkbox" v-model="consentAI" class="h-4 w-4 border-gray-300" />
+            <span class="text-sm" style="color: var(--text)">I consent to the AI reading my emails to suggest summaries and draft replies. The AI will never send without my review.</span>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button class="btn-neutral" :disabled="!canProceed" :style="!canProceed ? 'opacity:.6;cursor:not-allowed' : ''" @click="continueWithGmail">
+            Continue with Gmail
+          </button>
+          <button class="btn-outline" :disabled="!canProceed" :style="!canProceed ? 'opacity:.6;cursor:not-allowed' : ''" @click="continueWithMicrosoft">
+            Continue with Outlook / Microsoft 365
+          </button>
+        </div>
+
+        <p v-if="error" class="mt-3" style="color:#b91c1c">{{ error }}</p>
+      </section>
+
+      <!-- Compose (only after connect & consent) -->
+      <section v-if="connected" class="grid gap-6">
+        <div class="card p-6">
+          <h3 class="text-base font-semibold mb-4">Compose Reply</h3>
+          <div class="space-y-4">
+            <div>
+              <label class="label">Subject</label>
+              <input v-model="form.subject" type="text" class="input" placeholder="Subject of the reply" />
+            </div>
+            <div>
+              <label class="label">Original email</label>
+              <textarea v-model="form.original" rows="8" class="textarea" placeholder="Paste the incoming email text"></textarea>
+            </div>
+            <div class="flex items-center gap-3">
+              <label class="label m-0">Style</label>
+              <select v-model="form.style" class="select">
+                <option value="formal">Formal</option>
+                <option value="neutral">Neutral</option>
+                <option value="friendly">Friendly</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-3">
+              <button class="btn-neutral" style="max-width: 240px" :disabled="loading" @click="generateEmail">
+                {{ loading ? 'Generating…' : 'Generate Reply' }}
+              </button>
+              <span v-if="genError" class="note" style="color:#b91c1c">{{ genError }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="result" class="card p-6">
+          <h3 class="text-base font-semibold mb-4">Draft</h3>
+          <div class="prose max-w-none whitespace-pre-wrap">{{ result }}</div>
+          <div class="mt-4 flex gap-3">
+            <button class="btn-outline" style="max-width: 220px" @click="copyResult">Copy</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+const user = ref<any>(null)
+const agreeOAuth = ref(false)
+const consentAI = ref(false)
+
+const loading = ref(false)
+const error = ref('')
+const genError = ref('')
+const result = ref('')
+
+const form = reactive({ subject: '', original: '', style: 'formal' })
+
+const canProceed = computed(() => agreeOAuth.value && consentAI.value)
+const connected = computed(() => !!user.value && canProceed.value)
+
+const fetchMe = async () => {
+  try {
+    const me: any = await $fetch('/api/auth/me')
+    if (me?.valid || me?.user) {
+      user.value = me.user || me
+    } else { user.value = null }
+  } catch { user.value = null }
+}
+
+onMounted(() => {
+  try {
+    agreeOAuth.value = localStorage.getItem('agree_oauth') === '1'
+    consentAI.value = localStorage.getItem('consent_ai') === '1'
+  } catch {}
+  fetchMe()
+})
+
+const continueWithGmail = () => {
+  if (!canProceed.value) return
+  try { localStorage.setItem('agree_oauth','1'); localStorage.setItem('consent_ai','1') } catch {}
+  window.location.href = '/api/auth/google'
+}
+
+const continueWithMicrosoft = () => {
+  if (!canProceed.value) return
+  // Not configured yet; keep UX explicit
+  error.value = 'Microsoft 365 integration is not configured yet.'
+}
+
+const generateEmail = async () => {
+  genError.value = ''
+  result.value = ''
+  if (!form.original.trim()) { genError.value = 'Please paste the original email.'; return }
+  loading.value = true
+  try {
+    const payload = {
+      title: form.subject || 'Reply to email',
+      document_type: 'email',
+      prompt: `Write a ${form.style} professional German business reply.\n\nOriginal email:\n${form.original}\n\nUser consented to AI processing.`
+    }
+    const res: any = await $fetch('/api/auth/proxy.post', { method: 'POST', body: { path: '/api/ai/generate-document-simple', method: 'POST', body: payload } })
+    if (res?.success && res?.document?.content) { result.value = String(res.document.content) }
+    else { genError.value = res?.error || 'Generation failed' }
+  } catch (e: any) {
+    genError.value = String(e?.data?.statusMessage || e?.message || e)
+  } finally { loading.value = false }
+}
+
+const copyResult = async () => { try { await navigator.clipboard.writeText(result.value) } catch {} }
+</script>
+
+<style scoped>
+/* Keep neutral: no blue accents */
+</style>

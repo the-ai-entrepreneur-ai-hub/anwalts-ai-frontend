@@ -1,0 +1,8 @@
+#framer-badge,
+.framer-badge,
+.framer-edit-button,
+.framer-controls{
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
