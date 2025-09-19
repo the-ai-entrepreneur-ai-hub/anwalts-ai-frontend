@@ -26,17 +26,15 @@ body.anwalts-auth-modal-open {
 .anwalts-auth-modal {
   position: relative;
   width: min(100%, 440px);
-  background: rgba(13, 22, 44, 0.85);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 28px;
-  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.55);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
   padding: 32px;
-  color: #e2e8f0;
+  color: #111827; /* slate-900 */
   display: flex;
   flex-direction: column;
   gap: 24px;
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
 }
 
 @media (max-width: 520px) {
@@ -53,9 +51,9 @@ body.anwalts-auth-modal-open {
   width: 36px;
   height: 36px;
   border-radius: 999px;
-  border: 1px solid rgba(226, 232, 240, 0.2);
-  background: rgba(15, 23, 42, 0.6);
-  color: inherit;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
   display: grid;
   place-items: center;
   font-size: 20px;
@@ -65,7 +63,7 @@ body.anwalts-auth-modal-open {
 
 .anwalts-auth-close:hover,
 .anwalts-auth-close:focus-visible {
-  background: rgba(79, 70, 229, 0.45);
+  background: #f3f4f6; /* slate-100 */
   transform: scale(1.05);
 }
 
@@ -78,50 +76,25 @@ body.anwalts-auth-modal-open {
 .anwalts-auth-title {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: #111827;
 }
 
 .anwalts-auth-subtitle {
   font-size: 0.95rem;
-  color: rgba(226, 232, 240, 0.7);
+  color: #6b7280; /* gray-500 */
 }
 
-.anwalts-auth-toggle {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 8px;
-  border-radius: 18px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-}
-
-.anwalts-auth-toggle button {
-  border: none;
-  background: transparent;
-  color: rgba(226, 232, 240, 0.7);
-  font-weight: 500;
-  padding: 10px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 160ms ease;
-}
-
-.anwalts-auth-toggle button.is-active {
-  background: linear-gradient(135deg, rgba(79, 70, 229, 0.8), rgba(59, 130, 246, 0.75));
-  color: #fff;
-  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.35);
-}
+/* toggle buttons removed by design */
 
 .anwalts-auth-google {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.55);
-  color: #f8fafc;
+  border: 1px solid #d1d5db; /* gray-300 */
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
   padding: 12px 16px;
   font-weight: 500;
   cursor: pointer;
@@ -136,15 +109,15 @@ body.anwalts-auth-modal-open {
 .anwalts-auth-google:hover,
 .anwalts-auth-google:focus-visible {
   transform: translateY(-1px);
-  border-color: rgba(148, 163, 184, 0.55);
-  background: rgba(29, 78, 216, 0.45);
+  border-color: #9ca3af; /* gray-400 */
+  background: #f9fafb; /* gray-50 */
 }
 
 .anwalts-auth-divider {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: rgba(148, 163, 184, 0.6);
+  color: #6b7280;
   font-size: 0.85rem;
 }
 
@@ -153,7 +126,7 @@ body.anwalts-auth-modal-open {
   content: "";
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, rgba(148, 163, 184, 0), rgba(148, 163, 184, 0.5), rgba(148, 163, 184, 0));
+  background: linear-gradient(90deg, rgba(209, 213, 219, 0), rgba(209, 213, 219, 1), rgba(209, 213, 219, 0));
 }
 
 .anwalts-auth-form {
@@ -171,17 +144,17 @@ body.anwalts-auth-modal-open {
 .anwalts-auth-field label {
   font-size: 0.85rem;
   font-weight: 500;
-  color: rgba(226, 232, 240, 0.8);
+  color: #374151; /* gray-700 */
 }
 
 .anwalts-auth-field input,
 .anwalts-auth-field select {
   width: 100%;
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
   padding: 12px 14px;
-  color: #f1f5f9;
+  color: #111827;
   font-size: 0.95rem;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
@@ -189,8 +162,8 @@ body.anwalts-auth-modal-open {
 .anwalts-auth-field input:focus,
 .anwalts-auth-field select:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.7);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+  border-color: #2563eb; /* blue-600 */
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
 }
 
 .anwalts-auth-checkbox {
@@ -198,7 +171,7 @@ body.anwalts-auth-modal-open {
   align-items: flex-start;
   gap: 10px;
   font-size: 0.85rem;
-  color: rgba(226, 232, 240, 0.75);
+  color: #374151;
 }
 
 .anwalts-auth-checkbox input {
@@ -206,8 +179,8 @@ body.anwalts-auth-modal-open {
   width: 18px;
   height: 18px;
   border-radius: 6px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid #d1d5db;
+  background: #ffffff;
 }
 
 .anwalts-auth-submit {
@@ -247,19 +220,19 @@ body.anwalts-auth-modal-open {
 .anwalts-auth-message {
   font-size: 0.85rem;
   text-align: center;
-  color: rgba(226, 232, 240, 0.8);
+  color: #374151;
 }
 
 .anwalts-auth-footer {
   text-align: center;
   font-size: 0.85rem;
-  color: rgba(226, 232, 240, 0.7);
+  color: #6b7280;
 }
 
 .anwalts-auth-footer button {
   background: none;
   border: none;
-  color: #93c5fd;
+  color: #2563eb;
   font-weight: 500;
   cursor: pointer;
   margin-left: 6px;
