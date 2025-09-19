@@ -66,14 +66,5 @@
     
     
     
-<script id="anwalts-child-bridge">
-(function(){
-  function isFramerHref(h){ return !!h && (h.includes('framer.com') || h.includes('framer.link') || h.includes('login.framer.com')); }
-  function isAuthLink(h){ if(!h) return false; try { return h.startsWith('/login') || h.startsWith('/register') || h==="#"; } catch(_) { return false; } }
-  function isCta(el){ try { if(!el) return false; if(el.matches('a[data-framer-name*="cta" i], button[data-framer-name*="cta" i]')) return true; const n=(el.textContent||'').toLowerCase(); return n.includes('get started') || n.includes('sign in') || n.includes('login') || n.includes('register'); } catch(_){ return false; } }
-  function openAuth(){ try { window.parent.postMessage({ type:'ANWALTS_OPEN_AUTH' }, '*'); } catch(_){} }
-  document.addEventListener('click', function(e){ var t=e.target; while(t && t !== document){ if(t.tagName==='A' || t.tagName==='BUTTON' || t.getAttribute('role')==='button'){ var h=t.getAttribute('href')||''; if(isFramerHref(h) || isAuthLink(h) || isCta(t)){ e.preventDefault(); e.stopPropagation(); openAuth(); return false; } break; } t=t.parentElement; } }, true);
-})();
-</script>
 </body>
 </html>
