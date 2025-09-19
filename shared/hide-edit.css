@@ -1,0 +1,5 @@
+/* Hide only known Framer edit anchors by stable attributes */
+/* If a link has data-framer-name="Variant 1" and points to framer.link, hide it */
+a[data-framer-name="Variant 1"][href*="framer.link"]{ display:none !important; }
+/* Also hide this exact edit link id if present */
+a[href*="framer.link/Vu5MARe"]{ display:none !important; }

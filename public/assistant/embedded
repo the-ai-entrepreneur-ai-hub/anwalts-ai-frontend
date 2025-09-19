@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KI‑Assistent | ANWALTS.AI</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/shared/anwalts-integration.css" />
+</head>
+<body>
+  <script>window.location.replace('/assistant');</script>
+</body>
+</html>
