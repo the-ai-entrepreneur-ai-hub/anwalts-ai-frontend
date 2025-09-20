@@ -27,6 +27,14 @@
   const OBSERVER_DELAY = 80;
   const PASSWORD_MIN_LENGTH = 6;
 
+  function isInsideAuthModal(node) {
+    try {
+      return !!(node && typeof node.closest === 'function' && (node.closest('.anwalts-auth-modal') || node.closest('.anwalts-auth-overlay')));
+    } catch (_) {
+      return false;
+    }
+  }
+
   const COPY = {
     login: {
       title: 'Willkommen zurück',
@@ -118,14 +126,17 @@
       const selector = CTA_SELECTORS[i];
       const found = root.querySelectorAll(selector);
       for (let j = 0; j < found.length; j += 1) {
-        candidates.add(found[j]);
+        const candidate = found[j];
+        if (!isInsideAuthModal(candidate)) {
+          candidates.add(candidate);
+        }
       }
     }
 
     const clickable = root.querySelectorAll('a, button');
     for (let i = 0; i < clickable.length; i += 1) {
       const node = clickable[i];
-      if (!node || boundCtas.has(node)) continue;
+      if (!node || boundCtas.has(node) || isInsideAuthModal(node)) continue;
       const text = (node.textContent || '').trim().toLowerCase();
       if (!text) continue;
       for (let k = 0; k < CTA_TEXT_MATCHERS.length; k += 1) {
@@ -140,7 +151,7 @@
   }
 
   function bindCtaNode(node) {
-    if (!node || boundCtas.has(node)) return;
+    if (!node || boundCtas.has(node) || isInsideAuthModal(node)) return;
     boundCtas.add(node);
     try {
       node.dataset.authBound = '1';
@@ -167,6 +178,7 @@
   }
 
   function handleDocumentClickCapture(event) {
+    if (isInsideAuthModal(event?.target)) return;
     const cta = resolveCtaFromEvent(event);
     if (!cta) return;
     event.preventDefault();
@@ -180,6 +192,7 @@
     const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
     for (let i = 0; i < path.length; i += 1) {
       const node = path[i];
+      if (isInsideAuthModal(node)) return null;
       if (isBoundCta(node)) return node;
     }
     if (typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return null;
@@ -192,6 +205,10 @@
     const visited = new Set();
     for (let i = 0; i < maxIterations && element && !visited.has(element); i += 1) {
       visited.add(element);
+      if (isInsideAuthModal(element)) {
+        restorePointerEvents(touched);
+        return null;
+      }
       if (isBoundCta(element)) {
         restorePointerEvents(touched);
         return element;
