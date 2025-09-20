@@ -23,9 +23,7 @@
   ];
 
   const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-  const GOOGLE_INITIATE_PATH = '/api/auth/oauth/google/initiate';
-  const GOOGLE_CALLBACK_PATH = '/api/auth/oauth/google/callback';
-  const GOOGLE_REDIRECT_TARGET = '/dashboard';
+  const GOOGLE_AUTHORIZE_PATH = '/auth/google/authorize';
   const OBSERVER_DELAY = 80;
   const PASSWORD_MIN_LENGTH = 6;
 
@@ -598,8 +596,16 @@
     clearErrors();
     clearMessage();
 
+    state.googleButton.disabled = true;
     // Direct redirect to backend OAuth endpoint (GET redirect, not POST)
-    window.location.href = GOOGLE_INITIATE_PATH + '?redirect=' + encodeURIComponent(GOOGLE_REDIRECT_TARGET);
+    try {
+      const authorizeUrl = new URL(GOOGLE_AUTHORIZE_PATH, window.location.origin);
+      window.location.href = authorizeUrl.toString();
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Google-Anmeldung konnte nicht gestartet werden.';
+      setGeneralError(message);
+      if (state.googleButton) state.googleButton.disabled = false;
+    }
   }
 
   async function parseJson(response) {
