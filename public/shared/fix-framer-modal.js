@@ -1,57 +1,28 @@
-// Fix auto-opening modal issues from Framer links
-(function() {
-  console.log('🔧 Initializing Framer modal fix...');
-  
-  // Clear any problematic localStorage flags and free-limit markers
-  try {
-    if (localStorage.getItem('open_auth_modal')) {
-      console.log('🗑️ Clearing problematic localStorage flag');
-      localStorage.removeItem('open_auth_modal');
+// Disable Framer auth modals by redirecting to the Nuxt login route
+(function () {
+  function redirectToLogin() {
+    try {
+      const url = new URL('/login', window.location.origin);
+      url.searchParams.set('redirect', '/dashboard');
+      window.location.href = url.pathname + url.search;
+    } catch (_) {
+      window.location.href = '/login?redirect=%2Fdashboard';
     }
-    localStorage.removeItem('tryout_sent');
-    localStorage.removeItem('tryout_conversation');
-    localStorage.removeItem('restore_tryout');
-  } catch(_) {}
-  
-  // Intercept and fix problematic Framer links
-  function fixFramerLinks() {
-    const problematicLinks = document.querySelectorAll('a[href*="framer.link"]');
-    problematicLinks.forEach(link => {
-      console.log('🔗 Fixing problematic Framer link:', link.href);
-      link.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('🚫 Blocked Framer external redirect');
-        
-        // Instead of redirecting to Framer, trigger local auth modal
-        if (typeof window.openAuthModal === 'function') {
-          window.openAuthModal();
-        } else if (typeof window.showSignInModal === 'function') {
-          window.showSignInModal();
-        } else {
-          console.log('⚠️ No auth modal function available');
-        }
-        return false;
+  }
+
+  function neutralizeLinks() {
+    const selectors = ['a[href*="framer.link"]', 'a[href*="framer.com"]'];
+    document.querySelectorAll(selectors.join(',')).forEach((link) => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        redirectToLogin();
       });
     });
   }
-  
-  // Fix links immediately
-  fixFramerLinks();
-  
-  // Fix links that might be added dynamically
-  const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-      if (mutation.type === 'childList') {
-        fixFramerLinks();
-      }
-    });
-  });
-  
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-  
-  console.log('✅ Framer modal fix initialized');
+
+  neutralizeLinks();
+
+  const observer = new MutationObserver(neutralizeLinks);
+  observer.observe(document.body, { childList: true, subtree: true });
 })();
