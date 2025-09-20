@@ -494,8 +494,11 @@ onMounted(() => {
     }
 
     if (!currentUser.value) {
-      const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
-      window.location.replace(`/login?redirect=${redirectPath}`)
+      if (typeof window.openAuthModal === 'function') {
+        window.openAuthModal('login')
+      } else {
+        window.location.replace('/')
+      }
       return
     }
   })();
