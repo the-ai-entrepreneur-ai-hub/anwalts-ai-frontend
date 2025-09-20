@@ -64,12 +64,66 @@
 <svg display="block" role="presentation" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M 14.625 8.25 L 9.128 13.747 C 7.957 14.918 6.058 14.918 4.886 13.747 L 0.878 9.739 C -0.293 8.567 -0.293 6.668 0.878 5.497 L 6.375 0 Z" fill-opacity="var(--1m6trwb, 0)" fill="var(--21h8s6, rgb(0, 0, 0))" height="14.625015587082228px" id="LfWPakTwq" transform="translate(5.25 4.125)" width="14.625015587082231px"/><path d="M 0 3.75 L 3.75 0" fill="transparent" height="3.75px" id="pWFV9K2HG" stroke-dasharray="" stroke-linecap="round" stroke-linejoin="round" stroke-width="var(--pgex8v, 1.5)" stroke="var(--21h8s6, rgb(0, 0, 0))" transform="translate(13.5 2.25)" width="3.75px"/><path d="M 3.75 0 L 0 3.75" fill="transparent" height="3.75px" id="iOQy_VQSe" stroke-dasharray="" stroke-linecap="round" stroke-linejoin="round" stroke-width="var(--pgex8v, 1.5)" stroke="var(--21h8s6, rgb(0, 0, 0))" transform="translate(18 6.75)" width="3.75px"/><path d="M 10.5 10.5 L 0 0" fill="transparent" height="10.5px" id="gOOfGvHL3" stroke-dasharray="" stroke-linecap="round" stroke-linejoin="round" stroke-width="var(--pgex8v, 1.5)" stroke="var(--21h8s6, rgb(0, 0, 0))" transform="translate(10.5 3)" width="10.5px"/><path d="M 14.625 8.25 L 9.128 13.747 C 7.957 14.918 6.058 14.918 4.886 13.747 L 0.878 9.739 C -0.293 8.567 -0.293 6.668 0.878 5.497 L 6.375 0" fill="transparent" height="14.625015587082228px" id="U9YhrBGcT" stroke-dasharray="" stroke-linecap="round" stroke-linejoin="round" stroke-width="var(--pgex8v, 1.5)" stroke="var(--21h8s6, rgb(0, 0, 0))" transform="translate(5.25 4.125)" width="14.625015587082231px"/><path d="M 5.133 0 L 0 5.133" fill="transparent" height="5.1328125px" id="SWd6S99sm" stroke-dasharray="" stroke-linecap="round" stroke-linejoin="round" stroke-width="var(--pgex8v, 1.5)" stroke="var(--21h8s6, rgb(0, 0, 0))" transform="translate(3 15.867)" width="5.1328125px"/></svg>
 <svg display="block" role="presentation" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M 0 0 L 16.5 0 C 17.328 0 18 0.672 18 1.5 L 18 15 L 18 15 L 0 15 L 0 15 L 0 0 Z" fill-opacity="var(--1m6trwb, 0)" fill="var(--21h8s6, rgb(0, 0, 0))" height="15px" id="p1fpTQK7F" transform="translate(3 4.5)" width="18px"/><path d="M 18 15 L 0 15 L 0 0" fill="transparent" height="15px" id="LOKQVnF_E" stroke-dasharray="" stroke-linecap="round" stroke-linejoin="round" stroke-width="var(--pgex8v, 1.5)" stroke="var(--21h8s6, rgb(0, 0, 0))" transform="translate(3 4.5)" width="18px"/><path d="M 15.75 0 L 9 6.75 L 6 3.75 L 0 9.75" fill="transparent" height="9.75px" id="YJGYU62So" stroke-dasharray="" stroke-linecap="round" stroke-linejoin="round" stroke-width="var(--pgex8v, 1.5)" stroke="var(--21h8s6, rgb(0, 0, 0))" transform="translate(3 6.75)" width="15.75px"/><path d="M 3.75 3.75 L 3.75 0 L 0 0" fill="transparent" height="3.75px" id="LN0V1ajm1" stroke-dasharray="" stroke-linecap="round" stroke-linejoin="round" stroke-width="var(--pgex8v, 1.5)" stroke="var(--21h8s6, rgb(0, 0, 0))" transform="translate(15 6.75)" width="3.75px"/></svg>
 </div>
+    
+    
+    
+<!-- anwalts ai auth + integration start -->
+<div class="auth-modal-overlay" id="authModal" aria-hidden="true" style="display:none;">
+  <div class="auth-modal" id="authModalContent" aria-hidden="true">
+    <div class="auth-modal-header">
+      <h2 class="auth-modal-title" id="authModalTitle">Anmelden</h2>
+      <button class="auth-modal-close" id="authModalClose" aria-label="Schließen">×</button>
+    </div>
+
+    <div class="social-login-section">
+      <button class="social-button google" id="googleLogin" type="button">Mit Google anmelden</button>
+    </div>
+
+    <form id="authForm">
+      <div class="auth-form-group">
+        <label class="auth-form-label" for="authEmail">E-Mail</label>
+        <input id="authEmail" class="auth-form-input" type="email" placeholder="you@example.com" required />
+      </div>
+      <div class="auth-form-group">
+        <label class="auth-form-label" for="authPassword">Passwort</label>
+        <input id="authPassword" class="auth-form-input" type="password" placeholder="••••••••" required />
+      </div>
+      <div class="auth-actions">
+        <button type="submit" class="auth-submit-button cta-with-lights" id="authSubmit">
+          <span id="authSubmitText">Anmelden</span>
+        </button>
+      </div>
+      <div class="auth-toggle">
+        <span id="authToggleText">Noch kein Konto?</span>
+        <button type="button" id="authToggleButton" class="auth-link">Jetzt registrieren</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <script src="shared/anwalts-theme-manager.js"></script>
 <script src="shared/anwalts-navigation.js"></script>
 <script src="shared/anwalts-ui-components.js"></script>
 <script src="shared/anwalts-session-manager.js"></script>
 <script src="shared/anwalts-responsive-manager.js"></script>
-<script src="shared/fix-framer-modal.js"></script>
+<script src="api-client.js"></script>
+<script>
+(function(){
+  try { window.apiClient = new AnwaltsAIApiClient(); } catch(_) {}
+  function show(el){ if(!el) return; el.style.display='block'; requestAnimationFrame(()=>{ el.classList.add('active'); }); }
+  function hide(el){ if(!el) return; el.classList.remove('active'); setTimeout(()=>{ el.style.display='none'; }, 200); }
+  window.openAuthModal = function(){ var ov=document.getElementById('authModal'); var md=document.getElementById('authModalContent'); if(!ov||!md) return; ov.setAttribute('aria-hidden','false'); md.setAttribute('aria-hidden','false'); show(ov); show(md); setTimeout(function(){ var e=document.getElementById('authEmail'); if(e) e.focus(); },100); };
+  window.closeAuthModal = function(){ var ov=document.getElementById('authModal'); var md=document.getElementById('authModalContent'); if(!ov||!md) return; ov.setAttribute('aria-hidden','true'); md.setAttribute('aria-hidden','true'); hide(md); hide(ov); };
+  window.handleLogin = async function(e){ try{ if(e&&e.preventDefault) e.preventDefault(); var em=document.getElementById('authEmail'); var pw=document.getElementById('authPassword'); var sb=document.getElementById('authSubmit'); if(!em||!pw||!sb){ alert('Login-Formular nicht gefunden.'); return; } var email=(em.value||'').trim(); var password=(pw.value||'').trim(); if(!email||!password){ alert('Bitte E-Mail und Passwort eingeben.'); return; } sb.disabled=true; var old=sb.textContent; sb.textContent='Anmeldung läuft...'; var resp=await window.apiClient.login(email,password); if(resp && (resp.token || resp.token_type==='bearer')){ try{ localStorage.setItem('anwalts_user', JSON.stringify(resp.user||{})); }catch(_){} if(window.anwaltsNavigationManager && typeof window.anwaltsNavigationManager.goToDashboard==='function'){ window.anwaltsNavigationManager.goToDashboard(resp.user); } else { window.location.href='/dashboard'; } return; } throw new Error((resp&&resp.message)||'Anmeldung fehlgeschlagen'); }catch(err){ console.error('Login failed:',err); alert('Anmeldung fehlgeschlagen: '+(err.message||err)); }finally{ var sb=document.getElementById('authSubmit'); if(sb){ sb.disabled=false; sb.textContent='Anmelden'; } } };
+  function attach(){ var f=document.getElementById('authForm'); if(f){ f.addEventListener('submit', window.handleLogin); } var c=document.getElementById('authModalClose'); if(c){ c.addEventListener('click', window.closeAuthModal); } var g=document.getElementById('googleLogin'); if(g){ g.addEventListener('click', function(e){ e.preventDefault(); g.disabled=true; window.location.href='/auth/google/authorize'; }); }
+    function forceAuthModalOnButtons(){ var sels=['a[data-framer-name="secondary cta"]','a[data-framer-name="main cta"]','a[href*="framer.com"]','a[href*="framer.link"]','.framer a[href="#"]']; var nodes=document.querySelectorAll(sels.join(',')); nodes.forEach(function(n){ var cl=n.cloneNode(true); if(n.parentNode) n.parentNode.replaceChild(cl,n); cl.href='#'; cl.removeAttribute('target'); cl.removeAttribute('rel'); cl.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); window.openAuthModal(); return false; }, true); cl.onclick=function(ev){ ev.preventDefault(); window.openAuthModal(); return false; }; }); }
+    (function(){ var o=window.open; window.open=function(url){ if(url&&(url.includes('framer.com')||url.includes('framer.link'))){ window.openAuthModal(); return null; } return o.apply(this, arguments); }; var a=window.location.assign; window.location.assign=function(url){ if(url&&(url.includes('framer.com')||url.includes('framer.link'))){ window.openAuthModal(); return; } return a.call(window.location, url); }; })();
+    forceAuthModalOnButtons(); setTimeout(forceAuthModalOnButtons,1000); setTimeout(forceAuthModalOnButtons,3000);
+    try{ var u=new URL(window.location.href); if(u.searchParams.get('login')==='1'){ window.openAuthModal(); } }catch(_){ }
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', attach); } else { attach(); }
+})();
+</script>
+<!-- anwalts ai auth + integration end -->
 </body>
 </html>
