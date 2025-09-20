@@ -1,4 +1,3 @@
-
 (function () {
   'use strict';
 
@@ -25,34 +24,56 @@
 
   const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
   const GOOGLE_REDIRECT = '/auth/google/authorize?redirect=/dashboard';
+  const OBSERVER_DELAY = 80;
+  const PASSWORD_MIN_LENGTH = 6;
+
+  const COPY = {
+    login: {
+      title: 'Willkommen zurück',
+      subtitle: 'Melden Sie sich an, um Ihr Kanzlei-Dashboard zu öffnen.',
+      submit: 'Anmelden',
+      submitBusy: 'Anmelden…',
+      footerPrompt: 'Neu bei ANWALTS.AI?',
+      footerCta: 'Jetzt registrieren'
+    },
+    signup: {
+      title: 'Konto erstellen',
+      subtitle: 'Registrieren Sie sich kostenlos und starten Sie mit ANWALTS.AI.',
+      submit: 'Registrieren',
+      submitBusy: 'Registrieren…',
+      footerPrompt: 'Bereits Kunde?',
+      footerCta: 'Jetzt anmelden'
+    }
+  };
+
+  const boundCtas = new WeakSet();
+  let bindTimer = null;
 
   const state = {
     overlay: null,
     modal: null,
     form: null,
     submitButton: null,
-    toggleLogin: null,
-    toggleSignup: null,
-    footerPrompt: null,
     footerToggle: null,
+    footerPrompt: null,
     titleEl: null,
     subtitleEl: null,
-    errorEl: null,
     messageEl: null,
-    googleBtn: null,
-    nameInput: null,
-    emailInput: null,
-    passwordInput: null,
-    confirmInput: null,
-    termsCheckbox: null,
+    generalErrorEl: null,
+    googleButton: null,
     mode: 'login',
     isOpen: false,
     isSubmitting: false,
-    lastActive: null,
-    focusHandler: null,
-    bindTimer: null,
-    observer: null
+    redirectTimer: null,
+    lastFocused: null,
+    focusTrapHandler: null,
+    observer: null,
+    fields: {},
+    fieldErrors: {},
+    fieldGroups: {}
   };
+
+  ready(init);
 
   function ready(fn) {
     if (document.readyState === 'loading') {
@@ -62,81 +83,160 @@
     }
   }
 
-  ready(init);
-
   function init() {
     bindCtas(document);
-    state.observer = new MutationObserver(scheduleBind);
+    // Capture phase keeps Framer overlays from swallowing auth CTAs.
+    document.addEventListener('click', handleDocumentClickCapture, true);
+    state.observer = new MutationObserver(handleMutations);
     state.observer.observe(document.documentElement, { childList: true, subtree: true });
-    exposeGlobals();
+    exposeBridge();
   }
 
-  function scheduleBind() {
-    if (state.bindTimer) clearTimeout(state.bindTimer);
-    state.bindTimer = setTimeout(() => {
-      bindCtas(document);
-    }, 80);
+  function handleMutations(mutations) {
+    for (let i = 0; i < mutations.length; i += 1) {
+      const mutation = mutations[i];
+      if (!mutation.addedNodes || mutation.addedNodes.length === 0) continue;
+      let shouldBind = false;
+      for (let j = 0; j < mutation.addedNodes.length; j += 1) {
+        const node = mutation.addedNodes[j];
+        if (node && node.nodeType === 1) {
+          shouldBind = true;
+          break;
+        }
+      }
+      if (!shouldBind) continue;
+      if (bindTimer) window.clearTimeout(bindTimer);
+      bindTimer = window.setTimeout(() => bindCtas(document), OBSERVER_DELAY);
+      break;
+    }
   }
 
   function bindCtas(root) {
+    if (!root || typeof root.querySelectorAll !== 'function') return;
     const candidates = new Set();
-    CTA_SELECTORS.forEach((selector) => {
-      root.querySelectorAll(selector).forEach((node) => {
-        candidates.add(node);
-      });
-    });
-
-    root.querySelectorAll('a, button').forEach((node) => {
-      if (!node || node.dataset.authBound === '1') return;
-      const text = (node.textContent || '').trim().toLowerCase();
-      if (!text) return;
-      if (CTA_TEXT_MATCHERS.some((match) => text.includes(match))) {
-        candidates.add(node);
+    for (let i = 0; i < CTA_SELECTORS.length; i += 1) {
+      const selector = CTA_SELECTORS[i];
+      const found = root.querySelectorAll(selector);
+      for (let j = 0; j < found.length; j += 1) {
+        candidates.add(found[j]);
       }
-    });
+    }
 
-    candidates.forEach((node) => {
-      if (node.dataset.authBound === '1') return;
+    const clickable = root.querySelectorAll('a, button');
+    for (let i = 0; i < clickable.length; i += 1) {
+      const node = clickable[i];
+      if (!node || boundCtas.has(node)) continue;
+      const text = (node.textContent || '').trim().toLowerCase();
+      if (!text) continue;
+      for (let k = 0; k < CTA_TEXT_MATCHERS.length; k += 1) {
+        if (text.includes(CTA_TEXT_MATCHERS[k])) {
+          candidates.add(node);
+          break;
+        }
+      }
+    }
+
+    candidates.forEach(bindCtaNode);
+  }
+
+  function bindCtaNode(node) {
+    if (!node || boundCtas.has(node)) return;
+    boundCtas.add(node);
+    try {
       node.dataset.authBound = '1';
-      setPointerDefaults(node);
-      node.addEventListener('click', (event) => {
-        try {
-          event.preventDefault();
-          event.stopPropagation();
-        } catch (_) {}
-        openAuthModal(deriveMode(node));
-      });
+    } catch (_) {}
+    ensurePointerDefaults(node);
+    node.addEventListener('click', (event) => {
+      if (event.__anwaltsAuthHandled) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.__anwaltsAuthHandled = true;
+      openAuthModal(deriveMode(node));
     });
   }
 
-  function setPointerDefaults(node) {
+  function ensurePointerDefaults(node) {
     try {
-      if (getComputedStyle(node).pointerEvents === 'none') {
-        node.style.pointerEvents = 'auto';
+      if (node instanceof HTMLElement) {
+        const style = window.getComputedStyle(node);
+        if (style && style.pointerEvents === 'none') {
+          node.style.pointerEvents = 'auto';
+        }
       }
     } catch (_) {}
   }
 
+  function handleDocumentClickCapture(event) {
+    const cta = resolveCtaFromEvent(event);
+    if (!cta) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.__anwaltsAuthHandled = true;
+    openAuthModal(deriveMode(cta));
+  }
+
+  function resolveCtaFromEvent(event) {
+    if (!event) return null;
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    for (let i = 0; i < path.length; i += 1) {
+      const node = path[i];
+      if (isBoundCta(node)) return node;
+    }
+    if (typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return null;
+    return peekForCta(event.clientX, event.clientY, 5);
+  }
+
+  function peekForCta(x, y, maxIterations) {
+    let element = document.elementFromPoint(x, y);
+    const touched = [];
+    const visited = new Set();
+    for (let i = 0; i < maxIterations && element && !visited.has(element); i += 1) {
+      visited.add(element);
+      if (isBoundCta(element)) {
+        restorePointerEvents(touched);
+        return element;
+      }
+      if (!(element instanceof HTMLElement)) break;
+      const prev = element.style.pointerEvents;
+      touched.push([element, prev]);
+      element.style.pointerEvents = 'none';
+      element = document.elementFromPoint(x, y);
+    }
+    restorePointerEvents(touched);
+    return null;
+  }
+
+  function restorePointerEvents(entries) {
+    for (let i = 0; i < entries.length; i += 1) {
+      const entry = entries[i];
+      if (entry && entry[0]) entry[0].style.pointerEvents = entry[1];
+    }
+  }
+
+  function isBoundCta(node) {
+    return !!(node && node.dataset && node.dataset.authBound === '1');
+  }
+
   function deriveMode(node) {
     if (!node) return 'login';
-    const attr = (node.getAttribute('data-auth-mode') || '').toLowerCase();
-    if (attr === 'signup' || attr === 'register') return 'signup';
-    if (attr === 'login' || attr === 'signin') return 'login';
+    const attr = (node.getAttribute && node.getAttribute('data-auth-mode')) || '';
+    const lowered = attr.toLowerCase();
+    if (lowered === 'signup' || lowered === 'register') return 'signup';
+    if (lowered === 'login' || lowered === 'signin') return 'login';
     const text = (node.textContent || '').toLowerCase();
-    if (text.includes('registr') || text.includes('sign up')) return 'signup';
+    if (text.includes('registr')) return 'signup';
+    if (text.includes('sign up')) return 'signup';
     return 'login';
   }
 
-  function exposeGlobals() {
+  function exposeBridge() {
     window.openAuthModal = openAuthModal;
     window.closeAuthModal = closeAuthModal;
-
     window.addEventListener('message', (event) => {
       if (!event || typeof event.data !== 'object') return;
       if (event.data.type === 'ANWALTS_OPEN_AUTH') openAuthModal(event.data.mode);
       if (event.data.type === 'ANWALTS_CLOSE_AUTH') closeAuthModal();
     });
-
     window.dispatchEvent(new CustomEvent('anwalts-auth-bridge-ready'));
   }
 
@@ -151,7 +251,7 @@
         window.parent.postMessage({ type: 'ANWALTS_OPEN_AUTH', mode: normalized }, '*');
       } catch (_) {}
     }
-    useFallbackOpen(normalized);
+    fallbackOpen(normalized);
   }
 
   function closeAuthModal() {
@@ -159,7 +259,7 @@
       window.__anwaltsAuthClose();
       return;
     }
-    useFallbackClose();
+    fallbackClose();
   }
 
   function normalizeMode(value) {
@@ -167,35 +267,37 @@
     return lowered === 'signup' || lowered === 'register' || lowered === 'sign-up' ? 'signup' : 'login';
   }
 
-  function useFallbackOpen(mode) {
+  function fallbackOpen(mode) {
     ensureModal();
-    state.mode = mode;
-    updateModeUI();
+    setMode(mode, true);
     if (state.isOpen) return;
     state.isOpen = true;
-    state.lastActive = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    state.lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.classList.add('anwalts-auth-modal-open');
     state.overlay.classList.add('is-open');
     state.overlay.setAttribute('aria-hidden', 'false');
     activateFocusTrap();
-    requestAnimationFrame(() => {
-      focusInitialField();
-    });
+    focusInitialField();
   }
 
-  function useFallbackClose() {
+  function fallbackClose() {
     if (!state.overlay || !state.isOpen) return;
     state.isOpen = false;
     document.body.classList.remove('anwalts-auth-modal-open');
     state.overlay.classList.remove('is-open');
     state.overlay.setAttribute('aria-hidden', 'true');
     deactivateFocusTrap();
-    clearError();
     clearMessage();
-    if (state.lastActive && typeof state.lastActive.focus === 'function') {
-      try { state.lastActive.focus(); } catch (_) {}
+    clearErrors();
+    if (state.redirectTimer) {
+      window.clearTimeout(state.redirectTimer);
+      state.redirectTimer = null;
     }
-    state.lastActive = null;
+    resetForm();
+    if (state.lastFocused && typeof state.lastFocused.focus === 'function') {
+      try { state.lastFocused.focus(); } catch (_) {}
+    }
+    state.lastFocused = null;
   }
 
   function ensureModal() {
@@ -211,34 +313,40 @@
       '    <h2 class="anwalts-auth-title" id="anwalts-auth-title">Willkommen zurück</h2>',
       '    <p class="anwalts-auth-subtitle" data-auth-subtitle>Melden Sie sich an, um Ihr Kanzlei-Dashboard zu öffnen.</p>',
       '  </div>',
-      // toggle buttons removed by design; use footer toggle below
       '  <button type="button" class="anwalts-auth-google" data-auth-google>',
       '    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>',
       '    <span>Mit Google fortfahren</span>',
       '  </button>',
       '  <div class="anwalts-auth-divider"><span>oder mit E-Mail</span></div>',
       '  <form class="anwalts-auth-form" data-auth-form novalidate>',
-      '    <div class="anwalts-auth-field" data-auth-section="signup">',
+      '    <div class="anwalts-auth-field" data-auth-field="name" data-auth-section="signup">',
       '      <label for="anwalts-auth-name">Vollständiger Name</label>',
       '      <input id="anwalts-auth-name" name="name" type="text" autocomplete="name" placeholder="Dr. Max Müller">',
+      '      <p class="anwalts-auth-field-error" data-auth-error-for="name" aria-live="polite"></p>',
       '    </div>',
-      '    <div class="anwalts-auth-field">',
+      '    <div class="anwalts-auth-field" data-auth-field="email">',
       '      <label for="anwalts-auth-email">E-Mail-Adresse</label>',
       '      <input id="anwalts-auth-email" name="email" type="email" autocomplete="email" placeholder="kanzlei@example.de" required>',
+      '      <p class="anwalts-auth-field-error" data-auth-error-for="email" aria-live="polite"></p>',
       '    </div>',
-      '    <div class="anwalts-auth-field">',
+      '    <div class="anwalts-auth-field" data-auth-field="password">',
       '      <label for="anwalts-auth-password">Passwort</label>',
       '      <input id="anwalts-auth-password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required>',
+      '      <p class="anwalts-auth-field-error" data-auth-error-for="password" aria-live="polite"></p>',
       '    </div>',
-      '    <div class="anwalts-auth-field" data-auth-section="signup">',
+      '    <div class="anwalts-auth-field" data-auth-field="confirm" data-auth-section="signup">',
       '      <label for="anwalts-auth-confirm">Passwort bestätigen</label>',
       '      <input id="anwalts-auth-confirm" name="confirm" type="password" autocomplete="new-password" placeholder="Passwort bestätigen">',
+      '      <p class="anwalts-auth-field-error" data-auth-error-for="confirm" aria-live="polite"></p>',
       '    </div>',
-      '    <label class="anwalts-auth-checkbox" data-auth-section="signup">',
-      '      <input type="checkbox" name="terms">',
-      '      <span>Ich stimme den <a href="/terms" target="_blank" rel="noopener">AGB</a> und <a href="/privacy" target="_blank" rel="noopener">Datenschutzbestimmungen</a> zu.</span>',
-      '    </label>',
-      '    <div class="anwalts-auth-error" data-auth-error role="alert" aria-live="polite"></div>',
+      '    <div class="anwalts-auth-field anwalts-auth-field--checkbox" data-auth-field="terms" data-auth-section="signup">',
+      '      <label class="anwalts-auth-checkbox">',
+      '        <input type="checkbox" name="terms">',
+      '        <span>Ich stimme den <a href="/terms" target="_blank" rel="noopener">AGB</a> und <a href="/privacy" target="_blank" rel="noopener">Datenschutzbestimmungen</a> zu.</span>',
+      '      </label>',
+      '      <p class="anwalts-auth-field-error" data-auth-error-for="terms" aria-live="polite"></p>',
+      '    </div>',
+      '    <div class="anwalts-auth-global-error" data-auth-error-general role="alert"></div>',
       '    <div class="anwalts-auth-message" data-auth-message aria-live="polite"></div>',
       '    <button type="submit" class="anwalts-auth-submit" data-auth-submit>Anmelden</button>',
       '  </form>',
@@ -254,238 +362,353 @@
     state.modal = overlay.querySelector('[data-auth-dialog]');
     state.form = overlay.querySelector('[data-auth-form]');
     state.submitButton = overlay.querySelector('[data-auth-submit]');
-    state.toggleLogin = null;
-    state.toggleSignup = null;
     state.footerPrompt = overlay.querySelector('[data-auth-footer-prompt]');
     state.footerToggle = overlay.querySelector('[data-auth-footer-toggle]');
     state.titleEl = overlay.querySelector('#anwalts-auth-title');
     state.subtitleEl = overlay.querySelector('[data-auth-subtitle]');
-    state.errorEl = overlay.querySelector('[data-auth-error]');
     state.messageEl = overlay.querySelector('[data-auth-message]');
-    state.googleBtn = overlay.querySelector('[data-auth-google]');
-    state.nameInput = overlay.querySelector('#anwalts-auth-name');
-    state.emailInput = overlay.querySelector('#anwalts-auth-email');
-    state.passwordInput = overlay.querySelector('#anwalts-auth-password');
-    state.confirmInput = overlay.querySelector('#anwalts-auth-confirm');
-    state.termsCheckbox = overlay.querySelector('input[name="terms"]');
+    state.generalErrorEl = overlay.querySelector('[data-auth-error-general]');
+    state.googleButton = overlay.querySelector('[data-auth-google]');
+
+    state.fields = {
+      name: overlay.querySelector('#anwalts-auth-name'),
+      email: overlay.querySelector('#anwalts-auth-email'),
+      password: overlay.querySelector('#anwalts-auth-password'),
+      confirm: overlay.querySelector('#anwalts-auth-confirm'),
+      terms: overlay.querySelector('input[name="terms"]')
+    };
+
+    state.fieldErrors = {
+      name: overlay.querySelector('[data-auth-error-for="name"]'),
+      email: overlay.querySelector('[data-auth-error-for="email"]'),
+      password: overlay.querySelector('[data-auth-error-for="password"]'),
+      confirm: overlay.querySelector('[data-auth-error-for="confirm"]'),
+      terms: overlay.querySelector('[data-auth-error-for="terms"]')
+    };
+
+    state.fieldGroups = {
+      name: overlay.querySelector('[data-auth-field="name"]'),
+      email: overlay.querySelector('[data-auth-field="email"]'),
+      password: overlay.querySelector('[data-auth-field="password"]'),
+      confirm: overlay.querySelector('[data-auth-field="confirm"]'),
+      terms: overlay.querySelector('[data-auth-field="terms"]')
+    };
 
     overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) closeAuthModal();
+      if (event.target === overlay) fallbackClose();
     });
 
-    const closeBtn = overlay.querySelector('[data-auth-close]');
-    if (closeBtn) closeBtn.addEventListener('click', closeAuthModal);
+    const closeButton = overlay.querySelector('[data-auth-close]');
+    if (closeButton) closeButton.addEventListener('click', fallbackClose);
 
-    // top toggles removed; only footer toggle remains
-    if (state.footerToggle) state.footerToggle.addEventListener('click', () => setMode(state.mode === 'login' ? 'signup' : 'login'));
+    if (state.footerToggle) {
+      state.footerToggle.addEventListener('click', () => {
+        setMode(state.mode === 'login' ? 'signup' : 'login', true);
+      });
+    }
 
-    if (state.googleBtn) {
-      state.googleBtn.addEventListener('click', (event) => {
+    if (state.googleButton) {
+      state.googleButton.addEventListener('click', (event) => {
         event.preventDefault();
         window.location.href = GOOGLE_REDIRECT;
       });
     }
 
-    if (state.form) state.form.addEventListener('submit', handleSubmit);
+    if (state.form) {
+      state.form.addEventListener('submit', handleSubmit);
+    }
   }
 
-  function setMode(mode) {
-    if (state.mode === mode) return;
-    state.mode = mode;
+  function setMode(mode, focus) {
+    const normalized = normalizeMode(mode);
+    if (state.mode !== normalized) {
+      state.mode = normalized;
+      clearErrors();
+      clearMessage();
+    }
     updateModeUI();
-    clearError();
-    clearMessage();
-    if (state.isOpen) setTimeout(() => focusInitialField(), 40);
+    if (state.overlay) state.overlay.setAttribute('data-mode', state.mode);
+    if (focus) focusInitialField();
   }
 
   function updateModeUI() {
-    if (!state.overlay) return;
-    state.overlay.setAttribute('data-mode', state.mode);
-    if (state.toggleLogin && state.toggleSignup) {
-      if (state.mode === 'login') {
-        state.toggleLogin.classList.add('is-active');
-        state.toggleSignup.classList.remove('is-active');
-      } else {
-        state.toggleSignup.classList.add('is-active');
-        state.toggleLogin.classList.remove('is-active');
-      }
-    }
-    if (state.titleEl) state.titleEl.textContent = state.mode === 'signup' ? 'Konto erstellen' : 'Willkommen zurück';
-    if (state.subtitleEl) {
-      state.subtitleEl.textContent = state.mode === 'signup'
-        ? 'Registrieren Sie sich kostenlos und starten Sie mit ANWALTS.AI.'
-        : 'Melden Sie sich an, um Ihr Kanzlei-Dashboard zu öffnen.';
-    }
+    const copy = COPY[state.mode];
+    if (state.titleEl) state.titleEl.textContent = copy.title;
+    if (state.subtitleEl) state.subtitleEl.textContent = copy.subtitle;
     if (state.submitButton) {
-      state.submitButton.textContent = state.mode === 'signup' ? 'Registrieren' : 'Anmelden';
+      state.submitButton.textContent = state.isSubmitting ? copy.submitBusy : copy.submit;
     }
-    if (state.footerPrompt && state.footerToggle) {
-      if (state.mode === 'signup') {
-        state.footerPrompt.textContent = 'Bereits Kunde?';
-        state.footerToggle.textContent = 'Jetzt anmelden';
-      } else {
-        state.footerPrompt.textContent = 'Neu bei ANWALTS.AI?';
-        state.footerToggle.textContent = 'Jetzt registrieren';
-      }
-    }
+    if (state.footerPrompt) state.footerPrompt.textContent = copy.footerPrompt;
+    if (state.footerToggle) state.footerToggle.textContent = copy.footerCta;
   }
 
   function handleSubmit(event) {
     event.preventDefault();
     if (state.isSubmitting) return;
-    clearError();
     clearMessage();
+    clearErrors();
 
-    const email = (state.emailInput && state.emailInput.value || '').trim().toLowerCase();
-    const password = (state.passwordInput && state.passwordInput.value) || '';
-
-    if (!/.+@.+\..+/.test(email)) {
-      setError('Bitte geben Sie eine gültige E-Mail-Adresse ein.');
-      if (state.emailInput) state.emailInput.focus();
-      return;
-    }
-
-    if (!password || password.length < 6) {
-      setError('Bitte geben Sie ein Passwort mit mindestens 6 Zeichen ein.');
-      if (state.passwordInput) state.passwordInput.focus();
-      return;
-    }
-
-    if (state.mode === 'signup') {
-      const name = (state.nameInput && state.nameInput.value || '').trim();
-      const confirm = (state.confirmInput && state.confirmInput.value) || '';
-      const termsAccepted = state.termsCheckbox ? state.termsCheckbox.checked : false;
-
-      if (!name) {
-        setError('Bitte geben Sie Ihren Namen an.');
-        if (state.nameInput) state.nameInput.focus();
-        return;
+    const values = collectFormValues();
+    const validation = validate(values, state.mode);
+    applyValidationErrors(validation.fieldErrors);
+    if (!validation.valid) {
+      if (validation.focusField && state.fields[validation.focusField]) {
+        try { state.fields[validation.focusField].focus(); } catch (_) {}
       }
-      if (!confirm || confirm !== password) {
-        setError('Bitte bestätigen Sie Ihr Passwort.');
-        if (state.confirmInput) state.confirmInput.focus();
-        return;
-      }
-      if (!termsAccepted) {
-        setError('Bitte akzeptieren Sie die Bedingungen.');
-        if (state.termsCheckbox) state.termsCheckbox.focus();
-        return;
-      }
-      setSubmitting(true);
-      performSignup({ email, password, name })
-        .catch((error) => setError(error && error.message ? error.message : 'Registrierung fehlgeschlagen.'))
-        .finally(() => setSubmitting(false));
       return;
     }
 
     setSubmitting(true);
-    performLogin({ email, password })
-      .catch((error) => setError(error && error.message ? error.message : 'Anmeldung fehlgeschlagen.'))
+    const action = state.mode === 'login' ? performLogin(values) : performSignup(values);
+    action
+      .catch((error) => handleAuthError(error, state.mode))
       .finally(() => setSubmitting(false));
   }
 
-  function setSubmitting(flag) {
-    state.isSubmitting = flag;
-    if (!state.submitButton) return;
-    state.submitButton.disabled = !!flag;
-    state.submitButton.textContent = flag
-      ? (state.mode === 'signup' ? 'Registrieren…' : 'Anmelden…')
-      : (state.mode === 'signup' ? 'Registrieren' : 'Anmelden');
+  function collectFormValues() {
+    return {
+      name: state.fields.name ? state.fields.name.value.trim() : '',
+      email: state.fields.email ? state.fields.email.value.trim().toLowerCase() : '',
+      password: state.fields.password ? state.fields.password.value : '',
+      confirm: state.fields.confirm ? state.fields.confirm.value : '',
+      terms: state.fields.terms ? !!state.fields.terms.checked : false
+    };
   }
 
-  function performLogin(payload) {
-    return fetch('/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(payload)
-    })
-      .then(parseJsonResponse)
-      .then((data) => {
-        if (!data) throw new Error('Server nicht erreichbar.');
-        if (data.error || data.success === false) {
-          throw new Error(data.error || data.message || 'Anmeldung fehlgeschlagen.');
-        }
-        const token = data.token || data.access_token;
-        if (!token) throw new Error('Token konnte nicht erstellt werden.');
-        persistSession(token, data.user || { email: payload.email });
-        setMessage('Weiterleitung zum Dashboard …');
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 350);
-      })
-      .catch((error) => {
-        throw error instanceof Error ? error : new Error(String(error || 'Fehler'));
-      });
-  }
+  function validate(values, mode) {
+    const errors = {};
+    let focusField = null;
 
-  function performSignup(payload) {
-    return fetch('/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email: payload.email, name: payload.name, password: payload.password })
-    })
-      .then(parseJsonResponse)
-      .then((data) => {
-        if (data && data.detail) {
-          throw new Error(typeof data.detail === 'string' ? data.detail : 'Registrierung fehlgeschlagen.');
-        }
-        if (data && data.error) {
-          throw new Error(data.error);
-        }
-        return performLogin({ email: payload.email, password: payload.password });
-      })
-      .catch((error) => {
-        throw error instanceof Error ? error : new Error(String(error || 'Registrierung fehlgeschlagen.'));
-      });
-  }
+    if (!values.email || !/.+@.+\..+/.test(values.email)) {
+      errors.email = 'Bitte geben Sie eine gültige E-Mail-Adresse ein.';
+      focusField = focusField || 'email';
+    }
 
-  function parseJsonResponse(response) {
-    if (!response) return Promise.reject(new Error('Keine Antwort.'));
-    return response.text().then((text) => {
-      if (!text) return {};
-      try {
-        return JSON.parse(text);
-      } catch (_) {
-        return {};
+    if (!values.password || values.password.length < PASSWORD_MIN_LENGTH) {
+      errors.password = 'Passwort benötigt mindestens ' + PASSWORD_MIN_LENGTH + ' Zeichen.';
+      focusField = focusField || 'password';
+    }
+
+    if (mode === 'signup') {
+      if (!values.name) {
+        errors.name = 'Bitte geben Sie Ihren vollständigen Namen ein.';
+        focusField = focusField || 'name';
       }
+      if (!values.confirm || values.confirm !== values.password) {
+        errors.confirm = 'Bitte bestätigen Sie Ihr Passwort.';
+        focusField = focusField || 'confirm';
+      }
+      if (!values.terms) {
+        errors.terms = 'Bitte akzeptieren Sie die Bedingungen.';
+        focusField = focusField || 'terms';
+      }
+    }
+
+    return { valid: Object.keys(errors).length === 0, fieldErrors: errors, focusField };
+  }
+
+  function applyValidationErrors(errors) {
+    const keys = Object.keys(state.fieldErrors);
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      const message = errors && errors[key];
+      setFieldError(key, message || '');
+    }
+  }
+
+  function setFieldError(field, message) {
+    const errorEl = state.fieldErrors[field];
+    if (errorEl) errorEl.textContent = message || '';
+    const group = state.fieldGroups[field];
+    if (group) {
+      if (message) {
+        group.setAttribute('data-invalid', 'true');
+      } else {
+        group.removeAttribute('data-invalid');
+      }
+    }
+  }
+
+  function clearErrors() {
+    applyValidationErrors({});
+    setGeneralError('');
+  }
+
+  function setGeneralError(message) {
+    if (state.generalErrorEl) state.generalErrorEl.textContent = message || '';
+  }
+
+  function clearMessage() {
+    if (state.messageEl) state.messageEl.textContent = '';
+  }
+
+  function setMessage(message) {
+    if (state.messageEl) state.messageEl.textContent = message || '';
+  }
+
+  function setSubmitting(flag) {
+    state.isSubmitting = !!flag;
+    const copy = COPY[state.mode];
+    if (state.submitButton) {
+      state.submitButton.disabled = flag;
+      state.submitButton.textContent = flag ? copy.submitBusy : copy.submit;
+    }
+  }
+
+  async function performLogin(values) {
+    const response = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email: values.email, password: values.password })
     });
+    const data = await parseJson(response);
+    if (response.status >= 400 || (data && (data.error || data.success === false))) {
+      throw { status: response.status, data: data || {} };
+    }
+    const token = data && (data.token || data.access_token);
+    if (!token) throw { status: response.status || 500, data: { error: 'Token konnte nicht erstellt werden.' } };
+    persistSession(token, data && data.user ? data.user : { email: values.email });
+    setMessage('Weiterleitung zum Dashboard …');
+    if (state.redirectTimer) window.clearTimeout(state.redirectTimer);
+    state.redirectTimer = window.setTimeout(() => {
+      window.location.href = '/dashboard';
+    }, 400);
+  }
+
+  async function performSignup(values) {
+    const response = await fetch('/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      // Backend expects exactly { email, name, password } (UserCreate).
+      body: JSON.stringify({ email: values.email, name: values.name, password: values.password })
+    });
+    const data = await parseJson(response);
+    if (response.status >= 400 || (data && (data.error || data.detail))) {
+      throw { status: response.status, data: data || {} };
+    }
+    return performLogin(values);
+  }
+
+  async function parseJson(response) {
+    if (!response) return {};
+    const text = await response.text();
+    if (!text) return {};
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function handleAuthError(error, mode) {
+    const details = normalizeErrorPayload(error, mode);
+    applyValidationErrors(details.fieldErrors);
+    if (details.general) setGeneralError(details.general);
+  }
+
+  function normalizeErrorPayload(error, mode) {
+    const fieldErrors = {};
+    let general = '';
+    const status = error && typeof error.status === 'number' ? error.status : 0;
+    const data = error && error.data ? error.data : {};
+
+    if (data && data.errors && typeof data.errors === 'object') {
+      const keys = Object.keys(data.errors);
+      for (let i = 0; i < keys.length; i += 1) {
+        const key = keys[i];
+        const value = data.errors[key];
+        if (typeof value === 'string') {
+          fieldErrors[key] = value;
+        }
+      }
+    }
+
+    if (data && Array.isArray(data.detail)) {
+      for (let i = 0; i < data.detail.length; i += 1) {
+        const entry = data.detail[i];
+        if (entry && entry.loc && entry.loc.length) {
+          const field = entry.loc[entry.loc.length - 1];
+          if (typeof field === 'string' && typeof entry.msg === 'string') {
+            fieldErrors[field] = entry.msg;
+          }
+        }
+      }
+    }
+
+    const message = extractMessage(data);
+
+    if (mode === 'login' && !Object.keys(fieldErrors).length) {
+      const msg = message || 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.';
+      fieldErrors.email = msg;
+      fieldErrors.password = msg;
+    }
+
+    if (mode === 'signup' && !Object.keys(fieldErrors).length) {
+      if (message && /email/i.test(message)) {
+        fieldErrors.email = message;
+      } else if (message && /passwort/i.test(message)) {
+        fieldErrors.password = message;
+      }
+    }
+
+    if (!Object.keys(fieldErrors).length && message) {
+      general = message;
+    } else if (!general && status >= 500) {
+      general = 'Der Server ist momentan nicht erreichbar. Bitte versuchen Sie es später erneut.';
+    }
+
+    return { fieldErrors, general };
+  }
+
+  function extractMessage(data) {
+    if (!data) return '';
+    if (typeof data.detail === 'string') return data.detail;
+    if (typeof data.error === 'string') return data.error;
+    if (typeof data.message === 'string') return data.message;
+    return '';
   }
 
   function persistSession(token, user) {
     try {
-      localStorage.setItem('anwalts_auth_token', token);
-      if (user) localStorage.setItem('anwalts_user', JSON.stringify(user));
+      window.localStorage.setItem('anwalts_auth_token', token);
+      if (user) window.localStorage.setItem('anwalts_user', JSON.stringify(user));
     } catch (_) {}
 
     const maxAge = 60 * 60 * 24;
-    const base = 'sat=' + encodeURIComponent(token) + '; path=/; max-age=' + maxAge + '; secure; samesite=None';
+    setCookie('sat', token, maxAge);
+    setCookie('sid', token, maxAge);
+  }
+
+  function setCookie(name, value, maxAge) {
+    const base = name + '=' + encodeURIComponent(value) + '; path=/; max-age=' + maxAge + '; secure; samesite=None';
     document.cookie = base;
     try {
-      const hostParts = window.location.hostname.split('.');
-      if (hostParts.length > 2) {
-        document.cookie = base + '; domain=.' + hostParts.slice(-2).join('.');
+      const host = window.location.hostname.split('.');
+      if (host.length > 2) {
+        const domain = '.' + host.slice(-2).join('.');
+        document.cookie = base + '; domain=' + domain;
       }
     } catch (_) {}
   }
 
   function focusInitialField() {
-    const target = state.mode === 'signup' ? state.nameInput : state.emailInput;
+    const target = state.mode === 'signup' ? state.fields.name : state.fields.email;
     if (target && typeof target.focus === 'function') {
       target.focus();
-      return;
+    } else if (state.modal && typeof state.modal.focus === 'function') {
+      state.modal.focus();
     }
-    try { if (state.modal) state.modal.focus(); } catch (_) {}
   }
 
   function activateFocusTrap() {
-    if (state.focusHandler) return;
-    state.focusHandler = (event) => {
+    if (state.focusTrapHandler) return;
+    state.focusTrapHandler = (event) => {
       if (!state.isOpen || !state.modal) return;
       if (event.key === 'Escape') {
         event.preventDefault();
-        closeAuthModal();
+        fallbackClose();
         return;
       }
       if (event.key !== 'Tab') return;
@@ -507,28 +730,25 @@
         first.focus();
       }
     };
-    document.addEventListener('keydown', state.focusHandler, true);
+    document.addEventListener('keydown', state.focusTrapHandler, true);
   }
 
   function deactivateFocusTrap() {
-    if (!state.focusHandler) return;
-    document.removeEventListener('keydown', state.focusHandler, true);
-    state.focusHandler = null;
+    if (!state.focusTrapHandler) return;
+    document.removeEventListener('keydown', state.focusTrapHandler, true);
+    state.focusTrapHandler = null;
   }
 
-  function clearError() {
-    if (state.errorEl) state.errorEl.textContent = '';
-  }
-
-  function setError(message) {
-    if (state.errorEl) state.errorEl.textContent = message;
-  }
-
-  function clearMessage() {
-    if (state.messageEl) state.messageEl.textContent = '';
-  }
-
-  function setMessage(message) {
-    if (state.messageEl) state.messageEl.textContent = message;
+  function resetForm() {
+    if (state.form && typeof state.form.reset === 'function') {
+      state.form.reset();
+    }
+    const keys = Object.keys(state.fields);
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      const field = state.fields[key];
+      if (field && 'value' in field) field.value = '';
+    }
+    if (state.fields.terms) state.fields.terms.checked = false;
   }
 })();
