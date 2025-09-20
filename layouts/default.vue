@@ -9,8 +9,8 @@
             </NuxtLink>
           </div>
           <div class="flex items-center space-x-4">
-            <NuxtLink to="/login" class="text-gray-700 hover:text-blue-600">Login</NuxtLink>
-            <NuxtLink to="/register" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+            <NuxtLink to="/" class="text-gray-700 hover:text-blue-600">Login</NuxtLink>
+            <NuxtLink to="/" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
               Register
             </NuxtLink>
           </div>
