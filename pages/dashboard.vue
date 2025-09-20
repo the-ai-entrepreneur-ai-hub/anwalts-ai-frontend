@@ -487,6 +487,8 @@ onMounted(() => {
           if (payload?.user) {
             currentUser.value = payload.user
           }
+        } else if (response.status === 401 || response.status === 403) {
+          console.info('No active session found via /api/auth/me; prompting auth modal')
         }
       } catch (error) {
         console.warn('Fallback /api/auth/me failed', error)
@@ -494,8 +496,22 @@ onMounted(() => {
     }
 
     if (!currentUser.value) {
-      const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
-      window.location.replace(`/login?redirect=${redirectPath}`)
+      const triggerAuthModal = (mode = 'login') => {
+        if (typeof window === 'undefined') return false
+        if (typeof window.openAuthModal === 'function') {
+          window.openAuthModal(mode)
+          return true
+        }
+        try {
+          window.postMessage({ type: 'ANWALTS_OPEN_AUTH', mode }, '*')
+        } catch (_) {}
+        return false
+      }
+
+      if (!triggerAuthModal('login')) {
+        const redirectPath = encodeURIComponent(window.location.pathname + window.location.search)
+        window.location.replace(`/login?redirect=${redirectPath}`)
+      }
       return
     }
   })();
