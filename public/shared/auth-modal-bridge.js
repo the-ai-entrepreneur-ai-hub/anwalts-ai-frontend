@@ -23,7 +23,8 @@
   ];
 
   const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-  const GOOGLE_REDIRECT = '/auth/google/authorize?redirect=/dashboard';
+  const GOOGLE_AUTHORIZE_PATH = '/auth/google/authorize';
+  const GOOGLE_REDIRECT = `${GOOGLE_AUTHORIZE_PATH}?redirect=/dashboard`;
   const OBSERVER_DELAY = 80;
   const PASSWORD_MIN_LENGTH = 6;
 
