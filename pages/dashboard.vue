@@ -459,13 +459,51 @@ definePageMeta({ layout: false })
 const nuxtApp = useNuxtApp()
 const currentUser = ref(null)
 
+const resolveStoredUser = () => {
+  if (!process.client) return null
+  try {
+    const raw = localStorage.getItem('auth_user') || localStorage.getItem('anwalts_user')
+    return raw ? JSON.parse(raw) : null
+  } catch (_) {
+    return null
+  }
+}
+
+const hasStoredAuthEvidence = () => {
+  if (!process.client) return false
+  try {
+    if (
+      localStorage.getItem('anwalts_auth_token') ||
+      localStorage.getItem('auth_user') ||
+      localStorage.getItem('anwalts_user') ||
+      localStorage.getItem('auth_success') === 'true' ||
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('sat')
+    ) {
+      return true
+    }
+    if (typeof document !== 'undefined' && document.cookie) {
+      return /(anwalts_auth_token|access_token|token|sat)=/.test(document.cookie)
+    }
+  } catch (_) {}
+  return false
+}
+
 // Inject Tailwind CDN for this page to match the provided design
 
 onMounted(() => {
   (async () => {
+    if (!currentUser.value) {
+      const stored = resolveStoredUser()
+      if (stored) {
+        currentUser.value = stored
+      }
+    }
+
     try {
       const stackApp = nuxtApp.$stackAuth;
-      if (stackApp?.getUser) {
+      if (!currentUser.value && stackApp?.getUser) {
         const stackUser = await stackApp.getUser({ or: 'return-null' })
         if (stackUser) {
           currentUser.value = {
@@ -494,6 +532,10 @@ onMounted(() => {
     }
 
     if (!currentUser.value) {
+      if (hasStoredAuthEvidence()) {
+        console.info('Auth evidence present, skipping modal auto-open')
+        return
+      }
       if (typeof window.openAuthModal === 'function') {
         window.openAuthModal('login')
       } else {
