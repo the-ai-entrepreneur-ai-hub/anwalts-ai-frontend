@@ -598,31 +598,8 @@
     clearErrors();
     clearMessage();
 
-    const redirectUrl = new URL(GOOGLE_CALLBACK_PATH, window.location.origin);
-    redirectUrl.searchParams.set('redirect', GOOGLE_REDIRECT_TARGET);
-
-    state.googleButton.disabled = true;
-    fetch(GOOGLE_INITIATE_PATH, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ redirect_uri: redirectUrl.toString() })
-    })
-      .then(parseJson)
-      .then((data) => {
-        const authUrl = data && (data.auth_url || data.url);
-        if (!authUrl) {
-          throw new Error(data && data.error ? data.error : 'OAuth-Start fehlgeschlagen.');
-        }
-        window.location.href = authUrl;
-      })
-      .catch((error) => {
-        const message = error && error.message ? error.message : 'Google-Anmeldung konnte nicht gestartet werden.';
-        setGeneralError(message);
-      })
-      .finally(() => {
-        if (state.googleButton) state.googleButton.disabled = false;
-      });
+    // Direct redirect to backend OAuth endpoint (GET redirect, not POST)
+    window.location.href = GOOGLE_INITIATE_PATH + '?redirect=' + encodeURIComponent(GOOGLE_REDIRECT_TARGET);
   }
 
   async function parseJson(response) {
