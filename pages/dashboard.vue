@@ -824,28 +824,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
   z-index: 10;
 }
 
-<<<<<<< HEAD
-/* Ensure neat height and text centering */
-#globalSearch { height: 44px; line-height: 44px; }
-#btnStartTour{display:none!important}
-.tour-overlay{display:none!important}
-#tourStep{display:none!important}
-  /* force remove tour */
-  #btnStartTour{display:none!important}
-  .tour-overlay{display:none!important}
-  #tourStep{display:none!important}
-  .tour-step{display:none!important}
-
-</style>
-
-/* tour removed */
-#btnStartTour{display:none!important}
-.tour-overlay{display:none!important}
-#tourStep{display:none!important}
-=======
 .sidebar-link.active {
   background-color: #eff6ff;
   color: #2563eb;
 }
+#globalSearch { height: 44px; line-height: 44px; }
+
+/* Disable guided tour UI remnants */
+#btnStartTour,
+.tour-overlay,
+#tourStep,
+.tour-step { display: none !important; }
+
 </style>
->>>>>>> 2b9d6979 (Improve landing auth modal fallback)
