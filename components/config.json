@@ -1,0 +1,10 @@
+{
+  "OPENAI_API_KEY": "$OPENAI_API_KEY",
+  "GEMINI_API_KEY": "${REDACTED}",
+  "Providers": [
+    {
+      "name": "openai",
+      "api_base_url": "https://api.openai.com/v1/chat/completions",
+      "api_key": "$OPENAI_API_KEY",
+      "models": ["gpt-5", "gpt-5-mini"]
+    }
