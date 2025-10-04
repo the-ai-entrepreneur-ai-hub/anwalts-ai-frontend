@@ -1,0 +1,62 @@
+/**
+ * ANWALTS.AI Authentication Modal Styles
+ * Shared styles for the auth modal across the application
+ */
+
+/* Ensure no conflicts with Framer or other styles */
+.anwalts-auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 99999;
+  animation: anwaltsFadeIn 0.2s ease-out;
+}
+
+@keyframes anwaltsFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.anwalts-auth-modal {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 24px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 520px;
+  max-height: min(90vh, 760px);
+  overflow-y: auto;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  animation: anwaltsSlideIn 0.3s ease-out;
+  position: relative;
+  z-index: 100000;
+}
+
+@keyframes anwaltsSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Hide any Framer badges globally */
+#__framer-badge-container,
+.framer-badge,
+[data-framer-badge] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
