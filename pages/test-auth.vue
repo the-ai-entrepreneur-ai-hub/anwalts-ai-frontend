@@ -92,7 +92,7 @@ const testDirectAuth = () => {
 
 const testGoogleAuth = () => {
   console.log('🎯 GOOGLE AUTH TEST')
-  navigateTo('/api/auth/google')
+  navigateTo('/auth/google')
 }
 
 const testEmailAuth = () => {

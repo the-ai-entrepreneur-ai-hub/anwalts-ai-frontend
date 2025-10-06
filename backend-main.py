@@ -10,7 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import uvicorn
 import os
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 import logging
 from datetime import datetime, timedelta
 import uuid
@@ -24,6 +24,7 @@ from database import Database, get_database
 from models import *
 from ai_service import AIService
 from cache_service import CacheService
+from smtp_utils import send_email
 from fastapi.responses import Response as FastAPIResponse
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse, StreamingResponse
 import httpx
@@ -31,10 +32,20 @@ from auth_service import AuthService
 import base64
 import secrets
 import string
+from supabase import create_client, Client as SupabaseClient
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    # Keep running even if python-dotenv is not available
+    pass
 
 # ===== Feedback feature flag =====
 import os as _os
 FEEDBACK_V1_ENABLED = (_os.getenv("FEEDBACK_V1", "true").lower() == "true")
+
+DASHBOARD_SERVICE_KEY = os.getenv("DASHBOARD_SERVICE_KEY", "").strip()
 
 # Optional uploads subsystem
 try:
@@ -119,6 +130,35 @@ ai_service: AIService = None
 cache_service: CacheService = None
 auth_service: AuthService = None
 
+
+def _set_auth_cookies(response: Response, token: str) -> None:
+    """Set primary (HttpOnly) and public session cookies."""
+    try:
+        cookie_domain = os.getenv("SESSION_DOMAIN", "portal-anwalts.ai")
+        cookie_samesite = os.getenv("COOKIE_SAMESITE", "none").lower()
+        response.set_cookie(
+            key=os.getenv("SESSION_COOKIE_NAME", "sid"),
+            value=token,
+            httponly=True,
+            secure=True,
+            samesite=cookie_samesite,
+            domain=cookie_domain,
+            max_age=86400,
+            path="/",
+        )
+        response.set_cookie(
+            key=os.getenv("PUBLIC_SESSION_COOKIE", "sat"),
+            value=token,
+            httponly=False,
+            secure=True,
+            samesite=cookie_samesite,
+            domain=cookie_domain,
+            max_age=86400,
+            path="/",
+        )
+    except Exception as exc:  # pragma: no cover - defensive logging only
+        logger.warning(f"Set-Cookie failed: {exc}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and cleanup application resources"""
@@ -153,6 +193,52 @@ app = FastAPI(
 
 # Middleware
 cors_origin = os.getenv("CORS_ORIGIN", "https://portal-anwalts.ai")
+
+
+def _get_supabase_admin() -> SupabaseClient:
+    """Get Supabase admin client for user management"""
+    supabase_url = os.getenv("SUPABASE_URL", "https://portal-anwalts.ai/supabase")
+    supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not supabase_service_key:
+        raise ValueError("SUPABASE_SERVICE_ROLE_KEY not configured")
+    return create_client(supabase_url, supabase_service_key)
+
+def _build_google_redirect_uri() -> str:
+    """Construct a redirect URI even when GOOGLE_REDIRECT_URI is missing."""
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
+    if redirect_uri:
+        return redirect_uri
+
+    base_origin = (os.getenv("PUBLIC_BASE_URL") or cors_origin or "").strip()
+    if not base_origin:
+        base_origin = "https://portal-anwalts.ai"
+    base_origin = base_origin.rstrip("/")
+
+    default_path = (os.getenv("GOOGLE_REDIRECT_PATH") or "/api/auth/google/callback").strip() or "/api/auth/google/callback"
+    if not default_path.startswith("/"):
+        default_path = "/" + default_path
+
+    return f"{base_origin}{default_path}"
+
+
+def _ensure_google_config(require_secret: bool = False) -> Tuple[str, Optional[str], str]:
+    """Return Google OAuth configuration, raising helpful errors when missing."""
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    if client_id.lower().startswith(("http://", "https://")):
+        client_id = client_id.split("://", 1)[-1]
+    client_id = client_id.rstrip("/")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+    redirect_uri = _build_google_redirect_uri()
+
+    if not client_id:
+        logger.error("Google OAuth missing client ID")
+        raise HTTPException(status_code=500, detail="Google OAuth provider is not configured")
+    if require_secret and not client_secret:
+        logger.error("Google OAuth missing client secret")
+        raise HTTPException(status_code=500, detail="Google OAuth provider is not fully configured")
+
+    return client_id, (client_secret or None), redirect_uri
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[cors_origin],
@@ -243,19 +329,23 @@ def _generate_compliant_password(length: int = 48) -> str:
     return ''.join(base)
 
 
+async def _google_entry_redirect(request: Request) -> RedirectResponse:
+    """Return a prefix-aware redirect so /api routes stay under /api."""
+    path = request.url.path or ""
+    prefix = "/api/auth" if path.startswith("/api/") else "/auth"
+    return RedirectResponse(f"{prefix}/google/authorize")
+
 @app.get("/auth/google")
-async def google_auth():
+async def google_auth(request: Request):
     """Redirect to Google OAuth authorize endpoint"""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse("/auth/google/authorize")
+    return await _google_entry_redirect(request)
 
 
 @app.get("/auth/google/authorize")
 async def google_authorize():
     try:
         import urllib.parse
-        client_id = os.getenv("GOOGLE_CLIENT_ID", "")
-        redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "")
+        client_id, _, redirect_uri = _ensure_google_config()
         scope = urllib.parse.quote("openid email profile")
         state = uuid.uuid4().hex
         # PKCE (S256)
@@ -275,6 +365,14 @@ async def google_authorize():
     except Exception as e:
         logger.error(f"Google authorize error: {e}")
         raise HTTPException(status_code=500, detail="Authorization init failed")
+
+@app.get("/api/auth/google")
+async def google_auth_api_alias(request: Request):
+    return await _google_entry_redirect(request)
+
+@app.get("/api/auth/google/authorize")
+async def google_authorize_api_alias():
+    return await google_authorize()
 
 @app.get("/auth/twitter/authorize")
 async def twitter_authorize():
@@ -314,9 +412,7 @@ async def google_callback(code: Optional[str] = None, state: Optional[str] = Non
         raise HTTPException(status_code=400, detail="Missing authorization code")
     try:
         token_url = "https://oauth2.googleapis.com/token"
-        client_id = os.getenv("GOOGLE_CLIENT_ID", "")
-        client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
-        redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "")
+        client_id, client_secret, redirect_uri = _ensure_google_config(require_secret=True)
         # Pull verifier by state
         code_verifier = None
         try:
@@ -375,49 +471,57 @@ async def google_callback(code: Optional[str] = None, state: Optional[str] = Non
             password_hash = auth_service.hash_password(compliant_pwd)
             user = await db.create_user(email=email, name=name or email, role=("admin" if is_admin else "assistant"), password_hash=password_hash)
 
-        # Create token & session
-        token = auth_service.create_access_token(data={"sub": str(user.id)})
+        # Create simple JWT token session
+        token = auth_service.create_access_token(data={"sub": str(user.id), "email": email, "name": name, "role": user.role})
         session_id = str(uuid.uuid4())
         await cache_service.store_session(session_id, str(user.id), expires_in=86400)
-
-        # Bootstrap localStorage and redirect to dashboard
+        
+        # Simple redirect with token in localStorage
         html = (
             "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>"
             "<title>Signing in…</title></head><body>"
-            "<script>try {"
-            "localStorage.setItem('anwalts_auth_token', %s);"
-            "localStorage.setItem('anwalts_user', JSON.stringify(%s));"
-            "} catch (e) {} window.location.replace('/dashboard');</script>"
+            "<script>"
+            "try {"
+            "  localStorage.setItem('auth_token', %s);"
+            "  localStorage.setItem('user_id', %s);"
+            "  localStorage.setItem('user_email', %s);"
+            "  localStorage.setItem('user_name', %s);"
+            "  localStorage.setItem('user_role', %s);"
+            "  console.log('Auth data stored successfully');"
+            "} catch (e) { console.error('Storage error:', e); }"
+            "window.location.replace('/dashboard');"
+            "</script>"
             "Signing in…</body></html>"
         ) % (
             repr(token),
-            repr({"id": str(user.id), "email": user.email, "name": user.name, "role": user.role})
+            repr(str(user.id)),
+            repr(email),
+            repr(name),
+            repr(user.role)
         )
         response = HTMLResponse(content=html, status_code=200)
-        try:
-            response.set_cookie(
-                key=os.getenv("SESSION_COOKIE_NAME", "sid"),
-                value=token,
-                httponly=True,
-                secure=True,
-                samesite=os.getenv("COOKIE_SAMESITE", "none").lower(),
-                domain=os.getenv("SESSION_DOMAIN", "portal-anwalts.ai"),
-                max_age=86400,
-                path="/",
-            )
-            # Secondary non-HttpOnly cookie to enable frontend Authorization header (fallback)
-            response.set_cookie(
-                key=os.getenv("PUBLIC_SESSION_COOKIE", "sat"),
-                value=token,
-                httponly=False,
-                secure=True,
-                samesite=os.getenv("COOKIE_SAMESITE", "none").lower(),
-                domain=os.getenv("SESSION_DOMAIN", "portal-anwalts.ai"),
-                max_age=86400,
-                path="/",
-            )
-        except Exception as e:
-            logger.warning(f"Set-Cookie failed: {e}")
+        
+        # Set auth cookies
+        response.set_cookie(
+            key="auth_token",
+            value=token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            max_age=86400,
+            path="/",
+        )
+        response.set_cookie(
+            key="user_id",
+            value=str(user.id),
+            httponly=False,
+            secure=True,
+            samesite="lax",
+            max_age=86400,
+            path="/",
+        )
+        
+        logger.info(f"OAuth login successful for: {email}")
         return response
     except httpx.HTTPError as e:
         try:
@@ -430,6 +534,18 @@ async def google_callback(code: Optional[str] = None, state: Optional[str] = Non
         logger.error(f"Google callback error: {e}")
         raise HTTPException(status_code=500, detail="Callback failed")
 
+
+@app.get("/api/auth/google/callback")
+async def google_callback_api_alias(code: Optional[str] = None, state: Optional[str] = None):
+    return await google_callback(code=code, state=state)
+
+@app.get("/auth/oauth/google/callback")
+async def google_callback_legacy_auth(code: Optional[str] = None, state: Optional[str] = None):
+    return await google_callback(code=code, state=state)
+
+@app.get("/api/auth/oauth/google/callback")
+async def google_callback_api_legacy_auth(code: Optional[str] = None, state: Optional[str] = None):
+    return await google_callback(code=code, state=state)
 
 @app.get("/auth/twitter/callback")
 async def twitter_callback(code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
@@ -514,7 +630,7 @@ async def login_test(request: dict):
         token = auth_service.create_access_token(data={"sub": str(user.id)})
         logger.info("Token created successfully")
         
-        return {
+        payload = {
             "success": True,
             "token": token,
             "user": {
@@ -524,6 +640,9 @@ async def login_test(request: dict):
                 "role": user.role
             }
         }
+        response = JSONResponse(content=payload)
+        _set_auth_cookies(response, token)
+        return response
     except Exception as e:
         logger.error(f"Login test error: {e}")
         import traceback
@@ -569,7 +688,7 @@ async def login(request: dict):
         logger.info(f"Session stored for user: {user.id}")
         
         # Return successful response (include success flag for legacy clients)
-        return {
+        payload = {
             "success": True,
             "token": token,
             "token_type": "bearer",
@@ -581,6 +700,9 @@ async def login(request: dict):
             },
             "status": 200
         }
+        response = JSONResponse(content=payload)
+        _set_auth_cookies(response, token)
+        return response
         
     except Exception as e:
         logger.error(f"Login error: {e}")
@@ -685,10 +807,13 @@ async def register_full(payload: dict):
         session_id = str(uuid.uuid4())
         await cache_service.store_session(session_id, str(user.id), expires_in=86400)
 
-        return LoginResponse(
+        payload = LoginResponse(
             token=token,
             user=UserResponse(id=user.id, email=user.email, name=user.name, role=user.role)
         )
+        response = JSONResponse(content=json.loads(payload.model_dump_json()))
+        _set_auth_cookies(response, token)
+        return response
     except HTTPException:
         raise
     except Exception as e:
@@ -1471,6 +1596,35 @@ async def update_document_status_noid_endpoint(payload: dict, current_user: User
         raise HTTPException(status_code=400, detail="Missing doc_id")
     return await update_document_status_endpoint(str(doc_id), payload, current_user)
 
+
+@app.get("/internal/dashboard-summary/{user_id}")
+async def internal_dashboard_summary(user_id: str, request: Request):
+    """Return aggregated dashboard metrics for the specified user."""
+    key_required = DASHBOARD_SERVICE_KEY
+    provided_key = (request.headers.get("x-service-key") or "").strip()
+
+    if key_required:
+        if not provided_key or not secrets.compare_digest(provided_key, key_required):
+            logger.warning("Dashboard summary access denied: invalid service key")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user id")
+
+    if not db:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+
+    try:
+        summary = await db.get_dashboard_summary(user_uuid)
+        return summary
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to compute dashboard summary", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Dashboard summary unavailable") from exc
+
 # ============ WORKING LOGIN ENDPOINT ============
 
 @app.post("/auth/login-working")
@@ -1497,7 +1651,7 @@ async def login_working(request: dict):
             return {"error": "Invalid credentials", "success": False}
         
         # Check active status
-        if not user.is_active:
+        if hasattr(user, "is_active") and not user.is_active:
             logger.warning(f"Inactive user: {email}")
             return {"error": "Account disabled", "success": False}
         
@@ -1510,7 +1664,7 @@ async def login_working(request: dict):
         
         logger.info(f"Login successful for: {email}")
         
-        return {
+        payload = {
             "success": True,
             "token": token,
             "token_type": "bearer", 
@@ -1521,12 +1675,135 @@ async def login_working(request: dict):
                 "role": user.role
             }
         }
+        response = JSONResponse(content=payload)
+        _set_auth_cookies(response, token)
+        return response
         
     except Exception as e:
         logger.error(f"Login error: {e}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         return {"error": f"Server error: {str(e)}", "success": False}
+
+# ============ PASSWORD RESET (OTP) ============
+
+@app.post("/auth/forgot-password")
+async def forgot_password(payload: dict):
+    """Initiate password reset by generating an OTP and sending via email.
+    Non-destructive; stores OTP in Redis with short TTL.
+    """
+    try:
+        email = (payload.get("email") or "").strip().lower()
+        if not email or "@" not in email:
+            raise HTTPException(status_code=400, detail="Gültige E-Mail-Adresse erforderlich")
+
+        user = await db.get_user_by_email(email)
+        if not user:
+            # Do not reveal existence; return success
+            return {"success": True}
+
+        # Generate 6-digit OTP
+        otp = f"{secrets.randbelow(1000000):06d}"
+        key = f"pwd:otp:{email}"
+        try:
+            # Use cache service helper for consistency
+            await cache_service.set(key, otp, ttl=600)  # 10 minutes
+        except Exception as e:
+            logger.error(f"OTP store failed: {e}")
+            raise HTTPException(status_code=500, detail="Reset failed")
+
+        # Send email via SMTP or log
+        sent = send_email(
+            subject="Ihr Anwalts.AI Einmal-Code",
+            to_email=email,
+            body_text=f"Ihr Einmal-Code lautet: {otp}. Er ist 10 Minuten gültig."
+        )
+        if not sent:
+            logger.warning("SMTP send returned False; check SMTP_* env or MailHog availability")
+        resp = {"success": True}
+        if os.getenv("DEBUG_PASSWORD_RESET", "0") == "1":
+            resp["otp"] = otp
+            resp["sent"] = sent
+        return resp
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"forgot-password error: {e}")
+        raise HTTPException(status_code=500, detail="Reset failed")
+
+
+@app.post("/auth/reset-password")
+async def reset_password(payload: dict):
+    """Verify OTP and set a new password."""
+    try:
+        email = (payload.get("email") or "").strip().lower()
+        otp = (payload.get("otp") or "").strip()
+        new_password = payload.get("new_password") or ""
+        if not email or not otp or not new_password:
+            raise HTTPException(status_code=400, detail="Missing fields")
+        if len(new_password) < 8:
+            raise HTTPException(status_code=400, detail="Passwort ist zu kurz")
+
+        user = await db.get_user_by_email(email)
+        if not user:
+            # Don't reveal; pretend success
+            return {"success": True}
+
+        key = f"pwd:otp:{email}"
+        try:
+            stored = await cache_service.get(key)
+        except Exception as e:
+            logger.error(f"OTP get failed: {e}")
+            raise HTTPException(status_code=500, detail="Reset failed")
+        if not stored or stored != otp:
+            raise HTTPException(status_code=400, detail="Ungültiger Code")
+
+        # Update password
+        new_hash = auth_service.hash_password(new_password)
+        ok = await db.update_user_password(user.id, new_hash)
+        if not ok:
+            raise HTTPException(status_code=500, detail="Reset failed")
+
+        try:
+            await cache_service.delete(key)
+        except Exception:
+            pass
+
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"reset-password error: {e}")
+        raise HTTPException(status_code=500, detail="Reset failed")
+
+
+@app.post("/auth/change-password")
+async def change_password(payload: dict, current_user: UserInDB = Depends(get_current_user)):
+    """Change password for authenticated user."""
+    try:
+        current_password = payload.get("current_password") or ""
+        new_password = payload.get("new_password") or ""
+        if not current_password or not new_password:
+            raise HTTPException(status_code=400, detail="Missing fields")
+        if len(new_password) < 8:
+            raise HTTPException(status_code=400, detail="Passwort ist zu kurz")
+
+        # Fetch fresh user and verify current password
+        user = await db.get_user_by_id(str(current_user.id))
+        if not user or not auth_service.verify_password(current_password, user.password_hash):
+            raise HTTPException(status_code=400, detail="Aktuelles Passwort ist falsch")
+
+        new_hash = auth_service.hash_password(new_password)
+        ok = await db.update_user_password(user.id, new_hash)
+        if not ok:
+            raise HTTPException(status_code=500, detail="Änderung fehlgeschlagen")
+
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"change-password error: {e}")
+        raise HTTPException(status_code=500, detail="Änderung fehlgeschlagen")
 
 # ============ HEALTH CHECK ============
 
