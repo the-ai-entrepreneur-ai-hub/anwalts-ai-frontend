@@ -434,12 +434,15 @@ const handleSubmit = async () => {
 }
 
 const handleGoogleAuth = async () => {
+  if (!process.client) {
+    console.warn('[OAuth] handleGoogleAuth called on server-side, skipping')
+    return
+  }
+
   try {
     loading.value = true
-    if (process.client) {
-      const url = '/auth/google' + (location.search ? (location.search + '&') : '?') + 'debug=1'
-      window.location.href = url
-    }
+    const authorizeUrl = new URL('/api/auth/google/authorize', window.location.origin).toString()
+    window.location.assign(authorizeUrl)
   } catch (error) {
     console.error('Google OAuth error:', error)
     try { fetch('/api/debug/log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'auth.google.error', message: String(error) }) }) } catch {}
