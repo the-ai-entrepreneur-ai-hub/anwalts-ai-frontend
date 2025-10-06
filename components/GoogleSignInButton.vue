@@ -36,7 +36,8 @@ const handleGoogleSignIn = async () => {
     
     // Use backend OAuth endpoint directly (no Supabase)
     // This redirects to: /auth/google/authorize -> Google -> /api/auth/google/callback -> /dashboard
-    window.location.href = '/api/auth/google/authorize'
+    const authorizeUrl = new URL('/api/auth/google/authorize', window.location.origin).toString()
+    window.location.assign(authorizeUrl)
   } catch (err: any) {
     console.error('[Google Sign-In] Error:', err)
     error.value = 'Failed to initiate Google sign-in. Please try again.'

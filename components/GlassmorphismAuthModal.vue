@@ -446,24 +446,9 @@ const handleGoogleAuth = async () => {
 
   try {
     loading.value = true
-    console.log('[OAuth] Initiating Google OAuth flow directly...')
-    
-    // Use Supabase directly from the composable
-    const { supabase } = useSupabaseAuth()
-    
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/api/auth/google/callback`
-      }
-    })
 
-    if (error) {
-      console.error('[OAuth] Error initiating Google OAuth:', error)
-      errors.email = 'Google-Anmeldung fehlgeschlagen'
-    }
-    
-    // Supabase will automatically redirect to Google
+    const authorizeUrl = new URL('/api/auth/google/authorize', window.location.origin).toString()
+    window.location.assign(authorizeUrl)
   } catch (error) {
     console.error('Google OAuth error:', error)
     errors.email = 'Google-Anmeldung fehlgeschlagen'
