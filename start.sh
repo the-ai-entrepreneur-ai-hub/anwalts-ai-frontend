@@ -9,8 +9,19 @@ echo "🚀 Starting ANWALTS.AI Frontend..."
 
 # Set environment variables (update these as needed)
 export NODE_ENV="${NODE_ENV:-production}"
-export GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-116750545961-k22ajbftbikioa14rk2jhr7b04lm6am2.apps.googleusercontent.com}"
-export GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-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}"
+
+if [ -z "${GOOGLE_CLIENT_ID}" ]; then
+  echo "[start.sh] GOOGLE_CLIENT_ID is not set. Please export it before running this script." >&2
+  exit 1
+fi
+
+if [ -z "${GOOGLE_CLIENT_SECRET}" ]; then
+  echo "[start.sh] GOOGLE_CLIENT_SECRET is not set. Please export it before running this script." >&2
+  exit 1
+fi
+
+export GOOGLE_CLIENT_ID
+export GOOGLE_CLIENT_SECRET
 # Default to the Nuxt/Supabase callback that actually exists; override in env if backend handles Google callback
 export GOOGLE_REDIRECT_URI="${GOOGLE_REDIRECT_URI:-https://portal-anwalts.ai/api/auth/google/callback}"
 export BACKEND_BASE="${BACKEND_BASE:-http://backend_api:8000}"
