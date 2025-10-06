@@ -1,7 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   devtools: { enabled: true },
-  css: ['~/assets/css/main.css'],
+  css: ['~/assets/css/tailwind.css', '~/assets/css/main.css'],
   app: {
     head: {
       link: [
@@ -10,8 +10,6 @@ export default defineNuxtConfig({
         { rel: 'shortcut icon', href: '/favicon.png' }
       ],
       script: [
-        { src: 'https://cdn.tailwindcss.com' },
-        // Removed problematic production-fix.js injection to prevent auto modal and conflicts
         { src: '/shared/gbutton.js' },
         // If a compatibility script is ever needed again, add it via feature-flagged plugin, not a global head script
       ]
@@ -22,13 +20,15 @@ export default defineNuxtConfig({
     '@pinia/nuxt'
   ],
   runtimeConfig: {
-    backendBase: process.env.BACKEND_BASE || 'http://backend_api:8000',
+    backendBase: process.env.BACKEND_BASE || 'http://backend:8000',
+    dashboardServiceKey: process.env.DASHBOARD_SERVICE_KEY,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI,
-    // Stack Auth server-side keys
-    stackSecretServerKey: process.env.STACK_SECRET_SERVER_KEY,
+    supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     public: {
+      supabaseUrl: process.env.SUPABASE_URL,
+      supabaseKey: process.env.SUPABASE_ANON_KEY,
       apiBase: process.env.NODE_ENV === 'production' ? '/api' : (process.env.NUXT_PUBLIC_API_BASE || '/api'),
       apiEndpoints: {
         generate: '/api/ai/generate-document',
@@ -38,11 +38,7 @@ export default defineNuxtConfig({
         save: '/api/documents/save',
         exportBase: '/api/documents',
         status: '/api/documents/status'
-      },
-      // Stack Auth public keys
-      stackProjectId: process.env.NUXT_PUBLIC_STACK_PROJECT_ID,
-      stackPublishableClientKey: process.env.NUXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY,
-      appUrl: process.env.NUXT_PUBLIC_APP_URL || 'https://portal-anwalts.ai'
+      }
     }
   },
   nitro: {
@@ -60,10 +56,7 @@ export default defineNuxtConfig({
       global: 'globalThis',
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'unframer']
-    },
-    esbuild: {
-      jsx: 'automatic'
+      include: ['react', 'react-dom']
     },
     server: {
       host: '0.0.0.0',
@@ -76,10 +69,14 @@ export default defineNuxtConfig({
     port: 3000
   },
   build: {
-    transpile: ['unframer', 'react', 'react-dom']
+    transpile: ['unframer']
   },
   ssr: true,
   experimental: {
     reactivityTransform: true
+  },
+  routeRules: {
+    // Force server-side handling for OAuth callback (bypass client-side router)
+    '/api/auth/google/callback': { ssr: true }
   }
 })

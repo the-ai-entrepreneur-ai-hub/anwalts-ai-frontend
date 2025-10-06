@@ -1,54 +1,104 @@
-name: Deploy to GitHub Pages
+name: Deploy (SSH + PM2)
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: ["main", "master"]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    
+    environment: production
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Build application
-      run: npm run build
-      
-    - name: Setup Pages
-      uses: actions/configure-pages@v4
-      with:
-        enablement: true
-      
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: '.output/public'
-        
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout
+        uses: actions/checkout@v4
 
-# Grant GITHUB_TOKEN the permissions required to make a Pages deployment
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: anwalts-frontend-new/package-lock.json
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+      - name: Build (Nuxt)
+        working-directory: anwalts-frontend-new
+        run: |
+          npm ci
+          npm run build
+
+      - name: Create deployment artifact
+        working-directory: anwalts-frontend-new
+        run: |
+          mkdir -p dist_deploy
+          cp -r .output dist_deploy/.output
+          cp -r public dist_deploy/public
+          cp package.json dist_deploy/package.json
+          cp package-lock.json dist_deploy/package-lock.json || true
+          tar czf deploy_artifact.tgz -C dist_deploy .
+
+      - name: Upload artifact to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "anwalts-frontend-new/deploy_artifact.tgz"
+          target: "/tmp/anwalts-frontend-new-deploy_artifact.tgz"
+
+      - name: Remote deploy steps
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_DIR: ${{ secrets.APP_DIR }}
+          APP_NAME: ${{ secrets.APP_NAME || 'anwalts-frontend' }}
+          NODE_ENV: production
+          BACKEND_BASE: ${{ secrets.BACKEND_BASE || '' }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          envs: APP_DIR,APP_NAME,NODE_ENV,BACKEND_BASE
+          script: |
+            set -euo pipefail
+            if [ -z "${APP_DIR:-}" ]; then echo "APP_DIR secret is required"; exit 1; fi
+            TS=$(date +%Y%m%d%H%M%S)
+            REL="$APP_DIR/releases/$TS"
+            mkdir -p "$APP_DIR/releases" "$APP_DIR/shared"
+
+            # Extract artifact
+            mkdir -p "$REL"
+            tar xzf /tmp/anwalts-frontend-new-deploy_artifact.tgz -C "$REL"
+
+            # Node modules (shared cache), install prod deps
+            if [ ! -d "$APP_DIR/shared/node_modules" ]; then
+              (cd "$REL" && npm ci --omit=dev)
+              mv "$REL/node_modules" "$APP_DIR/shared/node_modules"
+            fi
+            rm -rf "$REL/node_modules" || true
+            ln -sfn "$APP_DIR/shared/node_modules" "$REL/node_modules"
+
+            # .env injection (optional)
+            if [ -n "${BACKEND_BASE}" ]; then
+              echo "BACKEND_BASE=${BACKEND_BASE}" > "$REL/.env"
+            fi
+
+            # Atomic symlink switch
+            ln -sfn "$REL" "$APP_DIR/current"
+
+            # PM2 start/reload
+            export NODE_ENV=${NODE_ENV}
+            if ! command -v pm2 >/dev/null 2>&1; then
+              npm i -g pm2
+            fi
+            if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
+              pm2 reload "$APP_NAME"
+            else
+              pm2 start "$APP_DIR/current/.output/server/index.mjs" --name "$APP_NAME" --time
+            fi
+            pm2 save
+
+            # Cleanup old releases (keep last 5)
+            cd "$APP_DIR/releases"
+            ls -1tr | head -n -5 | xargs -r -I {} rm -rf "{}"
+

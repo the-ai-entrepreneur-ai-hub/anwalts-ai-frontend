@@ -31,13 +31,13 @@
             <nav class="hidden md:flex space-x-8">
               <a href="/dashboard" class="text-white/80 hover:text-white transition-colors">Dashboard</a>
               <a href="/dashboard/research" class="text-white/80 hover:text-white transition-colors">Fragen</a>
-              <a href="http://Www.kunden.anwalts.ai" class="text-white/80 hover:text-white transition-colors">Vertrieb</a>
             </nav>
-            <NuxtLink to="/dashboard"
+            <button 
+              @click="showSignInModal"
               class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
             >
-              Zum Dashboard
-            </NuxtLink>
+              Registrieren
+            </button>
           </div>
         </header>
 
@@ -53,7 +53,7 @@
           <!-- CTA Buttons -->
           <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-20">
             <button 
-              @click="goToDashboard"
+              @click="showSignInModal"
               class="bg-white/20 backdrop-blur-sm text-white px-12 py-4 rounded-xl font-semibold hover:bg-white/30 transition-all border border-white/20 shadow-xl text-lg"
             >
               Kostenlos registrieren
@@ -93,15 +93,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
+import { useAuthModal } from '~/composables/useAuthModal'
 
-// CTAs strictly navigate to the dashboard; we deliberately skip
-// rendering auth modals here to avoid them auto-opening on load.
-// Static landing comes from /public/page.html (mirrors
-// /var/www/html/preview/clean).
+const emit = defineEmits(['show-sign-in'])
 
-const goToDashboard = () => {
-  navigateTo('/dashboard')
+const auth = useAuthModal()
+
+const showSignInModal = () => {
+  console.log('Opening sign-in modal from FramerLanding')
+  auth.open()
 }
 
 const loading = ref(true)
@@ -110,10 +111,10 @@ const framerContent = ref('')
 onMounted(async () => {
   // Make the function globally available for Framer/Framer-export integration
   if (process.client) {
-    // Clean landing page - no auth modals, just navigate to dashboard
-    window.openSignInModal = () => navigateTo('/dashboard')
-    window.openAuthModal = () => navigateTo('/dashboard')
-    window.showSignInModal = () => navigateTo('/dashboard')
+    // Alias multiple global entry points used around the site/Framer to one handler
+    window.openSignInModal = () => auth.open()
+    window.openAuthModal = () => auth.open()
+    window.showSignInModal = () => auth.open()
 
     // DISABLED: Removed auto-opening modal on login parameter
     // This was causing modal to open on every page load
@@ -125,7 +126,7 @@ onMounted(async () => {
   }
 
   try {
-    console.log('Landing: using fallback content (no remote Framer load)')
+    console.log('DISABLED: Skipping Framer content loading to prevent external redirects')
     // DISABLED to prevent Framer external links from loading
     // framerContent.value = '' // Keep empty to show fallback
 
@@ -164,7 +165,10 @@ onMounted(async () => {
 //   })
 // }
 
-// Clean landing page setup complete
+// Global function to trigger modal (for inline onclick handlers)
+if (process.client) {
+  window.showSignInModal = () => auth.open()
+}
 </script>
 
 <style scoped>

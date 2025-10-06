@@ -1,0 +1,145 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: anwalts_postgres
+    environment:
+      POSTGRES_DB: anwalts_ai
+      POSTGRES_USER: anwalts_user
+      POSTGRES_PASSWORD: anwalts_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anwalts_user -d anwalts_ai"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: anwalts_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: anwalts_mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: anwalts_backend
+    ports:
+      - "8000:8000"
+      - "8010:8010"
+    environment:
+      - DATABASE_URL=postgresql://anwalts_user:anwalts_password@postgres:5432/anwalts_ai
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGIN=https://portal-anwalts.ai
+      - API_BASE_URL=https://portal-anwalts.ai
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - DASHBOARD_SERVICE_KEY=${DASHBOARD_SERVICE_KEY}
+      - FEEDBACK_V1=true
+      - PYTHONPATH=/app
+      - LOCAL_AI_KIND=sidecar
+      - LOCAL_AI_URL=https://portal-anwalts.ai
+      - LOCAL_AI_MODEL=qwen_legal_q4_k_m
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - SMTP_TLS=0
+      - SMTP_FROM=no-reply@anwalts.ai
+      - DEBUG_PASSWORD_RESET=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./models:/app/models
+      - ./legal-corpus:/app/legal-corpus
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./anwalts-frontend-new
+      dockerfile: Dockerfile
+    container_name: anwalts_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - BACKEND_BASE=http://backend:8000
+      - NUXT_PUBLIC_API_BASE=/api
+      - NITRO_HOST=0.0.0.0
+      - NITRO_PORT=3000
+      - NODE_OPTIONS=--max_old_space_size=3072
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=${GOOGLE_CLIENT_SECRET}
+      - DASHBOARD_SERVICE_KEY=${DASHBOARD_SERVICE_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: anwalts_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx-dev.conf:/etc/nginx/nginx.conf
+      - ./nginx/sites-dev:/etc/nginx/conf.d
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
