@@ -42,16 +42,28 @@ a::before, a::after, button::before, button::after { pointer-events: none; }
 .bg-blue-700 { background-color: #1d4ed8; }
 .bg-blue-800 { background-color: #1e40af; }
 .bg-gray-100 { background-color: #f3f4f6; }
+.bg-gray-300 { background-color: #d1d5db; }
 .bg-blue-100 { background-color: #dbeafe; }
+
+.bg-gradient-to-br {
+  --gradient-from: transparent;
+  --gradient-to: transparent;
+  background-image: linear-gradient(135deg, var(--gradient-from), var(--gradient-to));
+}
+.from\[\#5b7ce6\] { --gradient-from: #5b7ce6; }
+.to\[\#4a6cd4\] { --gradient-to: #4a6cd4; }
 
 .text-white { color: white; }
 .text-gray-700 { color: #374151; }
 .text-gray-900 { color: #111827; }
+.text-gray-800 { color: #1f2937; }
 .text-gray-600 { color: #4b5563; }
+.text-gray-500 { color: #6b7280; }
 .text-gray-300 { color: #d1d5db; }
 .text-blue-600 { color: #2563eb; }
 .text-blue-100 { color: #dbeafe; }
 .text-blue-500 { color: #3b82f6; }
+.text-\[color\:var\(--primary\)\] { color: var(--primary); }
 
 .max-w-7xl { max-width: 80rem; }
 .max-w-md { max-width: 28rem; }
@@ -59,6 +71,10 @@ a::before, a::after, button::before, button::after { pointer-events: none; }
 .px-4 { padding-left: 1rem; padding-right: 1rem; }
 .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
 .px-8 { padding-left: 2rem; padding-right: 2rem; }
+.p-2 { padding: 0.5rem; }
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
 .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
 .py-20 { padding-top: 5rem; padding-bottom: 5rem; }
 .py-16 { padding-top: 4rem; padding-bottom: 4rem; }
@@ -66,34 +82,58 @@ a::before, a::after, button::before, button::after { pointer-events: none; }
 .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 .py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+.py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+.pt-0 { padding-top: 0; }
+.pl-4 { padding-left: 1rem; }
 .mt-6 { margin-top: 1.5rem; }
 .mt-8 { margin-top: 2rem; }
+.mt-3 { margin-top: 0.75rem; }
+.mt-2 { margin-top: 0.5rem; }
 .mb-6 { margin-bottom: 1.5rem; }
 .mb-8 { margin-bottom: 2rem; }
 .mb-12 { margin-bottom: 3rem; }
 .mb-4 { margin-bottom: 1rem; }
 .mb-2 { margin-bottom: 0.5rem; }
+.mb-3 { margin-bottom: 0.75rem; }
 .mt-4 { margin-top: 1rem; }
 .mt-1 { margin-top: 0.25rem; }
 .mt-auto { margin-top: auto; }
 
 .flex { display: flex; }
 .grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
 .items-center { align-items: center; }
+.items-start { align-items: flex-start; }
 .justify-center { justify-content: center; }
 .justify-between { justify-content: space-between; }
 .flex-col { flex-direction: column; }
+.flex-1 { flex: 1 1 0%; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
 .space-x-4 > * + * { margin-left: 1rem; }
+.space-y-4 > * + * { margin-top: 1rem; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+.gap-6 { gap: 1.5rem; }
 .gap-8 { gap: 2rem; }
+.pointer-events-none { pointer-events: none; }
+.overflow-auto { overflow: auto; }
+.overflow-x-auto { overflow-x: auto; }
 
 .text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
 .text-xl { font-size: 1.25rem; }
 .text-lg { font-size: 1.125rem; }
 .text-sm { font-size: 0.875rem; }
+.text-xs { font-size: 0.75rem; }
 .text-4xl { font-size: 2.25rem; }
 .text-6xl { font-size: 3.75rem; }
 .text-3xl { font-size: 1.875rem; }
 .text-2xl { font-size: 1.5rem; }
+.underline { text-decoration: underline; }
 
 .font-bold { font-weight: 700; }
 .font-semibold { font-weight: 600; }
@@ -109,17 +149,40 @@ a::before, a::after, button::before, button::after { pointer-events: none; }
 .border { border-width: 1px; }
 .border-2 { border-width: 2px; }
 .border-b { border-bottom-width: 1px; }
+.border-t { border-top-width: 1px; }
+.border-r { border-right-width: 1px; }
+.border-l-4 { border-left-width: 4px; }
 .border-gray-200 { border-color: #e5e7eb; }
 .border-gray-300 { border-color: #d1d5db; }
+.border-gray-100 { border-color: #f3f4f6; }
 .border-white { border-color: white; }
 .border-transparent { border-color: transparent; }
+.border-green-500 { border-color: #22c55e; }
+.border-orange-500 { border-color: #f97316; }
+.border-red-500 { border-color: #ef4444; }
 
 .h-16 { height: 4rem; }
 .h-12 { height: 3rem; }
+.h-11 { height: 2.75rem; }
+.h-10 { height: 2.5rem; }
+.h-8 { height: 2rem; }
 .h-6 { height: 1.5rem; }
+.h-5 { height: 1.25rem; }
+.h-screen { height: 100vh; }
 .w-12 { width: 3rem; }
+.w-10 { width: 2.5rem; }
 .w-6 { width: 1.5rem; }
+.w-5 { width: 1.25rem; }
+.w-64 { width: 16rem; }
+.w-auto { width: auto; }
 .w-full { width: 100%; }
+
+.bottom-0 { bottom: 0; }
+.bottom-6 { bottom: 1.5rem; }
+.left-0 { left: 0; }
+.right-0 { right: 0; }
+.right-6 { right: 1.5rem; }
+.z-20 { z-index: 20; }
 
 .flex-shrink-0 { flex-shrink: 0; }
 .appearance-none { appearance: none; }
@@ -133,6 +196,7 @@ a::before, a::after, button::before, button::after { pointer-events: none; }
 .hover\:text-blue-600:hover { color: #2563eb; }
 .hover\:text-blue-500:hover { color: #3b82f6; }
 .hover\:shadow-lg:hover { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+.hover\:opacity-80:hover { opacity: 0.8; }
 .transition-colors { transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out; }
 .transition-shadow { transition: box-shadow 0.15s ease-in-out; }
 
@@ -152,6 +216,7 @@ a::before, a::after, button::before, button::after { pointer-events: none; }
 }
 
 @media (min-width: 768px) {
+  .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .md\:text-6xl { font-size: 3.75rem; }
   .md\:text-2xl { font-size: 1.5rem; }
@@ -159,7 +224,16 @@ a::before, a::after, button::before, button::after { pointer-events: none; }
 
 @media (min-width: 1024px) {
   .lg\:px-8 { padding-left: 2rem; padding-right: 2rem; }
-}/* Neutral theme variables */
+  .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lg\:col-span-2 { grid-column: span 2 / span 2; }
+}
+
+@media (min-width: 1280px) {
+  .xl\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Neutral theme variables */
 :root {
   --accent: rgba(0,0,0,0.8);
   --surface: #ffffff;
