@@ -215,8 +215,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'auth-success'])
 
-const { syncSessionFromTokens } = useSupabaseAuth()
-
 const isSignUp = ref(false)
 const isResetMode = ref(false)
 const loading = ref(false)
@@ -345,93 +343,90 @@ const handleSubmit = async () => {
 
   try {
     if (isSignUp.value) {
-      // Construct full address string from components
-      const addressParts = [
-        formData.addressLine1,
-        formData.addressLine2,
-        formData.city,
-        formData.postalCode,
-        formData.country
-      ].filter(Boolean)
-
-      const fullAddress = addressParts.join(', ')
-
-      // Supabase signup
-      const response = await $fetch('/api/auth/signup', {
+      // Full registration (returns token + user)
+      const registerResponse = await $fetch('/api/auth/register-full', {
         method: 'POST',
+        credentials: 'include',
         body: {
           email: formData.email,
-          password: formData.password,
           name: formData.name || `${formData.firstName} ${formData.lastName}`,
-          law_institution: formData.company || 'Kanzlei',
-          phone: formData.phone,
-          address: fullAddress
+          password: formData.password,
+          profile: {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            firm: formData.company || 'Kanzlei',
+            roleTitle: 'Rechtsanwalt',
+            phone: formData.phone,
+            website: '',
+            marketingOptIn: false,
+            consentAt: new Date().toISOString(),
+            termsAcceptedAt: new Date().toISOString(),
+            address: {
+              line1: formData.addressLine1,
+              line2: formData.addressLine2,
+              city: formData.city,
+              postalCode: formData.postalCode,
+              country: formData.country
+            }
+          }
         }
       })
 
-      if (!response?.user) {
+      if (!registerResponse?.user || !registerResponse?.token) {
         errors.email = 'Registrierung fehlgeschlagen'
         return
       }
 
-      if (response.session) {
-        await syncSessionFromTokens(response.session, response.user, response.profile ?? null)
-      }
+      // Persist auth for assistant backend calls
+      try {
+        localStorage.setItem('anwalts_auth_token', registerResponse.token)
+        localStorage.setItem('anwalts_user', JSON.stringify(registerResponse.user))
+      } catch (_) {}
 
       emit('auth-success', {
-        user: response.user,
+        user: registerResponse.user,
         type: 'signup',
         provider: 'email'
       })
     } else {
-      // Supabase login
-      const response = await $fetch('/api/auth/signin', {
+      // Login flow
+      const response = await $fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         body: {
           email: formData.email,
           password: formData.password
         }
       })
 
-      if (!response?.user) {
-        errors.email = 'Ungültige E-Mail oder Passwort'
+      if (!response?.success || !response?.user) {
+        errors.email = 'Invalid email or password'
         return
       }
 
-      if (response.session) {
-        await syncSessionFromTokens(response.session, response.user, response.profile ?? null)
-      }
+      try {
+        // If backend also returns a token (per openapi), persist it for protected API calls
+        if (response?.token) {
+          localStorage.setItem('access_token', response.token)
+          localStorage.setItem('anwalts_auth_token', response.token)
+        }
+        localStorage.setItem('anwalts_user', JSON.stringify(response.user))
+      } catch (_) {}
 
-      emit('auth-success', {
-        user: response.user,
-        type: 'signin',
-        provider: 'email'
-      })
-
-      // Redirect to dashboard
-      navigateTo('/dashboard')
+      emit('auth-success', { user: response.user, type: 'signin', provider: 'email', token: response?.token })
+      // Use our safe navigation utility for robust redirect handling
+      const { safeLocationAssign } = await import('~/utils/safe-navigation')
+      safeLocationAssign('/dashboard')
     }
   } catch (error) {
     console.error('❌ Authentication error:', error)
-
-    // Handle account locked error
-    if (error?.statusCode === 429) {
-      const remaining = error?.data?.remaining_seconds
-      const minutes = remaining ? Math.ceil(remaining / 60) : 15
-      errors.email = `Konto gesperrt wegen mehrfacher Fehlversuche. Bitte versuchen Sie es in ${minutes} Minuten erneut.`
-      return
-    }
-
-    // Map error messages
-    const detail = error?.data?.statusMessage || error?.statusMessage || error?.message || ''
+    // Map duplicate email errors to a clear German message
+    const detail = error?.data?.detail || error?.data?.error || error?.message || ''
     const msg = String(detail).toLowerCase()
-
     if (isSignUp.value && (msg.includes('already') || msg.includes('exists') || msg.includes('registr'))) {
       errors.email = 'E-Mail ist bereits registriert'
-    } else if (!isSignUp.value && msg.includes('invalid')) {
-      errors.email = 'Ungültige E-Mail oder Passwort'
     } else {
-      errors.email = isSignUp.value ? 'Registrierung fehlgeschlagen' : 'Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.'
+      errors.email = isSignUp.value ? 'Registrierung fehlgeschlagen' : 'Login failed. Please try again.'
     }
   } finally {
     loading.value = false
@@ -446,27 +441,11 @@ const handleGoogleAuth = async () => {
 
   try {
     loading.value = true
-    console.log('[OAuth] Initiating Google OAuth flow directly...')
-    
-    // Use Supabase directly from the composable
-    const { supabase } = useSupabaseAuth()
-    
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/api/auth/google/callback`
-      }
-    })
-
-    if (error) {
-      console.error('[OAuth] Error initiating Google OAuth:', error)
-      errors.email = 'Google-Anmeldung fehlgeschlagen'
-    }
-    
-    // Supabase will automatically redirect to Google
+    const authorizeUrl = new URL('/api/auth/google/authorize', window.location.origin).toString()
+    window.location.assign(authorizeUrl)
   } catch (error) {
     console.error('Google OAuth error:', error)
-    errors.email = 'Google-Anmeldung fehlgeschlagen'
+    try { fetch('/api/debug/log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'auth.google.error', message: String(error) }) }) } catch {}
   } finally {
     loading.value = false
   }
