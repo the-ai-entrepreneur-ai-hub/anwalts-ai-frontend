@@ -796,4 +796,12 @@ onMounted(() => {
 .btn-secondary:hover {
   background-color: #e5e7eb;
 }
+
+/* Override to match Overview page */
+.sidebar-link.active {
+  background-color: #eff6ff !important;
+  color: #2563eb !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
 </style>

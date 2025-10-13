@@ -249,4 +249,17 @@ watch(() => route.path, (path) => {
     min-height: calc(100vh - 240px);
   }
 }
+
+/* Match Overview page active state */
+.sidebar-link.active {
+  background-color: #eff6ff !important;
+  color: #2563eb !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.sidebar-link:hover {
+  background: rgba(37, 99, 235, 0.08) !important;
+  color: #1e40af !important;
+}
 </style>
