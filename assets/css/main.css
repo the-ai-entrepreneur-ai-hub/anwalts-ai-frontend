@@ -340,15 +340,15 @@ body { font-family: var(--font-sans); color: var(--text); background: var(--surf
   background: transparent;
 }
 .sidebar-link:hover {
-  background: rgba(91, 115, 242, 0.12);
-  color: #1f2645;
-  border-color: rgba(91, 115, 242, 0.26);
-  box-shadow: 0 16px 28px rgba(70, 88, 185, 0.18);
+  background: rgba(37, 99, 235, 0.08);
+  color: #1e40af;
+  border-color: rgba(37, 99, 235, 0.12);
+  box-shadow: none;
 }
 .sidebar-link.active {
-  background: linear-gradient(135deg, #556cf0 0%, #3f51d8 100%);
-  color: #ffffff;
-  box-shadow: 0 20px 36px rgba(64, 84, 208, 0.28);
+  background-color: #eff6ff;
+  color: #2563eb;
+  box-shadow: none;
   border-color: transparent;
 }
 .sidebar-link .icon {

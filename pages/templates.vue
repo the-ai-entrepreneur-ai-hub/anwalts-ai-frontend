@@ -638,8 +638,8 @@ onMounted(() => {
   --surface-tint: #f4f6ff;
   --text-strong: #16213e;
   --text-muted: #5d6582;
-  --primary: #5b73f2;
-  --primary-strong: #3f51d8;
+  --primary: #2563eb;
+  --primary-strong: #2563eb;
   --primary-soft: rgba(91, 115, 242, 0.14);
   --danger: #e24d4d;
 }
@@ -1634,5 +1634,13 @@ onMounted(() => {
   .toast-item {
     width: 100%;
   }
+}
+
+/* Override to match Overview page */
+.sidebar-link.active {
+  background-color: #eff6ff !important;
+  color: #2563eb !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 </style>
