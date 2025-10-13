@@ -1,110 +1,7 @@
 <template>
-  <div class="font-sans antialiased">
-    <!-- Global Styles -->
-    <style scoped>
-      :root {
-        --accent: rgba(0, 0, 0, 0.8);
-        --primary: #5b7ce6;
-        --primary-hover: #4a6cd4;
-        --text-primary: #202124;
-        --text-secondary: #5f6368;
-        --border-color: #dadce0;
-        --hover-bg: #f1f3f4;
-        --selected-bg: #e8f0fe;
-      }
-      
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      
-      input[type="checkbox"] {
-        accent-color: var(--primary);
-      }
-      
-      /* Responsive Container Padding */
-      @media (min-width: 1440px) {
-        .max-w-\[1440px\] {
-          padding-left: 2rem;
-          padding-right: 2rem;
-        }
-      }
-      
-      @media (min-width: 1024px) and (max-width: 1439px) {
-        .max-w-\[1440px\] {
-          max-width: 95%;
-          padding-left: 1.5rem;
-          padding-right: 1.5rem;
-        }
-      }
-      
-      @media (min-width: 768px) and (max-width: 1023px) {
-        .max-w-\[1440px\] {
-          max-width: 95%;
-          padding-left: 1rem;
-          padding-right: 1rem;
-        }
-      }
-      
-      @media (max-width: 767px) {
-        .max-w-\[1440px\] {
-          padding-left: 0.75rem;
-          padding-right: 0.75rem;
-        }
-      }
-
-      @media (max-width: 768px) {
-        .grid-cols-4 {
-          grid-template-columns: repeat(2, 1fr);
-          gap: 0.75rem;
-        }
-        
-        table {
-          font-size: 0.875rem;
-        }
-        
-        .max-w-4xl {
-          max-width: 100%;
-        }
-        
-        .inbox-table-responsive {
-          overflow-x: auto;
-        }
-        
-        .inbox-table-responsive table {
-          min-width: 600px;
-        }
-        
-        .toolbar-responsive {
-          flex-direction: column;
-          gap: 1rem;
-        }
-        
-        .toolbar-responsive .toolbar-right {
-          width: 100%;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-      }
-      
-      @media (max-width: 640px) {
-        .grid-cols-4 {
-          grid-template-columns: 1fr;
-        }
-        
-        .toolbar-responsive .toolbar-right {
-          flex-direction: column;
-        }
-        
-        .toolbar-responsive .toolbar-right input,
-        .toolbar-responsive .toolbar-right select,
-        .toolbar-responsive .toolbar-right button {
-          width: 100%;
-        }
-      }
-    </style>
+  <PortalShell>
+    <div class="font-sans antialiased">
+    <!-- Global Styles moved to <style scoped> at SFC root -->
 
     <!-- Consent Screen -->
     <div v-if="currentView === 'consent'" class="min-h-screen bg-white flex items-center justify-center p-4 sm:p-6 lg:p-8 relative">
@@ -654,10 +551,15 @@
         </div>
       </div>
     </div>
-  </div>
+    </div>
+  </PortalShell>
 </template>
 
 <script setup>
+import PortalShell from '~/components/PortalShell.vue'
+
+definePageMeta({ layout: false })
+
 // Reactive state
 const currentView = ref('consent')
 const selectedEmail = ref(null)
@@ -899,3 +801,108 @@ onMounted(() => {
   })
 })
 </script>
+
+<style scoped>
+  :root {
+    --accent: rgba(0, 0, 0, 0.8);
+    --primary: #5b7ce6;
+    --primary-hover: #4a6cd4;
+    --text-primary: #202124;
+    --text-secondary: #5f6368;
+    --border-color: #dadce0;
+    --hover-bg: #f1f3f4;
+    --selected-bg: #e8f0fe;
+  }
+  
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  input[type="checkbox"] {
+    accent-color: var(--primary);
+  }
+  
+  /* Responsive Container Padding */
+  @media (min-width: 1440px) {
+    .max-w-\[1440px\] {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .max-w-\[1440px\] {
+      max-width: 95%;
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .max-w-\[1440px\] {
+      max-width: 95%;
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+  
+  @media (max-width: 767px) {
+    .max-w-\[1440px\] {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .grid-cols-4 {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+    
+    table {
+      font-size: 0.875rem;
+    }
+    
+    .max-w-4xl {
+      max-width: 100%;
+    }
+    
+    .inbox-table-responsive {
+      overflow-x: auto;
+    }
+    
+    .inbox-table-responsive table {
+      min-width: 600px;
+    }
+    
+    .toolbar-responsive {
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .toolbar-responsive .toolbar-right {
+      width: 100%;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+  }
+  
+  @media (max-width: 640px) {
+    .grid-cols-4 {
+      grid-template-columns: 1fr;
+    }
+    
+    .toolbar-responsive .toolbar-right {
+      flex-direction: column;
+    }
+    
+    .toolbar-responsive .toolbar-right input,
+    .toolbar-responsive .toolbar-right select,
+    .toolbar-responsive .toolbar-right button {
+      width: 100%;
+    }
+  }
+</style>
