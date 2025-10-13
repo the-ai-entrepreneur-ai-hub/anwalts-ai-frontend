@@ -772,9 +772,9 @@ onMounted(() => {
   --border: #e3e8fb;
   --text: #111827;
   --muted: #6b7299;
-  --primary: #6f86ff;
+  --primary: #2563eb;
   --primary-soft: rgba(111, 134, 255, 0.14);
-  --primary-strong: #5065f2;
+  --primary-strong: #2563eb;
 }
 
 a, button {
@@ -1834,5 +1834,13 @@ a, button {
   .documents-grid {
     gap: 20px;
   }
+}
+
+/* Override to match Overview page */
+.sidebar-link.active {
+  background-color: #eff6ff !important;
+  color: #2563eb !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 </style>

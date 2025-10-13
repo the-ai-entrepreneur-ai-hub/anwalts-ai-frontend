@@ -805,8 +805,8 @@ onMounted(() => {
 <style scoped>
   :root {
     --accent: rgba(0, 0, 0, 0.8);
-    --primary: #5b7ce6;
-    --primary-hover: #4a6cd4;
+    --primary: #2563eb;
+    --primary-hover: #1e40af;
     --text-primary: #202124;
     --text-secondary: #5f6368;
     --border-color: #dadce0;
@@ -904,5 +904,13 @@ onMounted(() => {
     .toolbar-responsive .toolbar-right button {
       width: 100%;
     }
+  }
+
+  /* Override to match Overview page */
+  .sidebar-link.active {
+    background-color: #eff6ff !important;
+    color: #2563eb !important;
+    box-shadow: none !important;
+    transform: none !important;
   }
 </style>
