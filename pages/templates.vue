@@ -513,7 +513,87 @@ const loadTemplates = async () => {
   try {
     const r = await fetch(`/api/auth/proxy.get?path=${encodeURIComponent('/api/templates')}`)
     const data = await r.json().catch(() => ({ items: [] }))
-    templates.value = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : [])
+    const apiTemplates = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : [])
+    
+    // Add sample templates
+    const now = new Date()
+    const sampleTemplates = [
+      {
+        id: 'sample-1',
+        name: 'NDA – Standard (DE)',
+        category: 'Vertrag',
+        content: 'Standardisierte Geheimhaltungsvereinbarung nach deutschem Recht für bilaterale Geschäftsbeziehungen.',
+        description: 'Standardisierte Geheimhaltungsvereinbarung nach deutschem Recht für bilaterale Geschäftsbeziehungen.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-2',
+        name: 'Klageentwurf – Zivilrecht',
+        category: 'Zivilrecht',
+        content: 'Professioneller Klageentwurf für zivilrechtliche Verfahren mit allen erforderlichen Formalien.',
+        description: 'Professioneller Klageentwurf für zivilrechtliche Verfahren mit allen erforderlichen Formalien.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-3',
+        name: 'Vollmacht – Mandanten',
+        category: 'Allgemein',
+        content: 'Umfassende Vollmachtsvorlage für die Vertretung von Mandanten in verschiedenen Rechtsangelegenheiten.',
+        description: 'Umfassende Vollmachtsvorlage für die Vertretung von Mandanten in verschiedenen Rechtsangelegenheiten.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-4',
+        name: 'Vergleichsangebot',
+        category: 'Zivilrecht',
+        content: 'Strukturiertes Vergleichsangebot zur außergerichtlichen Streitbeilegung im Zivilrecht.',
+        description: 'Strukturiertes Vergleichsangebot zur außergerichtlichen Streitbeilegung im Zivilrecht.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-5',
+        name: 'Abmahnung – Wettbewerbsrecht',
+        category: 'Wettbewerb',
+        content: 'Rechtssichere Abmahnung bei Verstößen gegen wettbewerbsrechtliche Bestimmungen.',
+        description: 'Rechtssichere Abmahnung bei Verstößen gegen wettbewerbsrechtliche Bestimmungen.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 18 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-6',
+        name: 'DSGVO – Auskunftsersuchen',
+        category: 'Datenschutz',
+        content: 'DSGVO-konforme Vorlage für Auskunftsersuchen gemäß Art. 15 DSGVO.',
+        description: 'DSGVO-konforme Vorlage für Auskunftsersuchen gemäß Art. 15 DSGVO.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 22 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-7',
+        name: 'Arbeitsvertrag – Standard',
+        category: 'Arbeitsrecht',
+        content: 'Vollständiger Arbeitsvertrag nach deutschem Arbeitsrecht mit allen wesentlichen Klauseln.',
+        description: 'Vollständiger Arbeitsvertrag nach deutschem Arbeitsrecht mit allen wesentlichen Klauseln.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 26 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-8',
+        name: 'Mietvertrag – Wohnraum',
+        category: 'Mietrecht',
+        content: 'Standardmietvertrag für Wohnraum unter Beachtung aktueller mietrechtlicher Vorschriften.',
+        description: 'Standardmietvertrag für Wohnraum unter Beachtung aktueller mietrechtlicher Vorschriften.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    ]
+    
+    // Combine API templates with sample templates
+    templates.value = [...sampleTemplates, ...apiTemplates]
   } catch (e) {
     console.warn('load templates failed', e)
   } finally {
@@ -638,9 +718,9 @@ onMounted(() => {
   --surface-tint: #f4f6ff;
   --text-strong: #16213e;
   --text-muted: #5d6582;
-  --primary: #2563eb;
-  --primary-strong: #2563eb;
-  --primary-soft: rgba(37, 99, 235, 0.14);
+  --primary: #5b7ce6;
+  --primary-strong: #5b7ce6;
+  --primary-soft: rgba(91, 124, 230, 0.14);
   --danger: #e24d4d;
 }
 
@@ -751,7 +831,7 @@ onMounted(() => {
   padding: 10px 16px;
   border-radius: 14px;
   border: 1px solid var(--border-soft);
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.02));
+  background: linear-gradient(135deg, rgba(91, 124, 230, 0.08), rgba(91, 124, 230, 0.02));
   min-width: 150px;
 }
 
@@ -784,7 +864,7 @@ onMounted(() => {
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(37, 99, 235, 0.45));
+  background: linear-gradient(135deg, rgba(91, 124, 230, 0.25), rgba(91, 124, 230, 0.45));
   display: grid;
   place-items: center;
   font-weight: 600;
@@ -827,10 +907,11 @@ onMounted(() => {
 }
 
 .section-block {
-  padding: 26px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 22px;
+  overflow: hidden;
 }
 
 .section-heading {
@@ -864,15 +945,17 @@ onMounted(() => {
 
 .stat-item {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: flex-start;
+  overflow: hidden;
 }
 
 .stat-icon {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 14px;
-  background: var(--primary-soft);
+  flex-shrink: 0;
+  background: rgba(91, 124, 230, 0.12);
   color: var(--primary-strong);
   display: grid;
   place-items: center;
@@ -887,12 +970,22 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .stat-note {
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .btn {
@@ -926,33 +1019,43 @@ onMounted(() => {
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-strong) 100%);
+  background: linear-gradient(135deg, #5b7ce6 0%, #4a6cd4 100%);
   color: #fff;
-  border-color: rgba(37, 99, 235, 0.18);
+  border-color: rgba(91, 124, 230, 0.25);
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(91, 124, 230, 0.25);
 }
 
 .btn.primary:hover {
-  box-shadow: 0 22px 40px rgba(64, 84, 208, 0.32);
+  box-shadow: 0 18px 40px rgba(91, 124, 230, 0.35);
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #4a6cd4 0%, #3b5fc7 100%);
 }
 
 .btn.outline {
-  border-color: var(--border-strong);
-  background: #fff;
+  border-color: rgba(91, 124, 230, 0.3);
+  background: rgba(91, 124, 230, 0.06);
+  color: var(--primary-strong);
+  font-weight: 600;
 }
 
 .btn.outline:hover {
-  border-color: rgba(37, 99, 235, 0.38);
+  border-color: rgba(91, 124, 230, 0.5);
+  background: rgba(91, 124, 230, 0.12);
+  box-shadow: 0 10px 25px rgba(91, 124, 230, 0.15);
 }
 
 .btn.ghost {
-  border-color: rgba(37, 99, 235, 0.2);
-  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(91, 124, 230, 0.25);
+  background: rgba(91, 124, 230, 0.1);
   color: var(--primary-strong);
+  font-weight: 600;
 }
 
 .btn.ghost:hover {
-  background: rgba(37, 99, 235, 0.12);
-  border-color: rgba(37, 99, 235, 0.32);
+  background: rgba(91, 124, 230, 0.16);
+  border-color: rgba(91, 124, 230, 0.4);
+  box-shadow: 0 10px 25px rgba(91, 124, 230, 0.15);
 }
 
 .btn.text {
@@ -983,21 +1086,23 @@ onMounted(() => {
 
 .clause-pill {
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  border-radius: 18px;
-  border: 1px solid var(--border-soft);
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(91, 124, 230, 0.16);
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.92);
-  padding: 16px 18px;
+  padding: 14px 16px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
   text-align: left;
+  overflow: hidden;
 }
 
 .clause-pill:hover {
-  transform: translateY(-1px);
-  border-color: rgba(37, 99, 235, 0.4);
-  box-shadow: 0 18px 32px rgba(64, 84, 208, 0.18);
+  transform: translateX(4px);
+  border-color: rgba(91, 124, 230, 0.3);
+  background: rgba(91, 124, 230, 0.05);
+  box-shadow: 0 12px 30px rgba(91, 124, 230, 0.12);
 }
 
 .clause-pill:active {
@@ -1008,29 +1113,41 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .clause-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .clause-desc {
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .clause-pill__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  flex-shrink: 0;
+  height: 32px;
   border-radius: 12px;
-  border: 1px solid rgba(37, 99, 235, 0.2);
-  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(91, 124, 230, 0.2);
+  background: rgba(91, 124, 230, 0.1);
   color: var(--primary-strong);
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
@@ -1179,7 +1296,7 @@ onMounted(() => {
 }
 
 .template-card {
-  border: 1px solid rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(91, 124, 230, 0.12);
   border-radius: 22px;
   padding: 24px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, #ffffff 100%);
@@ -1205,7 +1322,7 @@ onMounted(() => {
 }
 
 .template-title {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-strong);
   line-height: 1.3;
@@ -1215,9 +1332,9 @@ onMounted(() => {
 }
 
 .template-chip {
-  background: rgba(37, 99, 235, 0.12);
+  background: rgba(91, 124, 230, 0.12);
   color: var(--primary-strong);
-  border: 1px solid rgba(37, 99, 235, 0.22);
+  border: 1px solid rgba(91, 124, 230, 0.22);
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 12px;
@@ -1227,11 +1344,11 @@ onMounted(() => {
 }
 
 .template-chip:hover {
-  background: rgba(37, 99, 235, 0.2);
+  background: rgba(91, 124, 230, 0.2);
 }
 
 .template-description {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
   line-height: 1.55;
   display: -webkit-box;
@@ -1271,17 +1388,13 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  border: 1px solid rgba(37, 99, 235, 0.18);
-  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(91, 124, 230, 0.25);
+  background: rgba(91, 124, 230, 0.1);
   color: var(--primary-strong);
   font-size: 11px;
   padding: 6px 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
 }
 
 .template-footer {
@@ -1301,20 +1414,28 @@ onMounted(() => {
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  border: 1px solid rgba(37, 99, 235, 0.18);
-  background: rgba(255, 255, 255, 0.94);
-  display: grid;
-  place-items: center;
-  color: var(--text-strong);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .icon-button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(37, 99, 235, 0.32);
-  background: rgba(37, 99, 235, 0.1);
+  background: rgba(91, 124, 230, 0.08);
+  border-color: transparent;
   color: var(--primary-strong);
+  transform: translateY(-1px);
+}
+
+.icon-button:active {
+  background: rgba(91, 124, 230, 0.14);
+  border-color: rgba(91, 124, 230, 0.3);
+  color: var(--primary-strong);
+  transform: translateY(0);
 }
 
 .icon-button svg {
@@ -1323,13 +1444,19 @@ onMounted(() => {
 }
 
 .icon-button.danger {
-  border-color: rgba(226, 77, 77, 0.18);
-  color: #b93838;
+  border-color: transparent;
+  color: var(--text-muted);
 }
 
 .icon-button.danger:hover {
-  background: rgba(226, 77, 77, 0.12);
-  border-color: rgba(226, 77, 77, 0.32);
+  background: rgba(226, 77, 77, 0.08);
+  border-color: transparent;
+  color: #b93838;
+}
+
+.icon-button.danger:active {
+  background: rgba(226, 77, 77, 0.14);
+  border-color: rgba(226, 77, 77, 0.3);
   color: #a52727;
 }
 
@@ -1343,28 +1470,41 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
   border-radius: 18px;
-  border: 1px solid rgba(37, 99, 235, 0.14);
-  padding: 18px;
+  border: 1px solid rgba(91, 124, 230, 0.14);
+  padding: 16px;
   background: rgba(249, 250, 255, 0.9);
+  overflow: hidden;
 }
 
 .recommend-card__body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .recommend-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
 }
 
 .recommend-note {
   font-size: 12px;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .recommend-progress {
@@ -1377,7 +1517,7 @@ onMounted(() => {
   flex: 1;
   height: 6px;
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.16);
+  background: rgba(91, 124, 230, 0.16);
   overflow: hidden;
 }
 
@@ -1392,6 +1532,8 @@ onMounted(() => {
   font-size: 12px;
   font-weight: 600;
   color: var(--primary-strong);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .metric-list {
@@ -1404,10 +1546,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-radius: 16px;
-  border: 1px solid rgba(37, 99, 235, 0.12);
-  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(91, 124, 230, 0.12);
+  background: rgba(91, 124, 230, 0.08);
+  overflow: hidden;
 }
 
 .metric-label {
@@ -1415,12 +1558,20 @@ onMounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: rgba(22, 33, 62, 0.68);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .metric-value {
   font-size: 16px;
   font-weight: 600;
   color: var(--text-strong);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 .toast-stack {
@@ -1503,23 +1654,29 @@ onMounted(() => {
 
 .modal-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 28px;
-  border-bottom: 1px solid rgba(36, 51, 83, 0.08);
+  justify-content: space-between;
+  padding: 24px 28px;
+  border-bottom: 1px solid rgba(91, 124, 230, 0.12);
+  background: linear-gradient(135deg, rgba(91, 124, 230, 0.05), rgba(91, 124, 230, 0.02));
 }
 
 .modal-title {
   font-size: 20px;
   font-weight: 600;
   color: var(--text-strong);
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .modal-body {
+  padding: 28px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 28px;
+  max-height: calc(90vh - 200px);
+  overflow-y: auto;
 }
 
 .field-group {
@@ -1548,8 +1705,8 @@ onMounted(() => {
 
 .field-input:focus,
 .field-textarea:focus {
-  border-color: rgba(37, 99, 235, 0.5);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+  border-color: rgba(91, 124, 230, 0.5);
+  box-shadow: 0 0 0 4px rgba(91, 124, 230, 0.14);
   outline: none;
 }
 
@@ -1696,15 +1853,20 @@ onMounted(() => {
 
   .modal-header,
   .modal-body {
-    padding: 20px;
-  }
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(90vh - 200px);
+  overflow-y: auto;
+}
 }
 
 /* Keyboard navigation focus rings */
 .btn:focus-visible,
 .icon-button:focus-visible,
 .clause-pill:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #5b7ce6;
   outline-offset: 2px;
 }
 
@@ -1727,8 +1889,24 @@ onMounted(() => {
 /* Override to match Overview page */
 .sidebar-link.active {
   background-color: #eff6ff !important;
-  color: #2563eb !important;
+  color: #5b7ce6 !important;
   box-shadow: none !important;
   transform: none !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 </style>
