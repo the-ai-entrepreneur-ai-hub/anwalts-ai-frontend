@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="32" viewBox="0 0 128 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simple logotype: gradient mark + wordmark 'ANWARES AI' -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5b7ce6"/>
+      <stop offset="100%" stop-color="#4a6cd4"/>
+    </linearGradient>
+  </defs>
+  <!-- Mark -->
+  <g transform="translate(2,2)">
+    <rect rx="6" ry="6" width="28" height="28" fill="url(#g)"/>
+    <path d="M10 22 L14.5 10 L19 22 M12.5 17 h4.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  <!-- Wordmark -->
+  <g transform="translate(36,7)">
+    <text x="0" y="16" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#111827">ANWARES</text>
+    <text x="75" y="16" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#4a6cd4">AI</text>
+  </g>
+</svg>
+
