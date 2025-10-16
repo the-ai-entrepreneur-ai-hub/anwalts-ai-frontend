@@ -1,495 +1,437 @@
 <template>
-  <div class="p-6 md:p-8 lg:p-12">
-    <!-- Back to Dashboard Button -->
-    <div class="mb-6">
-      <button
-        @click="$router.push('/dashboard')"
-        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-        </svg>
-        Zurück zur Übersicht
-      </button>
-    </div>
-    <div class="bg-white text-black/80 w-full overflow-hidden rounded-2xl border border-gray-200">
-    <!-- Header -->
-    <div class="flex flex-col gap-3 border-b border-gray-200 p-6 md:flex-row md:items-center md:justify-between">
-      <div>
-        <h1 class="text-2xl font-medium tracking-tight">Vorlagenbibliothek</h1>
-        <p class="mt-1 text-sm text-gray-600 md:text-base">
-          Professionelle Rechtsvorlagen mit KI-Unterstützung.
-        </p>
-      </div>
-      <div class="flex items-center gap-2">
-        <input
-          v-model="searchQuery"
-          placeholder="Vorlagen, Typen, Klauseln suchen"
-          class="h-10 w-56 rounded-xl border border-gray-200 bg-white px-3 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 md:w-72"
-        />
-        <button
-          @click="handleImport"
-          class="h-10 px-4 rounded-xl bg-[#5b7ce6] text-white hover:bg-[#4a6cd4] transition-colors flex items-center gap-2"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
-          </svg>
-          Importieren
-        </button>
-        <button
-          @click="handleFilter"
-          class="h-10 px-4 rounded-xl border border-[#5b7ce6] bg-white text-[#5b7ce6] hover:bg-[#5b7ce6]/10 transition-colors flex items-center gap-2"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
-          </svg>
-          Filtern
-        </button>
-      </div>
-    </div>
-
-    <!-- AI Suggested Templates -->
-    <section class="p-6">
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-lg font-medium">KI-empfohlene Vorlagen</h2>
-        <div class="flex gap-2">
-          <button
-            @click="scrollLeft"
-            class="h-8 px-3 rounded-full text-sm hover:bg-gray-50 transition-colors"
-          >
-            ←
-          </button>
-          <button
-            @click="scrollRight"
-            class="h-8 px-3 rounded-full text-sm hover:bg-gray-50 transition-colors"
-          >
-            →
-          </button>
-        </div>
-      </div>
-
-      <div
-        ref="suggestedScroller"
-        class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
-      >
-        <div
-          v-for="suggestion in suggestedTemplates"
-          :key="suggestion.id"
-          class="min-w-[280px] max-w-xs snap-start"
-        >
-          <div class="border border-gray-200 rounded-lg shadow-sm bg-white">
-            <div class="p-4 space-y-1">
-              <div class="flex items-center justify-between">
-                <h3 class="truncate text-base font-medium">{{ suggestion.name }}</h3>
-                <span class="inline-flex items-center rounded-full border border-gray-300 bg-gray-50 px-2 py-0.5 text-xs text-gray-700">
-                  {{ suggestion.source }}
-                </span>
-              </div>
-              <p class="text-sm text-gray-600">{{ suggestion.note }}</p>
-            </div>
-            <div class="flex items-center justify-between p-4 pt-0">
-              <span class="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm text-green-700">
-                {{ suggestion.match }}% Übereinstimmung
-              </span>
-              <button class="px-4 py-2 rounded-lg bg-[#5b7ce6] text-white hover:bg-[#4a6cd4] transition-colors text-sm">
-                Verwenden
-              </button>
-            </div>
+  <PortalShell>
+    <main class="templates-body">
+      <section class="templates-intro surface">
+        <div class="templates-intro__top">
+          <div class="templates-intro__copy">
+            <span class="templates-eyebrow">Vorlagen</span>
+            <h1 class="templates-title">Mandantenbibliothek</h1>
+            <p class="templates-lead">
+              Präzise kuratierte Muster für europäische Compliance, Mandantenkommunikation und wiederkehrende Vorgänge.
+            </p>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <div class="border-t border-gray-200"></div>
-
-    <!-- Stats Overview -->
-    <section class="grid gap-4 p-6 md:grid-cols-3">
-      <!-- Most Used -->
-      <div class="border border-gray-200 rounded-lg bg-white">
-        <div class="p-4">
-          <h3 class="flex items-center gap-2 text-base font-medium">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
-            Meistgenutzte Vorlagen
-          </h3>
-        </div>
-        <div class="px-4 pb-4 flex flex-wrap gap-2">
-          <span
-            v-for="item in mostUsed"
-            :key="item.label"
-            class="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-sm text-gray-800"
-          >
-            {{ item.label }} ({{ item.count }})
-          </span>
-        </div>
-      </div>
-
-      <!-- Performance -->
-      <div class="border border-gray-200 rounded-lg bg-white">
-        <div class="p-4">
-          <h3 class="flex items-center gap-2 text-base font-medium">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
-            Vorlagenleistung
-          </h3>
-          <p class="text-sm text-gray-600 mt-1">Qualitäts- und Effizienzindikatoren</p>
-        </div>
-        <div class="px-4 pb-4 space-y-3">
-          <div>
-            <div class="mb-1 flex items-center justify-between text-sm">
-              <span>Erfolgsquote</span>
-              <span class="font-medium">93%</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-              <div class="bg-[#5b7ce6] h-2 rounded-full" style="width: 93%"></div>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-3 text-sm text-gray-700">
-            <div class="flex items-center gap-1">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          <div class="templates-intro__actions">
+            <button type="button" class="btn ghost" @click="handleFilter">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
-              Durchschn. Generierungszeit: 22s
-            </div>
-            <div class="flex items-center gap-1">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
-              </svg>
-              Nutzerzufriedenheit: 4,6/5
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Weekly Activity -->
-      <div class="border border-gray-200 rounded-lg bg-white">
-        <div class="p-4">
-          <h3 class="flex items-center gap-2 text-base font-medium">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-            </svg>
-            Wöchentliche Aktivität
-          </h3>
-          <p class="text-sm text-gray-600 mt-1">+12% im Vergleich zur Vorwoche</p>
-        </div>
-        <div class="px-4 pb-4 h-24 flex items-end justify-center gap-4">
-          <div class="bg-[#5b7ce6] rounded-t-md" style="width: 16px; height: 40%"></div>
-          <div class="bg-[#5b7ce6] rounded-t-md" style="width: 16px; height: 80%"></div>
-          <div class="bg-[#5b7ce6] rounded-t-md" style="width: 16px; height: 60%"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Clause Library -->
-    <section class="p-6">
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-lg font-medium">Klauselbibliothek</h2>
-        <button class="text-[#5b7ce6] hover:text-[#4a6cd4] underline text-sm">
-          Alle anzeigen
-        </button>
-      </div>
-      <div class="overflow-hidden rounded-2xl border border-gray-200">
-        <div class="divide-y divide-gray-200">
-          <div
-            v-for="clause in clauses"
-            :key="clause.id"
-            class="group flex items-center justify-between bg-white p-4"
-          >
-            <div class="pr-4">
-              <div class="text-sm font-medium text-black/80">{{ clause.name }}</div>
-              <div class="text-sm text-gray-600">{{ clause.desc }}</div>
-            </div>
-            <button
-              @click="copyClause(clause)"
-              class="opacity-80 hover:opacity-100 p-2 hover:bg-gray-100 rounded-md transition-colors"
-              :title="`${clause.name} Klausel kopieren`"
-            >
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-              </svg>
+              Filtern
             </button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Template Cards Grid -->
-    <section class="p-6">
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-lg font-medium">Alle Vorlagen</h2>
-        <div class="flex items-center gap-2">
-          <button
-            @click="createTemplate"
-            class="px-4 py-2 rounded-xl border border-[#5b7ce6] bg-white text-[#5b7ce6] hover:bg-[#5b7ce6]/10 transition-colors flex items-center gap-2"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            Vorlage erstellen
-          </button>
-        </div>
-      </div>
-
-      <!-- Loading state -->
-      <div v-if="isLoading" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <div
-          v-for="i in 8"
-          :key="i"
-          class="border border-gray-200 rounded-lg bg-white"
-        >
-          <div class="p-4">
-            <div class="h-5 w-48 animate-pulse rounded bg-gray-100"></div>
-            <div class="mt-2 h-4 w-full animate-pulse rounded bg-gray-100"></div>
-          </div>
-          <div class="p-4 pt-0 space-y-3">
-            <div class="flex gap-2">
-              <div class="h-6 w-16 animate-pulse rounded bg-gray-100"></div>
-              <div class="h-6 w-20 animate-pulse rounded bg-gray-100"></div>
-            </div>
-            <div class="h-8 w-full animate-pulse rounded bg-gray-100"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Empty state -->
-      <div
-        v-else-if="filteredTemplates.length === 0"
-        class="border border-gray-200 rounded-lg bg-white"
-      >
-        <div class="flex flex-col items-center justify-center py-10 text-center">
-          <svg class="mb-3 h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
-          </svg>
-          <div class="text-lg font-medium">Noch keine Vorlagen</div>
-          <p class="mt-1 max-w-md text-sm text-gray-600">Importieren oder erstellen Sie eine, um zu beginnen.</p>
-          <div class="mt-4 flex gap-2">
-            <button
-              @click="handleImport"
-              class="px-4 py-2 rounded-xl bg-[#5b7ce6] text-white hover:bg-[#4a6cd4] transition-colors flex items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+            <button type="button" class="btn outline" @click="handleImport">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
               </svg>
               Importieren
             </button>
-            <button
-              @click="createTemplate"
-              class="px-4 py-2 rounded-xl border border-[#5b7ce6] bg-white text-[#5b7ce6] hover:bg-[#5b7ce6]/10 transition-colors flex items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            <button type="button" class="btn primary" @click="createTemplate">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
               </svg>
-              Erstellen
+              Neue Vorlage
             </button>
           </div>
         </div>
-      </div>
-
-      <!-- Template Cards -->
-      <div
-        v-else
-        class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-      >
-        <div
-          v-for="template in filteredTemplates"
-          :key="template.id"
-          class="h-full border border-gray-200 rounded-lg shadow-sm bg-white transition-all hover:shadow-md hover:-translate-y-0.5"
-        >
-          <div class="p-4 space-y-1">
-            <h3 class="line-clamp-1 text-base font-medium">{{ template.name }}</h3>
-            <p class="line-clamp-2 text-sm text-gray-600">{{ template.description || template.content?.slice(0, 100) + '...' }}</p>
-          </div>
-          <div class="p-4 pt-0 space-y-4">
-            <div class="flex flex-wrap gap-2">
-              <span
-                v-for="tag in getTemplateTags(template)"
-                :key="tag"
-                :class="getTagClasses(tag)"
-                class="inline-flex items-center rounded-full border px-2 py-1 text-xs"
-              >
-                {{ tag }}
-              </span>
-            </div>
-            <div class="grid grid-cols-2 gap-3 text-sm text-gray-700">
-              <div class="flex items-center gap-1">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Erfolg 95%
-              </div>
-              <div class="flex items-center gap-1">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                </svg>
-                {{ Math.floor(Math.random() * 100) + 10 }}× verwendet
-              </div>
-              <div class="flex items-center gap-1">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-                Erstellt von {{ template.createdBy || 'Ihnen' }}
-              </div>
-              <div class="flex items-center gap-1">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Zuletzt verwendet {{ formatDate(template.updatedAt) }}
-              </div>
-            </div>
-            <div class="flex items-center justify-between">
-              <button
-                @click="useTemplate(template)"
-                class="px-4 py-2 rounded-lg bg-[#5b7ce6] text-white hover:bg-[#4a6cd4] transition-colors text-sm"
-              >
-                Vorlage verwenden
-              </button>
-              <div class="flex items-center gap-1">
-                <button
-                  @click="editTemplate(template)"
-                  class="p-2 hover:bg-gray-100 rounded-md transition-colors"
-                  :title="`${template.name} bearbeiten`"
-                >
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                  </svg>
-                </button>
-                <button
-                  @click="duplicateTemplate(template)"
-                  class="p-2 hover:bg-gray-100 rounded-md transition-colors"
-                  :title="`${template.name} duplizieren`"
-                >
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                  </svg>
-                </button>
-                <button
-                  @click="deleteTemplate(template)"
-                  class="p-2 hover:bg-gray-100 rounded-md transition-colors"
-                  :title="`${template.name} löschen`"
-                >
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Toast notifications -->
-    <div
-      v-if="toasts.length > 0"
-      class="fixed right-4 top-4 z-50 flex w-80 flex-col gap-2 sm:right-6 sm:top-6"
-    >
-      <div
-        v-for="toast in toasts"
-        :key="toast.id"
-        class="pointer-events-auto rounded-xl border border-gray-200 bg-white p-3 shadow-md animate-in slide-in-from-top-2"
-      >
-        <div class="flex items-start gap-3">
-          <div class="min-w-0 flex-1">
-            <div class="text-sm font-medium text-black/80">{{ toast.title }}</div>
-            <div v-if="toast.description" class="mt-0.5 text-xs text-gray-700">{{ toast.description }}</div>
-          </div>
-          <button
-            @click="dismissToast(toast.id)"
-            class="h-6 w-6 rounded-md text-gray-600 hover:bg-gray-100 flex items-center justify-center"
-          >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        <div class="templates-intro__bottom">
+          <label class="intro-search" for="templateSearch">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M18 10.5a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
             </svg>
-          </button>
+            <input
+              id="templateSearch"
+              v-model="searchQuery"
+              class="search-input"
+              type="search"
+              placeholder="Vorlagen, Typen oder Klauseln schnell finden"
+            />
+          </label>
+          <dl class="intro-metrics">
+            <div class="intro-metric">
+              <dt>Aktive Vorlagen</dt>
+              <dd>{{ templates.length || '–' }}</dd>
+            </div>
+            <div class="intro-metric">
+              <dt>Letzte Pflege</dt>
+              <dd>{{ lastUpdatedLabel }}</dd>
+            </div>
+          </dl>
+          <div class="intro-user" aria-label="Angemeldeter Benutzer">
+            <span class="intro-avatar">{{ portalUserInitials }}</span>
+            <span class="intro-username">{{ portalUserName }}</span>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <!-- Create Template Modal -->
+      <div class="templates-layout">
+        <aside class="templates-rail" aria-label="Mandanten-Highlights">
+          <section class="surface section-block highlight-section">
+            <header class="section-heading">
+              <h2 class="section-title">Mandantenqualität</h2>
+              <p class="section-sub">Schnelle Einschätzung des Template-Streams</p>
+            </header>
+            <ul class="stat-list">
+              <li
+                v-for="stat in highlightCards"
+                :key="stat.id"
+                class="stat-item"
+              >
+                <span class="stat-icon">
+                  <svg v-if="stat.icon === 'shield'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4l8 4v5c0 5-3.582 9-8 9s-8-4-8-9V8l8-4z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 13l2 2 4-4" />
+                  </svg>
+                  <svg v-else-if="stat.icon === 'clock'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="12" cy="12" r="9" stroke-width="1.8" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 7v5l3 3" />
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 9h8M8 13h5" />
+                  </svg>
+                </span>
+                <div>
+                  <p class="stat-title">{{ stat.title }}</p>
+                  <p class="stat-note">{{ stat.note }}</p>
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <section class="surface section-block clause-section">
+            <header class="section-heading section-heading--row">
+              <div>
+                <h2 class="section-title">Klauselbibliothek</h2>
+                <p class="section-sub">Direkt in Entwürfe übernehmen</p>
+              </div>
+              <button type="button" class="btn text" @click="openClauseLibrary">
+                Alle anzeigen
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="chevron">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </header>
+            <div class="clause-list">
+              <button
+                v-for="clause in clauses"
+                :key="clause.id"
+                type="button"
+                class="clause-pill"
+                @click="copyClause(clause)"
+              >
+                <div class="clause-pill__text">
+                  <span class="clause-title">{{ clause.name }}</span>
+                  <span class="clause-desc">{{ clause.desc }}</span>
+                </div>
+                <span class="clause-pill__icon" :class="{ 'is-locked': clause.locked }">
+                  <svg
+                    v-if="clause.locked"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 11V8a5 5 0 1110 0v3" />
+                    <rect x="5" y="11" width="14" height="10" rx="2" ry="2" stroke-width="1.8" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2" />
+                  </svg>
+                  <svg
+                    v-else
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </button>
+            </div>
+          </section>
+        </aside>
+
+        <section class="templates-main">
+          <article class="surface section-block templates-panel">
+            <header class="panel-heading">
+              <div>
+                <h2 class="panel-title">Vorlageninventar</h2>
+                <p class="panel-subtitle">Mandantenfertige Dokumente für wiederkehrende Situationen.</p>
+              </div>
+              <button type="button" class="btn primary" @click="createTemplate">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
+                </svg>
+                Neue Vorlage
+              </button>
+            </header>
+
+            <div v-if="isLoading" class="templates-skeleton">
+              <div v-for="i in 8" :key="`skeleton-${i}`" class="skeleton-card">
+                <span class="skeleton-line short"></span>
+                <span class="skeleton-line"></span>
+                <div class="skeleton-tags">
+                  <span></span>
+                  <span></span>
+                </div>
+                <span class="skeleton-button"></span>
+              </div>
+            </div>
+
+            <div v-else-if="filteredTemplates.length === 0" class="templates-empty">
+              <div class="empty-icon">
+                <svg class="empty-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.915a1 1 0 00.951-.69z" />
+                </svg>
+              </div>
+              <h3 class="empty-title">Noch keine Vorlagen</h3>
+              <p class="empty-text">Importieren oder erstellen Sie eine Vorlage, um Ihren Mandantenstartpunkt aufzubauen.</p>
+              <div class="empty-actions">
+                <button type="button" class="btn primary" @click="handleImport">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                  </svg>
+                  Importieren
+                </button>
+                <button type="button" class="btn ghost" @click="createTemplate">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
+                  </svg>
+                  Erstellen
+                </button>
+              </div>
+            </div>
+
+            <div v-else class="templates-grid">
+              <article
+                v-for="template in filteredTemplates"
+                :key="template.id"
+                class="template-card"
+              >
+                <header class="template-card__header">
+                  <h3 class="template-title">{{ template.name }}</h3>
+                  <button type="button" class="template-chip" @click="useTemplate(template)">
+                    Verwenden
+                  </button>
+                </header>
+                <p class="template-description">
+                  {{ template.description || template.summary || template.content }}
+                </p>
+                <div class="template-meta">
+                  <div class="meta-block">
+                    <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span>{{ template.createdBy || 'Ihr Team' }}</span>
+                  </div>
+                  <div class="meta-block">
+                    <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{{ formatDate(template.updatedAt) }}</span>
+                  </div>
+                </div>
+                <div class="template-tags">
+                  <span
+                    v-for="tag in getTemplateTags(template)"
+                    :key="tag"
+                    class="tag-chip"
+                  >
+                    {{ tag }}
+                  </span>
+                </div>
+                <footer class="template-footer">
+                  <div class="template-actions">
+                    <button type="button" class="icon-button" @click="editTemplate(template)" :title="`${template.name} bearbeiten`">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button type="button" class="icon-button" @click="duplicateTemplate(template)" :title="`${template.name} duplizieren`">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    <button type="button" class="icon-button danger" @click="deleteTemplate(template)" :title="`${template.name} löschen`">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </footer>
+              </article>
+            </div>
+          </article>
+        </section>
+
+        <aside class="templates-aside" aria-label="Empfehlungen & Kennzahlen">
+          <section class="surface section-block recommendations">
+            <header class="section-heading">
+              <h2 class="section-title">Empfehlungen</h2>
+              <p class="section-sub">Auf Basis Ihrer letzten Mandate</p>
+            </header>
+            <div class="recommend-list">
+              <article
+                v-for="suggestion in suggestedTemplates"
+                :key="suggestion.id"
+                class="recommend-card"
+              >
+                <div class="recommend-card__body">
+                  <h3 class="recommend-title">{{ suggestion.name }}</h3>
+                  <p class="recommend-note">{{ suggestion.note }}</p>
+                  <div class="recommend-progress">
+                    <div class="progress-track">
+                      <span class="progress-fill" :style="{ width: suggestion.match + '%' }"></span>
+                    </div>
+                    <span class="recommend-score">{{ suggestion.match }}%</span>
+                  </div>
+                </div>
+                <button type="button" class="btn ghost" @click="handleSuggestion(suggestion)">
+                  Verwenden
+                </button>
+              </article>
+            </div>
+          </section>
+
+          <section class="surface section-block metrics">
+            <header class="section-heading">
+              <h2 class="section-title">Kennzahlen</h2>
+              <p class="section-sub">Beliebte Themen aus den letzten Wochen</p>
+            </header>
+            <div class="metric-list">
+              <div v-for="item in mostUsed" :key="item.label" class="metric-pill">
+                <span class="metric-label">{{ item.label }}</span>
+                <span class="metric-value">{{ item.count }}</span>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <transition-group
+      v-if="toasts.length > 0"
+      name="toast"
+      tag="div"
+      class="toast-stack"
+    >
+      <div v-for="toast in toasts" :key="toast.id" class="toast-item">
+        <div>
+          <div class="toast-title">{{ toast.title }}</div>
+          <div v-if="toast.description" class="toast-message">{{ toast.description }}</div>
+        </div>
+        <button
+          type="button"
+          class="icon-button ghost"
+          @click="dismissToast(toast.id)"
+          aria-label="Benachrichtigung schließen"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </transition-group>
+
     <div
       v-if="showCreateModal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      class="modal-backdrop"
       @click.self="showCreateModal = false"
     >
-      <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-        <div class="p-6 border-b border-gray-200">
-          <h2 class="text-xl font-semibold text-black/80">Neue Vorlage erstellen</h2>
-        </div>
-        <form @submit.prevent="handleCreateTemplate" class="p-6 space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Vorlagenname</label>
+      <div class="modal-shell">
+        <header class="modal-header">
+          <h2 class="modal-title">Neue Vorlage erstellen</h2>
+          <button
+            type="button"
+            class="icon-button ghost"
+            @click="showCreateModal = false"
+            aria-label="Schließen"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+        <form @submit.prevent="handleCreateTemplate" class="modal-body">
+          <label class="field-group">
+            <span class="field-label">Vorlagenname</span>
             <input
               v-model="templateForm.name"
               type="text"
               required
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="field-input"
               placeholder="Vorlagenname eingeben"
             />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Kategorie</label>
+          </label>
+          <label class="field-group">
+            <span class="field-label">Kategorie</span>
             <input
               v-model="templateForm.category"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="field-input"
               placeholder="Kategorie eingeben (optional)"
             />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Inhalt</label>
+          </label>
+          <label class="field-group">
+            <span class="field-label">Inhalt</span>
             <textarea
               v-model="templateForm.content"
-              required
               rows="10"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+              required
+              class="field-textarea"
               placeholder="Vorlageninhalt eingeben"
             ></textarea>
-          </div>
-          <div class="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              @click="showCreateModal = false"
-              class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-            >
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="btn ghost" @click="showCreateModal = false">
               Abbrechen
             </button>
-            <button
-              type="submit"
-              :disabled="isCreating"
-              class="px-4 py-2 bg-[#5b7ce6] text-white rounded-lg hover:bg-[#4a6cd4] transition-colors disabled:opacity-50"
-            >
-              {{ isCreating ? 'Wird erstellt...' : 'Vorlage erstellen' }}
+            <button type="submit" class="btn primary" :disabled="isCreating">
+              {{ isCreating ? 'Wird erstellt…' : 'Vorlage erstellen' }}
             </button>
           </div>
         </form>
       </div>
     </div>
-    </div>
-  </div>
+  </PortalShell>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
+import PortalShell from '~/components/PortalShell.vue'
+import { usePortalUser } from '~/composables/usePortalUser'
 
-// Reactive state
+definePageMeta({ layout: false })
+
 const templates = ref<any[]>([])
 const searchQuery = ref('')
 const isLoading = ref(true)
 const showCreateModal = ref(false)
 const isCreating = ref(false)
 const toasts = ref<any[]>([])
-const suggestedScroller = ref<HTMLElement>()
 
-// Template form
 const templateForm = ref({
   name: '',
   category: '',
   content: ''
 })
 
-// Mock data
+const highlightCards = [
+  {
+    id: 'mandanten',
+    icon: 'shield',
+    title: 'Mandanten-ready',
+    note: 'Freigegebene Muster mit klarer Kommentierung & Optionsfeldern.'
+  },
+  {
+    id: 'speed',
+    icon: 'clock',
+    title: 'Schnelle Durchlaufzeit',
+    note: 'Ø Generierung: 22 Sekunden inklusive Qualitätscheck.'
+  },
+  {
+    id: 'feedback',
+    icon: 'chat',
+    title: 'Mandantenfeedback 4,6/5',
+    note: 'Transparente Feedback-Optionen für jede Dokumentversion.'
+  }
+]
+
 const suggestedTemplates = ref([
   { id: 's1', name: 'Geheimhaltungsvereinbarung (Beidseitig)', note: 'Basierend auf Ihrer Aktivität', match: 92, source: 'System' },
   { id: 's2', name: 'Vertrag – Dienstleistung', note: 'Häufig angefordert', match: 88, source: 'System' },
@@ -505,13 +447,21 @@ const mostUsed = ref([
 ])
 
 const clauses = ref([
-  { id: 'c1', name: 'Vertraulichkeit', desc: 'Definiert vertrauliche Informationen und erlaubte Offenlegungen.' },
-  { id: 'c2', name: 'Anwendbares Recht', desc: 'Wählt Gerichtsbarkeit und Kollisionsnormen.' },
-  { id: 'c3', name: 'Haftungsbeschränkung', desc: 'Begrenzt Schadensersatz; schließt indirekte und Folgeschäden aus.' },
-  { id: 'c4', name: 'Ordentliche Kündigung', desc: 'Ermöglicht beiden Parteien Kündigung mit Kündigungsfrist.' }
+  { id: 'c1', name: 'Vertraulichkeit', desc: 'Definiert vertrauliche Informationen und erlaubte Offenlegungen.', locked: true },
+  { id: 'c2', name: 'Anwendbares Recht', desc: 'Wählt Gerichtsbarkeit und Kollisionsnormen.', locked: false },
+  { id: 'c3', name: 'Haftungsbeschränkung', desc: 'Begrenzt Schadensersatz; schließt indirekte und Folgeschäden aus.', locked: true },
+  { id: 'c4', name: 'Ordentliche Kündigung', desc: 'Ermöglicht beiden Parteien Kündigung mit Kündigungsfrist.', locked: true }
 ])
 
-// Computed properties
+const { user, loadUser } = usePortalUser()
+const portalUserName = computed(() => user.value?.name || user.value?.email || 'Benutzer')
+const portalUserInitials = computed(() => {
+  const parts = portalUserName.value.split(/\s+/).filter(Boolean)
+  if (!parts.length) return 'AN'
+  const initials = parts.map(part => part.charAt(0).toUpperCase()).slice(0, 2).join('')
+  return initials || 'AN'
+})
+
 const filteredTemplates = computed(() => {
   if (!searchQuery.value) return templates.value
   const query = searchQuery.value.toLowerCase()
@@ -522,7 +472,28 @@ const filteredTemplates = computed(() => {
   )
 })
 
-// Methods
+const lastUpdatedLabel = computed(() => {
+  const candidates = templates.value
+    .map(item => item?.updatedAt)
+    .filter((value): value is string => Boolean(value))
+    .map(value => new Date(value))
+    .filter(date => !Number.isNaN(date.getTime()))
+
+  if (!candidates.length) return 'Gerade eben'
+
+  candidates.sort((a, b) => b.getTime() - a.getTime())
+  const newest = candidates[0]
+  const now = new Date()
+  const diff = now.getTime() - newest.getTime()
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+  if (days === 0) return 'Heute'
+  if (days === 1) return 'Gestern'
+  if (days < 7) return `vor ${days} Tagen`
+  if (days < 30) return `vor ${Math.floor(days / 7)} Wochen`
+  return newest.toLocaleDateString()
+})
+
 const showToast = (toast: { title: string; description?: string }) => {
   const id = Date.now() + Math.random()
   toasts.value.push({ id, ...toast })
@@ -542,7 +513,87 @@ const loadTemplates = async () => {
   try {
     const r = await fetch(`/api/auth/proxy.get?path=${encodeURIComponent('/api/templates')}`)
     const data = await r.json().catch(() => ({ items: [] }))
-    templates.value = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : [])
+    const apiTemplates = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : [])
+    
+    // Add sample templates
+    const now = new Date()
+    const sampleTemplates = [
+      {
+        id: 'sample-1',
+        name: 'NDA – Standard (DE)',
+        category: 'Vertrag',
+        content: 'Standardisierte Geheimhaltungsvereinbarung nach deutschem Recht für bilaterale Geschäftsbeziehungen.',
+        description: 'Standardisierte Geheimhaltungsvereinbarung nach deutschem Recht für bilaterale Geschäftsbeziehungen.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-2',
+        name: 'Klageentwurf – Zivilrecht',
+        category: 'Zivilrecht',
+        content: 'Professioneller Klageentwurf für zivilrechtliche Verfahren mit allen erforderlichen Formalien.',
+        description: 'Professioneller Klageentwurf für zivilrechtliche Verfahren mit allen erforderlichen Formalien.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-3',
+        name: 'Vollmacht – Mandanten',
+        category: 'Allgemein',
+        content: 'Umfassende Vollmachtsvorlage für die Vertretung von Mandanten in verschiedenen Rechtsangelegenheiten.',
+        description: 'Umfassende Vollmachtsvorlage für die Vertretung von Mandanten in verschiedenen Rechtsangelegenheiten.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-4',
+        name: 'Vergleichsangebot',
+        category: 'Zivilrecht',
+        content: 'Strukturiertes Vergleichsangebot zur außergerichtlichen Streitbeilegung im Zivilrecht.',
+        description: 'Strukturiertes Vergleichsangebot zur außergerichtlichen Streitbeilegung im Zivilrecht.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-5',
+        name: 'Abmahnung – Wettbewerbsrecht',
+        category: 'Wettbewerb',
+        content: 'Rechtssichere Abmahnung bei Verstößen gegen wettbewerbsrechtliche Bestimmungen.',
+        description: 'Rechtssichere Abmahnung bei Verstößen gegen wettbewerbsrechtliche Bestimmungen.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 18 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-6',
+        name: 'DSGVO – Auskunftsersuchen',
+        category: 'Datenschutz',
+        content: 'DSGVO-konforme Vorlage für Auskunftsersuchen gemäß Art. 15 DSGVO.',
+        description: 'DSGVO-konforme Vorlage für Auskunftsersuchen gemäß Art. 15 DSGVO.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 22 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-7',
+        name: 'Arbeitsvertrag – Standard',
+        category: 'Arbeitsrecht',
+        content: 'Vollständiger Arbeitsvertrag nach deutschem Arbeitsrecht mit allen wesentlichen Klauseln.',
+        description: 'Vollständiger Arbeitsvertrag nach deutschem Arbeitsrecht mit allen wesentlichen Klauseln.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 26 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'sample-8',
+        name: 'Mietvertrag – Wohnraum',
+        category: 'Mietrecht',
+        content: 'Standardmietvertrag für Wohnraum unter Beachtung aktueller mietrechtlicher Vorschriften.',
+        description: 'Standardmietvertrag für Wohnraum unter Beachtung aktueller mietrechtlicher Vorschriften.',
+        createdBy: 'Ihr Team',
+        updatedAt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    ]
+    
+    // Combine API templates with sample templates
+    templates.value = [...sampleTemplates, ...apiTemplates]
   } catch (e) {
     console.warn('load templates failed', e)
   } finally {
@@ -587,7 +638,6 @@ const createTemplate = () => {
 }
 
 const useTemplate = (template: any) => {
-  // Navigate to documents page or show template usage
   navigateTo('/documents')
   showToast({ title: 'Vorlage geladen', description: `${template.name} ist bereit zur Verwendung.` })
 }
@@ -602,9 +652,8 @@ const duplicateTemplate = (template: any) => {
 
 const deleteTemplate = async (template: any) => {
   if (!confirm(`Möchten Sie "${template.name}" wirklich löschen?`)) return
-  
+
   try {
-    // Delete template logic here
     showToast({ title: 'Vorlage gelöscht', description: `${template.name} wurde gelöscht.` })
     await loadTemplates()
   } catch (e) {
@@ -612,8 +661,16 @@ const deleteTemplate = async (template: any) => {
   }
 }
 
+const handleSuggestion = (suggestion: any) => {
+  showToast({ title: 'Vorlage geöffnet', description: `${suggestion.name} wird vorbereitet.` })
+}
+
 const copyClause = (clause: any) => {
   showToast({ title: 'Klausel kopiert', description: `${clause.name} in die Zwischenablage kopiert.` })
+}
+
+const openClauseLibrary = () => {
+  showToast({ title: 'Klauselbibliothek', description: 'Erweiterte Ansicht wird in Kürze freigeschaltet.' })
 }
 
 const handleImport = () => {
@@ -624,33 +681,11 @@ const handleFilter = () => {
   showToast({ title: 'Filter', description: 'Filteroptionen kommen bald.' })
 }
 
-const scrollLeft = () => {
-  if (suggestedScroller.value) {
-    suggestedScroller.value.scrollBy({ left: -320, behavior: 'smooth' })
-  }
-}
-
-const scrollRight = () => {
-  if (suggestedScroller.value) {
-    suggestedScroller.value.scrollBy({ left: 320, behavior: 'smooth' })
-  }
-}
-
 const getTemplateTags = (template: any) => {
   const tags = []
   if (template.category) tags.push(template.category)
   tags.push('Vorlage')
   return tags
-}
-
-const getTagClasses = (tag: string) => {
-  if (tag.toLowerCase() === 'system') {
-    return 'border-blue-200 bg-blue-50 text-blue-700'
-  } else if (tag.toLowerCase() === 'custom') {
-    return 'border-gray-300 bg-gray-50 text-gray-700'
-  } else {
-    return 'border-green-200 bg-green-50 text-green-700'
-  }
 }
 
 const formatDate = (dateString: string) => {
@@ -659,7 +694,7 @@ const formatDate = (dateString: string) => {
   const now = new Date()
   const diff = now.getTime() - date.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  
+
   if (days === 0) return 'Heute'
   if (days === 1) return 'Gestern'
   if (days < 7) return `vor ${days} Tagen`
@@ -667,56 +702,1211 @@ const formatDate = (dateString: string) => {
   return date.toLocaleDateString()
 }
 
-// Lifecycle
-onMounted(loadTemplates)
+onMounted(() => {
+  loadTemplates()
+  loadUser()
+})
 </script>
 
 <style scoped>
-.line-clamp-1 {
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
+:root {
+  --chrome-bg: rgba(255, 255, 255, 0.94);
+  --border-soft: rgba(36, 51, 83, 0.08);
+  --border-strong: rgba(36, 51, 83, 0.14);
+  --shadow-soft: 0 20px 45px rgba(30, 46, 120, 0.12);
+  --surface: #ffffff;
+  --surface-tint: #f4f6ff;
+  --text-strong: #16213e;
+  --text-muted: #5d6582;
+  --primary: #5b7ce6;
+  --primary-strong: #5b7ce6;
+  --primary-soft: rgba(91, 124, 230, 0.14);
+  --danger: #e24d4d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.templates-intro {
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-bottom: 28px;
+}
+
+.templates-intro__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.templates-intro__copy {
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.templates-eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--primary-strong);
+  font-weight: 600;
+}
+
+.templates-title {
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--text-strong);
+  line-height: 1.2;
+}
+
+.templates-lead {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 640px;
+}
+
+.templates-intro__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.templates-intro__bottom {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.intro-search {
+  flex: 1 1 320px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: #fff;
+  padding: 12px 16px;
+  box-shadow: 0 10px 32px rgba(60, 76, 150, 0.1);
+}
+
+.search-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.search-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-strong);
+}
+
+.search-input::placeholder {
+  color: rgba(93, 101, 130, 0.65);
+}
+
+.intro-metrics {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.intro-metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: linear-gradient(135deg, rgba(91, 124, 230, 0.08), rgba(91, 124, 230, 0.02));
+  min-width: 150px;
+}
+
+.intro-metric dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(22, 33, 62, 0.65);
+  margin-bottom: 6px;
+}
+
+.intro-metric dd {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.intro-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: #fff;
+  padding: 10px 14px;
+  box-shadow: 0 10px 28px rgba(60, 76, 150, 0.12);
+}
+
+.intro-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(91, 124, 230, 0.25), rgba(91, 124, 230, 0.45));
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  color: var(--text-strong);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+
+.intro-username {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-strong);
+}
+
+.templates-body {
+  background: linear-gradient(180deg, #f4f5fb 0%, #f7f8ff 40%, #ffffff 100%);
+  padding: 26px 48px 48px;
+}
+
+.templates-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(240px, 320px);
+  gap: 28px;
+  align-items: start;
+}
+
+.templates-rail,
+.templates-main,
+.templates-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 24px;
+  box-shadow: 0 22px 44px rgba(40, 58, 120, 0.1);
+}
+
+.section-block {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
   overflow: hidden;
 }
 
-.line-clamp-2 {
+.section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-heading--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.section-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.stat-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+.stat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  background: rgba(91, 124, 230, 0.12);
+  color: var(--primary-strong);
+  display: grid;
+  place-items: center;
+}
+
+.stat-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.stat-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+.stat-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 14px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: #fff;
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.btn .btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 28px rgba(60, 76, 150, 0.18);
+  transition: all 0.2s ease;
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #5b7ce6 0%, #4a6cd4 100%);
+  color: #fff;
+  border-color: rgba(91, 124, 230, 0.25);
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(91, 124, 230, 0.25);
+}
+
+.btn.primary:hover {
+  box-shadow: 0 18px 40px rgba(91, 124, 230, 0.35);
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #4a6cd4 0%, #3b5fc7 100%);
+}
+
+.btn.outline {
+  border-color: rgba(91, 124, 230, 0.3);
+  background: rgba(91, 124, 230, 0.06);
+  color: var(--primary-strong);
+  font-weight: 600;
+}
+
+.btn.outline:hover {
+  border-color: rgba(91, 124, 230, 0.5);
+  background: rgba(91, 124, 230, 0.12);
+  box-shadow: 0 10px 25px rgba(91, 124, 230, 0.15);
+}
+
+.btn.ghost {
+  border-color: rgba(91, 124, 230, 0.25);
+  background: rgba(91, 124, 230, 0.1);
+  color: var(--primary-strong);
+  font-weight: 600;
+}
+
+.btn.ghost:hover {
+  background: rgba(91, 124, 230, 0.16);
+  border-color: rgba(91, 124, 230, 0.4);
+  box-shadow: 0 10px 25px rgba(91, 124, 230, 0.15);
+}
+
+.btn.text {
+  border-color: transparent;
+  background: transparent;
+  color: var(--primary-strong);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.btn.text:hover {
+  color: var(--primary);
+  transform: none;
+  box-shadow: none;
+}
+
+.btn.text .chevron {
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+}
+
+.clause-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.clause-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(91, 124, 230, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 14px 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  text-align: left;
   overflow: hidden;
 }
 
-.line-clamp-3 {
+.clause-pill:hover {
+  transform: translateX(4px);
+  border-color: rgba(91, 124, 230, 0.3);
+  background: rgba(91, 124, 230, 0.05);
+  box-shadow: 0 12px 30px rgba(91, 124, 230, 0.12);
+}
+
+.clause-pill:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.clause-pill__text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.clause-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clause-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.clause-pill__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  flex-shrink: 0;
+  height: 32px;
+  border-radius: 12px;
+  border: 1px solid rgba(91, 124, 230, 0.2);
+  background: rgba(91, 124, 230, 0.1);
+  color: var(--primary-strong);
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.clause-pill__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.clause-pill__icon.is-locked {
+  border-color: rgba(226, 77, 77, 0.25);
+  background: rgba(226, 77, 77, 0.12);
+  color: #c94141;
+}
+
+.templates-panel {
+  gap: 28px;
+}
+
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.panel-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.panel-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.templates-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.skeleton-card {
+  position: relative;
+  padding: 22px;
+  border-radius: 20px;
+  background: rgba(236, 240, 255, 0.5);
+  overflow: hidden;
+}
+
+.skeleton-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.65) 50%, transparent 100%);
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.skeleton-line {
+  display: block;
+  height: 12px;
+  background: rgba(210, 216, 245, 0.7);
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+
+.skeleton-line.short {
+  width: 60%;
+}
+
+.skeleton-tags {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.skeleton-tags span {
+  flex: 1;
+  height: 10px;
+  background: rgba(210, 216, 245, 0.7);
+  border-radius: 8px;
+}
+
+.skeleton-button {
+  display: block;
+  width: 40%;
+  height: 14px;
+  background: rgba(210, 216, 245, 0.7);
+  border-radius: 999px;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.templates-empty {
+  padding: 40px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.empty-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 24px;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  display: grid;
+  place-items: center;
+}
+
+.empty-svg {
+  width: 34px;
+  height: 34px;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.empty-text {
+  font-size: 14px;
+  color: var(--text-muted);
+  max-width: 360px;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 22px;
+}
+
+.template-card {
+  border: 1px solid rgba(91, 124, 230, 0.12);
+  border-radius: 22px;
+  padding: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, #ffffff 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 20px 36px rgba(36, 51, 104, 0.08);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.template-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 28px 50px rgba(36, 51, 104, 0.16);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.template-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.template-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-strong);
+  line-height: 1.3;
+  flex: 1 1 auto;
+  min-width: 0;
+  word-wrap: break-word;
+}
+
+.template-chip {
+  background: rgba(91, 124, 230, 0.12);
+  color: var(--primary-strong);
+  border: 1px solid rgba(91, 124, 230, 0.22);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.template-chip:hover {
+  background: rgba(91, 124, 230, 0.2);
+}
+
+.template-description {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.animate-in {
-  animation: slide-in-from-top 0.3s ease-out;
+.template-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-@keyframes slide-in-from-top {
+.meta-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.meta-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.template-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 124, 230, 0.25);
+  background: rgba(91, 124, 230, 0.1);
+  color: var(--primary-strong);
+  font-size: 11px;
+  padding: 6px 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.template-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+.template-actions {
+  display: inline-flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.icon-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-button:hover {
+  background: rgba(91, 124, 230, 0.08);
+  border-color: transparent;
+  color: var(--primary-strong);
+  transform: translateY(-1px);
+}
+
+.icon-button:active {
+  background: rgba(91, 124, 230, 0.14);
+  border-color: rgba(91, 124, 230, 0.3);
+  color: var(--primary-strong);
+  transform: translateY(0);
+}
+
+.icon-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-button.danger {
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.icon-button.danger:hover {
+  background: rgba(226, 77, 77, 0.08);
+  border-color: transparent;
+  color: #b93838;
+}
+
+.icon-button.danger:active {
+  background: rgba(226, 77, 77, 0.14);
+  border-color: rgba(226, 77, 77, 0.3);
+  color: #a52727;
+}
+
+.recommend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.recommend-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(91, 124, 230, 0.14);
+  padding: 16px;
+  background: rgba(249, 250, 255, 0.9);
+  overflow: hidden;
+}
+
+.recommend-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.recommend-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+}
+
+.recommend-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recommend-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(91, 124, 230, 0.16);
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-strong) 100%);
+}
+
+.recommend-score {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-strong);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.metric-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.metric-pill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(91, 124, 230, 0.12);
+  background: rgba(91, 124, 230, 0.08);
+  overflow: hidden;
+}
+
+.metric-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(22, 33, 62, 0.68);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.metric-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-strong);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.toast-stack {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 80;
+}
+
+.toast-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 260px;
+  border-radius: 16px;
+  border: 1px solid rgba(22, 33, 62, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 14px 18px;
+  box-shadow: 0 16px 28px rgba(36, 51, 104, 0.18);
+}
+
+.toast-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.toast-message {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 22, 45, 0.32);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 90;
+}
+
+.modal-shell {
+  width: min(720px, 100%);
+  border-radius: 28px;
+  background: var(--surface);
+  border: 1px solid rgba(36, 51, 83, 0.12);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalSlideUp {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: scale(0.95) translateY(20px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1) translateY(0);
   }
 }
 
-.snap-x {
-  scroll-snap-type: x mandatory;
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px;
+  border-bottom: 1px solid rgba(91, 124, 230, 0.12);
+  background: linear-gradient(135deg, rgba(91, 124, 230, 0.05), rgba(91, 124, 230, 0.02));
 }
 
-.snap-mandatory {
-  scroll-snap-type: mandatory;
+.modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-strong);
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.snap-start {
-  scroll-snap-align: start;
+.modal-body {
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(90vh - 200px);
+  overflow-y: auto;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.field-input,
+.field-textarea {
+  border: 1px solid rgba(36, 51, 83, 0.14);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--text-strong);
+  resize: vertical;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field-input:focus,
+.field-textarea:focus {
+  border-color: rgba(91, 124, 230, 0.5);
+  box-shadow: 0 0 0 4px rgba(91, 124, 230, 0.14);
+  outline: none;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+@media (max-width: 1280px) {
+  .templates-layout {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  }
+
+  .templates-aside {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .templates-aside > * {
+    flex: 1 1 320px;
+  }
+}
+
+@media (max-width: 960px) {
+  .templates-intro {
+    padding: 24px 20px;
+  }
+
+  .templates-intro__top {
+    flex-direction: column;
+  }
+
+  .templates-intro__actions {
+    align-self: flex-start;
+  }
+
+  .templates-intro__bottom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .intro-search {
+    width: 100%;
+    padding: 10px 14px;
+  }
+
+  .search-input {
+    font-size: 16px;
+  }
+
+  .intro-metrics {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .intro-user {
+    align-self: flex-start;
+  }
+
+  .templates-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .templates-rail,
+  .templates-main,
+  .templates-aside {
+    flex-direction: column;
+  }
+
+  .templates-aside {
+    gap: 24px;
+  }
+
+  .templates-body {
+    padding: 24px 20px 40px;
+  }
+
+  .templates-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .template-card {
+    padding: 20px;
+  }
+
+  .panel-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .templates-intro {
+    padding: 22px 18px;
+  }
+
+  .templates-body {
+    padding: 24px 16px 40px;
+  }
+
+  .intro-metrics {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .intro-metric {
+    width: 100%;
+  }
+
+  .intro-user {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .templates-grid {
+    gap: 18px;
+  }
+
+  .toast-stack {
+    left: 16px;
+    right: 16px;
+    bottom: 20px;
+    align-items: stretch;
+  }
+
+  .toast-item {
+    width: 100%;
+  }
+
+  .modal-backdrop {
+    padding: 16px;
+    align-items: flex-end;
+  }
+
+  .modal-shell {
+    border-radius: 24px 24px 0 0;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-header,
+  .modal-body {
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(90vh - 200px);
+  overflow-y: auto;
+}
+}
+
+/* Keyboard navigation focus rings */
+.btn:focus-visible,
+.icon-button:focus-visible,
+.clause-pill:focus-visible {
+  outline: 2px solid #5b7ce6;
+  outline-offset: 2px;
+}
+
+.field-input:focus-visible,
+.field-textarea:focus-visible {
+  outline: none;
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Override to match Overview page */
+.sidebar-link.active {
+  background-color: #eff6ff !important;
+  color: #5b7ce6 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 </style>

@@ -1,65 +1,68 @@
 <template>
-  <div class="min-h-screen bg-gray-50 w-full">
-    <!-- Header -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-40">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-          <div class="flex items-center gap-4">
-            <NuxtLink to="/dashboard" class="text-gray-500 hover:text-gray-700">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-              </svg>
-            </NuxtLink>
-            <div>
-              <h1 class="text-2xl font-semibold text-gray-900">Systemeinstellungen</h1>
-              <p class="text-sm text-gray-500">Verwaltung und Konfiguration der Plattform</p>
+  <PortalShell>
+    <template #header>
+      <!-- Header -->
+      <header class="bg-white border-b border-gray-200">
+        <div class="px-8 py-4">
+          <div class="responsive-stack">
+            <div class="flex items-center gap-4">
+              <NuxtLink to="/dashboard" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+              </NuxtLink>
+              <div>
+                <h1 class="text-2xl font-semibold text-gray-900">Systemeinstellungen</h1>
+                <p class="text-sm text-gray-500">Verwaltung und Konfiguration der Plattform</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 self-start md:self-auto">
+              <span class="text-sm text-gray-500 hidden sm:inline">Zuletzt aktualisiert: {{ lastUpdate }}</span>
+              <button @click="refreshData" class="btn-secondary">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Aktualisieren
+              </button>
             </div>
           </div>
-          <div class="flex items-center gap-3">
-            <span class="text-sm text-gray-500 hidden sm:inline">Zuletzt aktualisiert: {{ lastUpdate }}</span>
-            <button @click="refreshData" class="btn-secondary">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-              </svg>
-              Aktualisieren
-            </button>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="border-t border-gray-200">
+          <div class="px-8">
+            <nav class="flex space-x-4 sm:space-x-8 overflow-x-auto" aria-label="Tabs">
+              <button
+                v-for="tab in tabs"
+                :key="tab.id"
+                @click="activeTab = tab.id"
+                :class="[
+                  'py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors',
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ]"
+              >
+                <span class="flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.iconPath"/>
+                  </svg>
+                  {{ tab.name }}
+                  <span v-if="tab.badge" class="ml-2 px-2 py-0.5 text-xs rounded-full"
+                    :class="tab.badgeClass">{{ tab.badge }}</span>
+                </span>
+              </button>
+            </nav>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </template>
 
-    <!-- Tab Navigation -->
-    <div class="bg-white border-b border-gray-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <nav class="flex space-x-4 sm:space-x-8 overflow-x-auto" aria-label="Tabs">
-          <button 
-            v-for="tab in tabs" 
-            :key="tab.id"
-            @click="activeTab = tab.id"
-            :class="[
-              'py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors',
-              activeTab === tab.id 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            ]"
-          >
-            <span class="flex items-center gap-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.iconPath"/>
-              </svg>
-              {{ tab.name }}
-              <span v-if="tab.badge" class="ml-2 px-2 py-0.5 text-xs rounded-full" 
-                :class="tab.badgeClass">{{ tab.badge }}</span>
-            </span>
-          </button>
-        </nav>
-      </div>
-    </div>
-
+    <div class="bg-gray-50 w-full">
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Analytics & Metrics Tab -->
-      <div v-if="activeTab === 'analytics'" class="space-y-6">
+      <div v-if="activeTab === 'analytics'" class="settings-section">
         <!-- KPI Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <div v-for="kpi in kpis" :key="kpi.label" class="card p-6">
@@ -102,7 +105,7 @@
           <h3 class="text-lg font-medium text-gray-900 mb-4">Systemstatus</h3>
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div v-for="service in systemHealth" :key="service.name" 
-              class="flex items-center justify-between p-4 rounded-lg border"
+              class="responsive-stack status-row p-4 rounded-lg border"
               :class="service.status === 'Betriebsbereit' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'">
               <div>
                 <p class="font-medium text-gray-900">{{ service.name }}</p>
@@ -118,11 +121,11 @@
       </div>
 
       <!-- API Management Tab -->
-      <div v-if="activeTab === 'api'" class="space-y-6">
+      <div v-if="activeTab === 'api'" class="settings-section">
         <!-- API Keys -->
         <div class="card">
           <div class="p-6 border-b border-gray-200">
-            <div class="flex items-center justify-between">
+            <div class="responsive-stack card-header-content">
               <h3 class="text-lg font-medium text-gray-900">API-Schlüssel</h3>
               <button @click="generateApiKey" class="btn-primary">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +138,7 @@
           <div class="p-6">
             <div class="space-y-4">
               <div v-for="key in apiKeys" :key="key.id" 
-                class="flex items-center justify-between p-4 rounded-lg border border-gray-200">
+                class="responsive-stack api-key-row">
                 <div class="flex-1">
                   <div class="flex items-center gap-3">
                     <code class="text-sm font-mono bg-gray-100 px-2 py-1 rounded">{{ key.key }}</code>
@@ -154,7 +157,7 @@
                     </span>
                   </div>
                 </div>
-                <button @click="revokeKey(key.id)" class="text-red-600 hover:text-red-800">
+                <button @click="revokeKey(key.id)" class="text-red-600 hover:text-red-800 md:self-center">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                   </svg>
@@ -171,7 +174,7 @@
           </div>
           <div class="divide-y divide-gray-200">
             <div v-for="endpoint in apiEndpoints" :key="endpoint.path" class="p-6">
-              <div class="flex items-start justify-between">
+              <div class="responsive-stack-start endpoint-row">
                 <div class="flex-1">
                   <div class="flex items-center gap-3">
                     <span class="px-2 py-1 text-xs font-medium rounded"
@@ -188,7 +191,7 @@
                     <span>Durchschn. Antwort: {{ endpoint.avgResponse }}ms</span>
                   </div>
                 </div>
-                <button class="text-blue-600 hover:text-blue-800 text-sm">Testen</button>
+                <button class="text-blue-600 hover:text-blue-800 text-sm md:self-center">Testen</button>
               </div>
             </div>
           </div>
@@ -196,10 +199,10 @@
       </div>
 
       <!-- Webhooks Tab -->
-      <div v-if="activeTab === 'webhooks'" class="space-y-6">
+      <div v-if="activeTab === 'webhooks'" class="settings-section">
         <div class="card">
           <div class="p-6 border-b border-gray-200">
-            <div class="flex items-center justify-between">
+            <div class="responsive-stack card-header-content">
               <h3 class="text-lg font-medium text-gray-900">Webhook-Konfiguration</h3>
               <button @click="showWebhookModal = true" class="btn-primary">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -211,9 +214,9 @@
           </div>
           <div class="p-6">
             <div class="space-y-4">
-              <div v-for="webhook in webhooks" :key="webhook.id" class="border rounded-lg">
+              <div v-for="webhook in webhooks" :key="webhook.id" class="webhook-card">
                 <div class="p-4">
-                  <div class="flex items-start justify-between">
+                  <div class="responsive-stack-start webhook-row">
                     <div class="flex-1">
                       <div class="flex items-center gap-3">
                         <h4 class="font-medium text-gray-900">{{ webhook.name }}</h4>
@@ -230,7 +233,7 @@
                         </span>
                       </div>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 md:self-start">
                       <button @click="testWebhook(webhook.id)" class="text-blue-600 hover:text-blue-800">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
@@ -251,13 +254,13 @@
                   </div>
                   <!-- Webhook Logs -->
                   <div class="mt-4 pt-4 border-t border-gray-200">
-                    <div class="flex items-center justify-between mb-2">
+                    <div class="responsive-stack log-header mb-2">
                       <span class="text-sm font-medium text-gray-700">Letzte Aufrufe</span>
                       <button class="text-sm text-blue-600 hover:text-blue-800">Alle anzeigen</button>
                     </div>
                     <div class="space-y-1">
                       <div v-for="log in webhook.recentLogs" :key="log.timestamp" 
-                        class="flex items-center justify-between text-sm">
+                        class="responsive-stack log-row text-sm">
                         <span class="text-gray-600">{{ log.timestamp }}</span>
                         <span class="px-2 py-0.5 rounded text-xs font-medium"
                           :class="log.status === 200 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
@@ -274,10 +277,10 @@
       </div>
 
       <!-- Users Tab -->
-      <div v-if="activeTab === 'users'" class="space-y-6">
+      <div v-if="activeTab === 'users'" class="settings-section">
         <!-- User Controls -->
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-4">
+        <div class="responsive-stack user-toolbar">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div class="relative">
               <input v-model="userSearch" type="text" placeholder="Benutzer suchen..." 
                 class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
@@ -292,7 +295,7 @@
               <option value="viewer">Betrachter</option>
             </select>
           </div>
-          <button @click="showAddUserModal = true" class="btn-primary">
+          <button @click="showAddUserModal = true" class="btn-primary self-start md:self-auto">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
             </svg>
@@ -374,7 +377,7 @@
       </div>
 
       <!-- General Settings Tab -->
-      <div v-if="activeTab === 'general'" class="space-y-6">
+      <div v-if="activeTab === 'general'" class="settings-section">
         <!-- Platform Configuration -->
         <div class="card p-6">
           <h3 class="text-lg font-medium text-gray-900 mb-4">Plattform-Konfiguration</h3>
@@ -402,7 +405,7 @@
         <div class="card p-6">
           <h3 class="text-lg font-medium text-gray-900 mb-4">Sicherheitseinstellungen</h3>
           <div class="space-y-4">
-            <div class="flex items-center justify-between">
+            <div class="responsive-stack setting-row">
               <div>
                 <h4 class="text-sm font-medium text-gray-900">Zwei-Faktor-Authentifizierung</h4>
                 <p class="text-sm text-gray-500">Erfordert zusätzliche Verifizierung bei der Anmeldung</p>
@@ -412,7 +415,7 @@
                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </label>
             </div>
-            <div class="flex items-center justify-between">
+            <div class="responsive-stack setting-row">
               <div>
                 <h4 class="text-sm font-medium text-gray-900">SSO-Integration</h4>
                 <p class="text-sm text-gray-500">Anmeldung über Unternehmens-Identitätsanbieter</p>
@@ -445,7 +448,7 @@
         <!-- Data Export -->
         <div class="card p-6">
           <h3 class="text-lg font-medium text-gray-900 mb-4">Datenexport</h3>
-          <div class="flex items-center justify-between">
+          <div class="responsive-stack data-export-row">
             <div>
               <p class="text-sm text-gray-600">Exportieren Sie alle Plattformdaten für Audits oder Backups</p>
             </div>
@@ -492,11 +495,13 @@
         </div>
       </div>
     </div>
-  </div>
+    </div>
+  </PortalShell>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import PortalShell from '~/components/PortalShell.vue'
 
 definePageMeta({ layout: false })
 
@@ -756,9 +761,109 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.responsive-stack,
+.responsive-stack-start {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .responsive-stack {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .responsive-stack-start {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.card-header-content {
+  gap: 1rem;
+}
+
+.status-row {
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .status-row {
+    align-items: center;
+  }
+}
+
+.api-key-row {
+  border: 1px solid rgba(229, 231, 235, 1);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  background: #f9fafb;
+}
+
+.api-key-row > button {
+  flex-shrink: 0;
+}
+
+.endpoint-row {
+  gap: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .endpoint-row {
+    align-items: center;
+  }
+}
+
+.webhook-card {
+  border: 1px solid rgba(229, 231, 235, 1);
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.webhook-row {
+  gap: 1.25rem;
+}
+
+.log-header,
+.log-row {
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .log-row {
+    align-items: center;
+  }
+}
+
+.user-toolbar {
+  gap: 1.5rem;
+}
+
+.setting-row {
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(226, 232, 240, 1);
+  background: #f8fafc;
+}
+
+.data-export-row {
+  gap: 1.25rem;
+}
+
 .card {
   background: white;
   border-radius: 0.5rem;
+  border: 1px solid rgba(226, 232, 240, 0.7);
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
 }
 
@@ -790,5 +895,13 @@ onMounted(() => {
 
 .btn-secondary:hover {
   background-color: #e5e7eb;
+}
+
+/* Override to match Overview page */
+.sidebar-link.active {
+  background-color: #eff6ff !important;
+  color: #2563eb !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 </style>
