@@ -11,17 +11,18 @@
             </p>
           </div>
           <div class="templates-intro__actions">
-            <button type="button" class="btn ghost" @click="handleFilter">
+            <button type="button" class="btn ghost" @click="openClauseModal">
               <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 6a2 2 0 012-2h6l6 6v8a2 2 0 01-2 2H7a2 2 0 01-2-2V6z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-3-3v6" />
               </svg>
-              Filtern
+              Neue Klausel
             </button>
-            <button type="button" class="btn outline" @click="handleImport">
+            <button type="button" class="btn outline" @click="handleImport" :disabled="isImporting">
               <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
               </svg>
-              Importieren
+              {{ isImporting ? 'Import läuft…' : 'Importieren' }}
             </button>
             <button type="button" class="btn primary" @click="createTemplate">
               <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -29,6 +30,14 @@
               </svg>
               Neue Vorlage
             </button>
+            <input
+              ref="importInputRef"
+              type="file"
+              class="visually-hidden"
+              :disabled="isImporting"
+              accept=".pdf,.doc,.docx,.txt,.rtf,.md,.markdown,.html,.odt"
+              @change="onImportSelected"
+            />
           </div>
         </div>
         <div class="templates-intro__bottom">
@@ -102,14 +111,35 @@
                 <h2 class="section-title">Klauselbibliothek</h2>
                 <p class="section-sub">Direkt in Entwürfe übernehmen</p>
               </div>
-              <button type="button" class="btn text" @click="openClauseLibrary">
-                Alle anzeigen
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="chevron">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
+              <div class="clause-actions">
+                <button type="button" class="btn ghost" @click="openClauseModal">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 6a2 2 0 012-2h6l6 6v8a2 2 0 01-2 2H7a2 2 0 01-2-2V6z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-3-3v6" />
+                  </svg>
+                  Neue Klausel
+                </button>
+                <button type="button" class="btn text" @click="openClauseLibrary">
+                  Alle anzeigen
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="chevron">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </header>
-            <div class="clause-list">
+            <p v-if="isUsingFallbackClauses" class="clause-hint">
+              Vorschläge basieren auf Standardklauseln – legen Sie eigene Bausteine über „Neue Klausel“ an.
+            </p>
+            <div v-if="isClausesLoading" class="clause-empty">
+              <span>Bausteine werden geladen…</span>
+            </div>
+            <div v-else-if="clausesError" class="clause-empty clause-empty--error">
+              <span>{{ clausesError }}</span>
+            </div>
+            <div v-else-if="clauses.length === 0" class="clause-empty">
+              <span>Noch keine Bausteine vorhanden.</span>
+            </div>
+            <div v-else class="clause-list">
               <button
                 v-for="clause in clauses"
                 :key="clause.id"
@@ -118,8 +148,12 @@
                 @click="copyClause(clause)"
               >
                 <div class="clause-pill__text">
-                  <span class="clause-title">{{ clause.name }}</span>
+                  <div class="clause-pill__headline">
+                    <span class="clause-title">{{ clause.name }}</span>
+                    <span v-if="clause.isFallback" class="clause-badge">Vorschlag</span>
+                  </div>
                   <span class="clause-desc">{{ clause.desc }}</span>
+                  <span v-if="clause.category" class="clause-meta">{{ clause.category }}</span>
                 </div>
                 <span class="clause-pill__icon" :class="{ 'is-locked': clause.locked }">
                   <svg
@@ -161,7 +195,7 @@
               </button>
             </header>
 
-            <div v-if="isLoading" class="templates-skeleton">
+            <div v-if="isTemplatesLoading" class="templates-skeleton">
               <div v-for="i in 8" :key="`skeleton-${i}`" class="skeleton-card">
                 <span class="skeleton-line short"></span>
                 <span class="skeleton-line"></span>
@@ -170,6 +204,21 @@
                   <span></span>
                 </div>
                 <span class="skeleton-button"></span>
+              </div>
+            </div>
+
+            <div v-else-if="templatesError" class="templates-empty templates-empty--error">
+              <div class="empty-icon">
+                <svg class="empty-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 class="empty-title">Vorlagen konnten nicht geladen werden</h3>
+              <p class="empty-text">{{ templatesError }}</p>
+              <div class="empty-actions">
+                <button type="button" class="btn primary" @click="refreshCatalog" :disabled="isRefreshing">
+                  Erneut versuchen
+                </button>
               </div>
             </div>
 
@@ -182,11 +231,11 @@
               <h3 class="empty-title">Noch keine Vorlagen</h3>
               <p class="empty-text">Importieren oder erstellen Sie eine Vorlage, um Ihren Mandantenstartpunkt aufzubauen.</p>
               <div class="empty-actions">
-                <button type="button" class="btn primary" @click="handleImport">
+                <button type="button" class="btn primary" @click="handleImport" :disabled="isImporting">
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                   </svg>
-                  Importieren
+                  {{ isImporting ? 'Import läuft…' : 'Importieren' }}
                 </button>
                 <button type="button" class="btn ghost" @click="createTemplate">
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -329,9 +378,9 @@
     </transition-group>
 
     <div
-      v-if="showCreateModal"
+      v-if="showTemplateModal"
       class="modal-backdrop"
-      @click.self="showCreateModal = false"
+      @click.self="showTemplateModal = false"
     >
       <div class="modal-shell">
         <header class="modal-header">
@@ -339,7 +388,7 @@
           <button
             type="button"
             class="icon-button ghost"
-            @click="showCreateModal = false"
+            @click="showTemplateModal = false"
             aria-label="Schließen"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -347,7 +396,7 @@
             </svg>
           </button>
         </header>
-        <form @submit.prevent="handleCreateTemplate" class="modal-body">
+        <form @submit.prevent="submitTemplateForm" class="modal-body">
           <label class="field-group">
             <span class="field-label">Vorlagenname</span>
             <input
@@ -378,13 +427,90 @@
             ></textarea>
           </label>
           <div class="modal-actions">
-            <button type="button" class="btn ghost" @click="showCreateModal = false">
+            <button type="button" class="btn ghost" @click="showTemplateModal = false">
               Abbrechen
             </button>
-            <button type="submit" class="btn primary" :disabled="isCreating">
-              {{ isCreating ? 'Wird erstellt…' : 'Vorlage erstellen' }}
+            <button type="submit" class="btn primary" :disabled="isSavingTemplate">
+              {{ isSavingTemplate ? 'Wird gespeichert…' : (modalMode === 'create' ? 'Vorlage erstellen' : 'Änderungen speichern') }}
             </button>
           </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      v-if="showClauseModal"
+      class="modal-backdrop"
+      @click.self="closeClauseModal"
+    >
+      <div class="modal-shell clause-modal">
+        <header class="modal-header">
+          <h2 class="modal-title">Neue Klausel anlegen</h2>
+          <button
+            type="button"
+            class="icon-button ghost"
+            @click="closeClauseModal"
+            aria-label="Schließen"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+        <form @submit.prevent="submitClauseForm" class="modal-body">
+          <label class="field-group">
+            <span class="field-label">Titel</span>
+            <input
+              v-model="clauseForm.title"
+              type="text"
+              required
+              class="field-input"
+              placeholder="Bezeichnung der Klausel"
+            />
+          </label>
+          <label class="field-group">
+            <span class="field-label">Kategorie</span>
+            <input
+              v-model="clauseForm.category"
+              type="text"
+              class="field-input"
+              placeholder="Z. B. Vertragsrecht"
+            />
+          </label>
+          <label class="field-group">
+            <span class="field-label">Sprache</span>
+            <select v-model="clauseForm.language" class="field-input">
+              <option value="de">Deutsch</option>
+              <option value="en">Englisch</option>
+            </select>
+          </label>
+          <label class="field-group">
+            <span class="field-label">Inhalt</span>
+            <textarea
+              v-model="clauseForm.content"
+              class="field-textarea"
+              rows="8"
+              required
+              placeholder="Klauseltext hier einfügen oder formulieren"
+            ></textarea>
+          </label>
+          <footer class="modal-actions">
+            <button
+              type="button"
+              class="btn ghost"
+              @click="closeClauseModal"
+              :disabled="isSavingClause"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="submit"
+              class="btn primary"
+              :disabled="isSavingClause"
+            >
+              {{ isSavingClause ? 'Speichern…' : 'Klausel speichern' }}
+            </button>
+          </footer>
         </form>
       </div>
     </div>
@@ -392,66 +518,446 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import PortalShell from '~/components/PortalShell.vue'
 import { usePortalUser } from '~/composables/usePortalUser'
 
 definePageMeta({ layout: false })
 
-const templates = ref<any[]>([])
+type TemplateRecord = {
+  id: string
+  name: string
+  content: string
+  category?: string
+  description?: string
+  usageCount?: number
+  createdBy?: string
+  createdAt?: string | null
+  updatedAt?: string | null
+  type?: string
+}
+
+interface TemplateSuggestion {
+  id: string
+  name: string
+  category?: string
+  usage_count: number
+  match_score: number
+  updated_at?: string | null
+}
+
+interface TemplateInsights {
+  counts: {
+    active: number
+    updated_recent: number
+    usage_events: number
+  }
+  last_updated_at?: string | null
+  suggestions: TemplateSuggestion[]
+  top_categories: { label: string; count: number }[]
+  recent_templates: TemplateRecord[]
+}
+
+type ClauseRecord = {
+  id: string
+  name: string
+  desc: string
+  content: string
+  locked: boolean
+  category?: string | null
+  language?: string | null
+  isFallback?: boolean
+}
+
+const randomId = (prefix = 'item') => `${prefix}_${Math.random().toString(36).slice(2, 10)}`
+
+const templates = ref<TemplateRecord[]>([])
+const templatesError = ref<string | null>(null)
+const isTemplatesLoading = ref(true)
+const importInputRef = ref<HTMLInputElement | null>(null)
+const isImporting = ref(false)
+
+const IMPORT_MAX_BYTES = 10 * 1024 * 1024
+const IMPORT_ACCEPTED_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'text/rtf',
+  'application/rtf',
+  'text/markdown',
+  'text/html',
+  'application/vnd.oasis.opendocument.text'
+]
+
+const insights = ref<TemplateInsights | null>(null)
+const insightsError = ref<string | null>(null)
+const isInsightsLoading = ref(true)
+
+const clauses = ref<ClauseRecord[]>([])
+const clausesError = ref<string | null>(null)
+const isClausesLoading = ref(true)
+const isUsingFallbackClauses = ref(false)
+
 const searchQuery = ref('')
-const isLoading = ref(true)
-const showCreateModal = ref(false)
-const isCreating = ref(false)
-const toasts = ref<any[]>([])
+const showTemplateModal = ref(false)
+const modalMode = ref<'create' | 'edit'>('create')
+const isSavingTemplate = ref(false)
+const isRefreshing = ref(false)
+const toasts = ref<Array<{ id: number; title: string; description?: string }>>([])
+const showClauseModal = ref(false)
+const isSavingClause = ref(false)
 
 const templateForm = ref({
+  id: '',
   name: '',
   category: '',
+  content: '',
+  updatedAt: ''
+})
+
+const clauseForm = ref({
+  title: '',
+  category: '',
+  language: 'de',
   content: ''
 })
 
-const highlightCards = [
+const summarizeContent = (source: string): string => {
+  const text = String(source || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!text) return ''
+  return text.length > 180 ? `${text.slice(0, 177)}…` : text
+}
+
+const normalizeTemplate = (entry: any): TemplateRecord => ({
+  id: String(entry?.id ?? entry?.template_id ?? ''),
+  name: entry?.title || entry?.name || 'Vorlage',
+  content: entry?.content || '',
+  category: entry?.category || 'Allgemein',
+  description: entry?.description || entry?.summary || summarizeContent(entry?.content || ''),
+  usageCount: Number(entry?.usage_count ?? entry?.usageCount ?? 0),
+  createdBy: entry?.created_by || entry?.createdBy || entry?.author || 'Ihr Team',
+  createdAt: entry?.created_at || entry?.createdAt || null,
+  updatedAt: entry?.updated_at || entry?.updatedAt || null,
+  type: entry?.type || 'document'
+})
+
+const normalizeClause = (entry: any): ClauseRecord => ({
+  id: String(entry?.id ?? randomId('clause')),
+  name: entry?.title || entry?.name || 'Klausel',
+  desc: entry?.summary || entry?.desc || summarizeContent(entry?.content || ''),
+  content: entry?.content || entry?.body || '',
+  locked: Boolean(entry?.locked ?? entry?.premium ?? false),
+  category: entry?.category || null,
+  language: entry?.language || null,
+  isFallback: false
+})
+
+const normalizeInsights = (raw: any): TemplateInsights => ({
+  counts: {
+    active: Number(raw?.counts?.active || 0),
+    updated_recent: Number(raw?.counts?.updated_recent || 0),
+    usage_events: Number(raw?.counts?.usage_events || 0)
+  },
+  last_updated_at: raw?.last_updated_at || null,
+  suggestions: Array.isArray(raw?.suggestions)
+    ? raw.suggestions
+        .map((item: any) => ({
+          id: String(item?.id ?? ''),
+          name: item?.name || 'Vorlage',
+          category: item?.category || 'Allgemein',
+          usage_count: Number(item?.usage_count || 0),
+          match_score: Number(item?.match_score || 35),
+          updated_at: item?.updated_at || null
+        }))
+        .filter((item: TemplateSuggestion) => item.id)
+    : [],
+  top_categories: Array.isArray(raw?.top_categories)
+    ? raw.top_categories.map((item: any) => ({
+        label: item?.label || 'Allgemein',
+        count: Number(item?.count || 0)
+      }))
+    : [],
+  recent_templates: Array.isArray(raw?.recent_templates)
+    ? raw.recent_templates
+        .map(normalizeTemplate)
+        .filter((item: TemplateRecord) => Boolean(item.id))
+    : []
+})
+
+const showToast = (toast: { title: string; description?: string }) => {
+  const id = Date.now() + Math.random()
+  toasts.value.push({ id, ...toast })
+  setTimeout(() => dismissToast(id), 4000)
+}
+
+const dismissToast = (id: number) => {
+  const index = toasts.value.findIndex(t => t.id === id)
+  if (index > -1) {
+    toasts.value.splice(index, 1)
+  }
+}
+
+const buildClauseFallback = (): ClauseRecord[] => [
   {
-    id: 'mandanten',
-    icon: 'shield',
-    title: 'Mandanten-ready',
-    note: 'Freigegebene Muster mit klarer Kommentierung & Optionsfeldern.'
+    id: 'fallback_bgb_242',
+    name: 'Treu und Glauben (§ 242 BGB)',
+    desc: 'Erinnert an die Pflicht zu loyalem Verhalten zwischen Schuldner und Gläubiger.',
+    content: '„Der Schuldner ist verpflichtet, die Leistung so zu bewirken, wie Treu und Glauben mit Rücksicht auf die Verkehrssitte es erfordern.“ (§ 242 BGB)',
+    locked: false,
+    category: 'BGB · Allgemeines Schuldrecht',
+    language: 'de',
+    isFallback: true
   },
   {
-    id: 'speed',
-    icon: 'clock',
-    title: 'Schnelle Durchlaufzeit',
-    note: 'Ø Generierung: 22 Sekunden inklusive Qualitätscheck.'
+    id: 'fallback_bgb_305c',
+    name: 'Überraschungsklausel (§ 305c BGB)',
+    desc: 'Stellt klar, dass ungewöhnliche Klauseln in AGB unwirksam sind.',
+    content: '„Bestimmungen in Allgemeinen Geschäftsbedingungen, die nach den Umständen, insbesondere nach dem äußeren Erscheinungsbild des Vertrags, so ungewöhnlich sind, dass der Vertragspartner mit ihnen nicht zu rechnen braucht, werden nicht Vertragsbestandteil.“ (§ 305c Abs. 1 BGB)',
+    locked: false,
+    category: 'BGB · Vertragsrecht',
+    language: 'de',
+    isFallback: true
   },
   {
-    id: 'feedback',
-    icon: 'chat',
-    title: 'Mandantenfeedback 4,6/5',
-    note: 'Transparente Feedback-Optionen für jede Dokumentversion.'
+    id: 'fallback_bgb_307',
+    name: 'Inhaltskontrolle (§ 307 BGB)',
+    desc: 'Verhindert unangemessene Benachteiligung innerhalb vorformulierter Klauseln.',
+    content: '„(1) Bestimmungen in Allgemeinen Geschäftsbedingungen sind unwirksam, wenn sie den Vertragspartner des Verwenders entgegen den Geboten von Treu und Glauben unangemessen benachteiligen.“ (§ 307 Abs. 1 BGB)',
+    locked: false,
+    category: 'BGB · Vertragsrecht',
+    language: 'de',
+    isFallback: true
+  },
+  {
+    id: 'fallback_bgb_675o',
+    name: 'Informationspflicht (§ 675o BGB)',
+    desc: 'Sichert transparente Kommunikation bei Zahlungsdiensteverträgen ab.',
+    content: '§ 675o Abs. 1 BGB verpflichtet Zahlungsdienstleister, ihren Kunden rechtzeitig Informationen über Vertragsbedingungen, Entgelte und Pflichten zur Verfügung zu stellen.',
+    locked: false,
+    category: 'BGB · Zahlungsdienste',
+    language: 'de',
+    isFallback: true
+  },
+  {
+    id: 'fallback_bgb_823',
+    name: 'Schadensersatzpflicht (§ 823 BGB)',
+    desc: 'Grundlage für Schadensersatzansprüche bei widerrechtlicher Verletzung geschützter Rechtsgüter.',
+    content: '„Wer vorsätzlich oder fahrlässig das Leben, den Körper, die Gesundheit, die Freiheit, das Eigentum oder ein sonstiges Recht eines anderen widerrechtlich verletzt, ist dem anderen zum Ersatz des daraus entstehenden Schadens verpflichtet.“ (§ 823 Abs. 1 BGB)',
+    locked: false,
+    category: 'BGB · Deliktsrecht',
+    language: 'de',
+    isFallback: true
+  },
+  {
+    id: 'fallback_gwg_6',
+    name: 'Sorgfaltspflichten (§ 6 GwG)',
+    desc: 'Pflichten zur Identifizierung und Risikoprüfung bei neuen Mandaten.',
+    content: '§ 6 Abs. 1 GwG verpflichtet Verpflichtete, risikoorientierte Sorgfaltspflichten einschließlich Identifizierung des Vertragspartners und der wirtschaftlich Berechtigten anzuwenden.',
+    locked: false,
+    category: 'GwG · Compliance',
+    language: 'de',
+    isFallback: true
   }
 ]
 
-const suggestedTemplates = ref([
-  { id: 's1', name: 'Geheimhaltungsvereinbarung (Beidseitig)', note: 'Basierend auf Ihrer Aktivität', match: 92, source: 'System' },
-  { id: 's2', name: 'Vertrag – Dienstleistung', note: 'Häufig angefordert', match: 88, source: 'System' },
-  { id: 's3', name: 'Mahnung – Zahlungserinnerung', note: 'Ähnlich zu letztem Dokument', match: 85, source: 'Individuell' },
-  { id: 's4', name: 'Datenverarbeitungsvereinbarung (DVV)', note: 'Basierend auf Ihrer Aktivität', match: 90, source: 'System' }
-])
+const loadTemplates = async () => {
+  isTemplatesLoading.value = true
+  templatesError.value = null
+  try {
+    const response = await $fetch<any[]>('/api/templates', {
+      headers: { accept: 'application/json' }
+    })
+    const records = Array.isArray(response) ? response.map(normalizeTemplate).filter(item => item.id) : []
+    records.sort((a, b) => {
+      const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime()
+      const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime()
+      return bTime - aTime
+    })
+    templates.value = records
+  } catch (error: any) {
+    const message = error?.data?.detail || error?.message || 'Vorlagen konnten nicht geladen werden.'
+    templatesError.value = message
+    templates.value = []
+    showToast({ title: 'Fehler', description: message })
+  } finally {
+    isTemplatesLoading.value = false
+  }
+}
 
-const mostUsed = ref([
-  { label: 'Mahnung', count: 28 },
-  { label: 'Vertrag', count: 22 },
-  { label: 'NDA', count: 18 },
-  { label: 'DPA', count: 11 }
-])
+const loadClauses = async () => {
+  isClausesLoading.value = true
+  clausesError.value = null
+  try {
+    const response = await $fetch<any[]>('/api/documents/clauses', {
+      headers: { accept: 'application/json' }
+    })
+    const list = Array.isArray(response) ? response.map(normalizeClause) : []
+    if (list.length) {
+      clauses.value = list
+      isUsingFallbackClauses.value = false
+    } else {
+      clauses.value = buildClauseFallback()
+      isUsingFallbackClauses.value = true
+    }
+  } catch (error: any) {
+    const message = error?.data?.detail || error?.message || 'Bausteine konnten nicht geladen werden.'
+    if (!isUsingFallbackClauses.value) {
+      showToast({
+        title: 'Hinweis',
+        description: 'Eigene Klauseln konnten nicht geladen werden. Es werden Vorschläge angezeigt.'
+      })
+    }
+    clausesError.value = null
+    clauses.value = buildClauseFallback()
+    isUsingFallbackClauses.value = true
+    console.warn(message)
+  } finally {
+    isClausesLoading.value = false
+  }
+}
 
-const clauses = ref([
-  { id: 'c1', name: 'Vertraulichkeit', desc: 'Definiert vertrauliche Informationen und erlaubte Offenlegungen.', locked: true },
-  { id: 'c2', name: 'Anwendbares Recht', desc: 'Wählt Gerichtsbarkeit und Kollisionsnormen.', locked: false },
-  { id: 'c3', name: 'Haftungsbeschränkung', desc: 'Begrenzt Schadensersatz; schließt indirekte und Folgeschäden aus.', locked: true },
-  { id: 'c4', name: 'Ordentliche Kündigung', desc: 'Ermöglicht beiden Parteien Kündigung mit Kündigungsfrist.', locked: true }
-])
+const loadInsights = async () => {
+  isInsightsLoading.value = true
+  insightsError.value = null
+  try {
+    const response = await $fetch('/api/templates/insights', {
+      headers: { accept: 'application/json' }
+    })
+    insights.value = normalizeInsights(response)
+  } catch (error: any) {
+    const message = error?.data?.detail || error?.message || 'Vorlagenstatistiken konnten nicht geladen werden.'
+    insightsError.value = message
+    insights.value = null
+    showToast({ title: 'Hinweis', description: message })
+  } finally {
+    isInsightsLoading.value = false
+  }
+}
+
+const refreshCatalog = async () => {
+  if (isRefreshing.value) return
+  isRefreshing.value = true
+  try {
+    await Promise.all([loadTemplates(), loadInsights(), loadClauses()])
+  } finally {
+    isRefreshing.value = false
+  }
+}
+
+const resetTemplateForm = () => {
+  templateForm.value = {
+    id: '',
+    name: '',
+    category: '',
+    content: '',
+    updatedAt: ''
+  }
+}
+
+const createTemplate = () => {
+  modalMode.value = 'create'
+  resetTemplateForm()
+  showTemplateModal.value = true
+}
+
+const editTemplate = (template: TemplateRecord) => {
+  modalMode.value = 'edit'
+  templateForm.value = {
+    id: template.id,
+    name: template.name,
+    category: template.category || '',
+    content: template.content || '',
+    updatedAt: template.updatedAt || ''
+  }
+  showTemplateModal.value = true
+}
+
+const submitTemplateForm = async () => {
+  if (isSavingTemplate.value) return
+  const name = templateForm.value.name.trim()
+  const content = templateForm.value.content.trim()
+  if (!name || !content) {
+    showToast({ title: 'Fehlende Angaben', description: 'Name und Inhalt der Vorlage sind erforderlich.' })
+    return
+  }
+
+  isSavingTemplate.value = true
+  try {
+    if (modalMode.value === 'create') {
+      await $fetch('/api/templates', {
+        method: 'POST',
+        body: {
+          title: name,
+          name,
+          content,
+          category: templateForm.value.category.trim() || null,
+          type: 'document'
+        }
+      })
+      showToast({ title: 'Vorlage erstellt', description: `"${name}" ist jetzt verfügbar.` })
+    } else {
+      if (!templateForm.value.id || !templateForm.value.updatedAt) {
+        throw new Error('Aktuelle Versionsinformation fehlt.')
+      }
+      await $fetch(`/api/templates/${templateForm.value.id}`, {
+        method: 'PUT',
+        body: {
+          title: name,
+          name,
+          content,
+          category: templateForm.value.category.trim() || null,
+          type: 'document',
+          updated_at: templateForm.value.updatedAt
+        }
+      })
+      showToast({ title: 'Vorlage aktualisiert', description: `"${name}" wurde gespeichert.` })
+    }
+
+    showTemplateModal.value = false
+    resetTemplateForm()
+    await refreshCatalog()
+  } catch (error: any) {
+    const message = error?.data?.detail || error?.message || 'Aktion fehlgeschlagen.'
+    showToast({ title: 'Fehler', description: message })
+  } finally {
+    isSavingTemplate.value = false
+  }
+}
+
+const duplicateTemplate = async (template: TemplateRecord) => {
+  const duplicateName = `${template.name} (Kopie)`
+  try {
+    await $fetch('/api/templates', {
+      method: 'POST',
+      body: {
+        title: duplicateName,
+        name: duplicateName,
+        content: template.content,
+        category: template.category || null,
+        type: template.type || 'document'
+      }
+    })
+    showToast({ title: 'Vorlage dupliziert', description: `"${duplicateName}" wurde angelegt.` })
+    await refreshCatalog()
+  } catch (error: any) {
+    const message = error?.data?.detail || error?.message || 'Vorlage konnte nicht dupliziert werden.'
+    showToast({ title: 'Fehler', description: message })
+  }
+}
+
+const deleteTemplate = async (template: TemplateRecord) => {
+  if (!confirm(`Möchten Sie "${template.name}" wirklich löschen?`)) return
+  try {
+    const query = template.updatedAt ? `?updatedAt=${encodeURIComponent(template.updatedAt)}` : ''
+    await $fetch(`/api/templates/${template.id}${query}`, { method: 'DELETE' })
+    showToast({ title: 'Vorlage gelöscht', description: `"${template.name}" wurde entfernt.` })
+    await refreshCatalog()
+  } catch (error: any) {
+    const message = error?.data?.detail || error?.message || 'Vorlage konnte nicht gelöscht werden.'
+    showToast({ title: 'Fehler', description: message })
+  }
+}
 
 const { user, loadUser } = usePortalUser()
 const portalUserName = computed(() => user.value?.name || user.value?.email || 'Benutzer')
@@ -472,12 +978,92 @@ const filteredTemplates = computed(() => {
   )
 })
 
+const highlightCards = computed(() => {
+  const counts = insights.value?.counts
+  const now = Date.now()
+  const fallbackActive = templates.value.length
+  const fallbackUpdated = templates.value.filter(template => {
+    const ts = new Date(template.updatedAt || template.createdAt || 0).getTime()
+    if (Number.isNaN(ts) || !ts) return false
+    const diffDays = (now - ts) / (1000 * 60 * 60 * 24)
+    return diffDays <= 30
+  }).length
+  const fallbackUsage = templates.value.reduce((sum, template) => sum + (template.usageCount || 0), 0)
+  const active = Math.max(counts?.active ?? 0, fallbackActive)
+  const updatedRecent = Math.max(counts?.updated_recent ?? 0, fallbackUpdated)
+  const usageEvents = Math.max(counts?.usage_events ?? 0, fallbackUsage)
+  return [
+    {
+      id: 'active',
+      icon: 'shield',
+      title: 'Aktive Vorlagen',
+      note: active > 0 ? `${active} im Katalog` : 'Noch keine Vorlagen'
+    },
+    {
+      id: 'updated',
+      icon: 'clock',
+      title: 'Aktualisiert (30 Tage)',
+      note: updatedRecent > 0 ? `${updatedRecent} aktualisiert` : 'Keine Aktualisierungen im letzten Monat'
+    },
+    {
+      id: 'usage',
+      icon: 'chat',
+      title: 'Verwendungen',
+      note: usageEvents > 0 ? `${usageEvents} Übergaben an Dokumente` : 'Noch keine dokumentierten Übergaben'
+    }
+  ]
+})
+
+const suggestedTemplates = computed(() => {
+  const items = insights.value?.suggestions || []
+  if (items.length) {
+    return items.map(item => ({
+      id: item.id,
+      name: item.name,
+      note: item.category ? `Kategorie: ${item.category}` : 'Empfehlung aus Nutzungsmustern',
+      match: Math.min(100, Math.max(35, item.match_score))
+    }))
+  }
+  return templates.value.slice(0, 3).map((template, index) => ({
+    id: template.id,
+    name: template.name,
+    note: template.category ? `Kategorie: ${template.category}` : 'Vorlage aus Ihrem Katalog',
+    match: Math.max(45, 70 - index * 10)
+  }))
+})
+
+const mostUsed = computed(() => {
+  const categories = insights.value?.top_categories || []
+  if (categories.length) {
+    return categories
+  }
+  const fallback = templates.value.reduce<Record<string, number>>((acc, template) => {
+    const key = template.category || 'Allgemein'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+  return Object.entries(fallback).map(([label, count]) => ({ label, count }))
+})
+
+const recentTemplateCards = computed(() => {
+  return (insights.value?.recent_templates || []).map(item => ({
+    id: item.id,
+    name: item.name,
+    desc: item.category ? `Kategorie: ${item.category}` : 'Neu hinzugefügt',
+    updatedAt: item.updatedAt || item.createdAt,
+    template: item
+  }))
+})
+
 const lastUpdatedLabel = computed(() => {
-  const candidates = templates.value
-    .map(item => item?.updatedAt)
-    .filter((value): value is string => Boolean(value))
-    .map(value => new Date(value))
-    .filter(date => !Number.isNaN(date.getTime()))
+  const last = insights.value?.last_updated_at
+  const candidates = [
+    ...(last ? [new Date(last)] : []),
+    ...templates.value
+      .map(item => item.updatedAt || item.createdAt)
+      .filter(Boolean)
+      .map(value => new Date(value as string))
+  ].filter(date => !Number.isNaN(date.getTime()))
 
   if (!candidates.length) return 'Gerade eben'
 
@@ -494,203 +1080,170 @@ const lastUpdatedLabel = computed(() => {
   return newest.toLocaleDateString()
 })
 
-const showToast = (toast: { title: string; description?: string }) => {
-  const id = Date.now() + Math.random()
-  toasts.value.push({ id, ...toast })
-  setTimeout(() => {
-    dismissToast(id)
-  }, 4000)
-}
-
-const dismissToast = (id: number) => {
-  const index = toasts.value.findIndex(t => t.id === id)
-  if (index > -1) {
-    toasts.value.splice(index, 1)
-  }
-}
-
-const loadTemplates = async () => {
-  try {
-    const r = await fetch(`/api/auth/proxy.get?path=${encodeURIComponent('/api/templates')}`)
-    const data = await r.json().catch(() => ({ items: [] }))
-    const apiTemplates = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : [])
-    
-    // Add sample templates
-    const now = new Date()
-    const sampleTemplates = [
-      {
-        id: 'sample-1',
-        name: 'NDA – Standard (DE)',
-        category: 'Vertrag',
-        content: 'Standardisierte Geheimhaltungsvereinbarung nach deutschem Recht für bilaterale Geschäftsbeziehungen.',
-        description: 'Standardisierte Geheimhaltungsvereinbarung nach deutschem Recht für bilaterale Geschäftsbeziehungen.',
-        createdBy: 'Ihr Team',
-        updatedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'sample-2',
-        name: 'Klageentwurf – Zivilrecht',
-        category: 'Zivilrecht',
-        content: 'Professioneller Klageentwurf für zivilrechtliche Verfahren mit allen erforderlichen Formalien.',
-        description: 'Professioneller Klageentwurf für zivilrechtliche Verfahren mit allen erforderlichen Formalien.',
-        createdBy: 'Ihr Team',
-        updatedAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'sample-3',
-        name: 'Vollmacht – Mandanten',
-        category: 'Allgemein',
-        content: 'Umfassende Vollmachtsvorlage für die Vertretung von Mandanten in verschiedenen Rechtsangelegenheiten.',
-        description: 'Umfassende Vollmachtsvorlage für die Vertretung von Mandanten in verschiedenen Rechtsangelegenheiten.',
-        createdBy: 'Ihr Team',
-        updatedAt: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'sample-4',
-        name: 'Vergleichsangebot',
-        category: 'Zivilrecht',
-        content: 'Strukturiertes Vergleichsangebot zur außergerichtlichen Streitbeilegung im Zivilrecht.',
-        description: 'Strukturiertes Vergleichsangebot zur außergerichtlichen Streitbeilegung im Zivilrecht.',
-        createdBy: 'Ihr Team',
-        updatedAt: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'sample-5',
-        name: 'Abmahnung – Wettbewerbsrecht',
-        category: 'Wettbewerb',
-        content: 'Rechtssichere Abmahnung bei Verstößen gegen wettbewerbsrechtliche Bestimmungen.',
-        description: 'Rechtssichere Abmahnung bei Verstößen gegen wettbewerbsrechtliche Bestimmungen.',
-        createdBy: 'Ihr Team',
-        updatedAt: new Date(now.getTime() - 18 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'sample-6',
-        name: 'DSGVO – Auskunftsersuchen',
-        category: 'Datenschutz',
-        content: 'DSGVO-konforme Vorlage für Auskunftsersuchen gemäß Art. 15 DSGVO.',
-        description: 'DSGVO-konforme Vorlage für Auskunftsersuchen gemäß Art. 15 DSGVO.',
-        createdBy: 'Ihr Team',
-        updatedAt: new Date(now.getTime() - 22 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'sample-7',
-        name: 'Arbeitsvertrag – Standard',
-        category: 'Arbeitsrecht',
-        content: 'Vollständiger Arbeitsvertrag nach deutschem Arbeitsrecht mit allen wesentlichen Klauseln.',
-        description: 'Vollständiger Arbeitsvertrag nach deutschem Arbeitsrecht mit allen wesentlichen Klauseln.',
-        createdBy: 'Ihr Team',
-        updatedAt: new Date(now.getTime() - 26 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'sample-8',
-        name: 'Mietvertrag – Wohnraum',
-        category: 'Mietrecht',
-        content: 'Standardmietvertrag für Wohnraum unter Beachtung aktueller mietrechtlicher Vorschriften.',
-        description: 'Standardmietvertrag für Wohnraum unter Beachtung aktueller mietrechtlicher Vorschriften.',
-        createdBy: 'Ihr Team',
-        updatedAt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
-      }
-    ]
-    
-    // Combine API templates with sample templates
-    templates.value = [...sampleTemplates, ...apiTemplates]
-  } catch (e) {
-    console.warn('load templates failed', e)
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const handleCreateTemplate = async () => {
-  isCreating.value = true
+const useTemplate = (template: TemplateRecord) => {
   try {
     const payload = {
-      path: '/api/templates',
-      method: 'POST',
-      body: {
-        name: templateForm.value.name,
-        content: templateForm.value.content,
-        category: templateForm.value.category || 'general',
-        type: 'document'
-      }
+      id: template.id,
+      name: template.name,
+      content: template.content,
+      category: template.category || 'Allgemein',
+      updatedAt: template.updatedAt || new Date().toISOString(),
+      ts: Date.now()
     }
-    const r = await fetch('/api/auth/proxy.post', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-    if (r.ok) {
-      showCreateModal.value = false
-      templateForm.value = { name: '', category: '', content: '' }
-      await loadTemplates()
-      showToast({ title: 'Vorlage erstellt', description: 'Ihre neue Vorlage wurde erfolgreich gespeichert.' })
-    }
-  } catch (e) {
-    console.warn('create template failed', e)
-    showToast({ title: 'Fehler', description: 'Vorlage konnte nicht erstellt werden. Bitte versuchen Sie es erneut.' })
-  } finally {
-    isCreating.value = false
-  }
-}
+    localStorage.setItem('anwalt.templateSelection', JSON.stringify(payload))
+    if (payload.id) localStorage.setItem('anwalt.templateId', String(payload.id))
+  } catch (_) {}
 
-const createTemplate = () => {
-  showCreateModal.value = true
-}
-
-const useTemplate = (template: any) => {
-  navigateTo('/documents')
+  const idParam = encodeURIComponent(template.id || template.name)
+  navigateTo(`/documents${idParam ? `?templateId=${idParam}` : ''}`)
   showToast({ title: 'Vorlage geladen', description: `${template.name} ist bereit zur Verwendung.` })
 }
 
-const editTemplate = (template: any) => {
-  showToast({ title: 'Vorlage bearbeiten', description: 'Bearbeitungsfunktion kommt bald.' })
-}
-
-const duplicateTemplate = (template: any) => {
-  showToast({ title: 'Vorlage dupliziert', description: `Kopie von ${template.name} erstellt.` })
-}
-
-const deleteTemplate = async (template: any) => {
-  if (!confirm(`Möchten Sie "${template.name}" wirklich löschen?`)) return
-
-  try {
-    showToast({ title: 'Vorlage gelöscht', description: `${template.name} wurde gelöscht.` })
+const useTemplateById = async (id: string) => {
+  if (!id) return
+  let template = templates.value.find(item => item.id === id)
+  if (!template) {
     await loadTemplates()
-  } catch (e) {
-    showToast({ title: 'Fehler', description: 'Vorlage konnte nicht gelöscht werden.' })
+    template = templates.value.find(item => item.id === id)
+  }
+  if (template) {
+    useTemplate(template)
+  } else {
+    showToast({ title: 'Vorlage nicht gefunden', description: 'Bitte laden Sie die Übersicht neu.' })
   }
 }
 
-const handleSuggestion = (suggestion: any) => {
-  showToast({ title: 'Vorlage geöffnet', description: `${suggestion.name} wird vorbereitet.` })
+const handleSuggestion = (suggestion: { id: string; name: string }) => {
+  useTemplateById(suggestion.id)
 }
 
-const copyClause = (clause: any) => {
-  showToast({ title: 'Klausel kopiert', description: `${clause.name} in die Zwischenablage kopiert.` })
-}
-
-const openClauseLibrary = () => {
-  showToast({ title: 'Klauselbibliothek', description: 'Erweiterte Ansicht wird in Kürze freigeschaltet.' })
+const resetImportInput = () => {
+  if (importInputRef.value) {
+    importInputRef.value.value = ''
+  }
 }
 
 const handleImport = () => {
-  showToast({ title: 'Importieren', description: 'Importfunktion kommt bald.' })
+  if (isImporting.value) return
+  importInputRef.value?.click()
 }
 
-const handleFilter = () => {
-  showToast({ title: 'Filter', description: 'Filteroptionen kommen bald.' })
+const onImportSelected = async (event: Event) => {
+  const target = event.target as HTMLInputElement | null
+  const file = target?.files?.[0]
+  if (!file) {
+    resetImportInput()
+    return
+  }
+
+  if (file.size > IMPORT_MAX_BYTES) {
+    showToast({
+      title: 'Upload zu groß',
+      description: 'Bitte wählen Sie eine Datei unter 10 MB.'
+    })
+    resetImportInput()
+    return
+  }
+
+  if (IMPORT_ACCEPTED_TYPES.length && file.type && !IMPORT_ACCEPTED_TYPES.includes(file.type)) {
+    showToast({
+      title: 'Format nicht unterstützt',
+      description: 'Bitte verwenden Sie PDF, DOCX, DOC oder TXT.'
+    })
+    resetImportInput()
+    return
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  isImporting.value = true
+  showToast({
+    title: 'Import gestartet',
+    description: 'Vorlage wird aus dem Dokument erstellt…'
+  })
+
+  try {
+    const response = await $fetch('/api/templates/import', {
+      method: 'POST',
+      body: formData
+    })
+    const imported = normalizeTemplate(response)
+    if (!imported.id) {
+      throw new Error('Importierte Vorlage enthält keine ID.')
+    }
+    templatesError.value = null
+    templates.value = [
+      imported,
+      ...templates.value.filter(template => template.id !== imported.id)
+    ]
+    showToast({
+      title: 'Vorlage importiert',
+      description: `"${imported.name}" wurde erfolgreich angelegt.`
+    })
+    // Refresh insights asynchronously; ignore failures
+    loadInsights().catch(() => {})
+  } catch (error: any) {
+    const message = error?.data?.detail || error?.message || 'Import fehlgeschlagen.'
+    showToast({
+      title: 'Import fehlgeschlagen',
+      description: message
+    })
+  } finally {
+    isImporting.value = false
+    resetImportInput()
+  }
 }
 
-const getTemplateTags = (template: any) => {
+const copyClause = async (clause: ClauseRecord) => {
+  const payload = clause.content || clause.desc || clause.name
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload)
+      showToast({ title: 'Klausel kopiert', description: `${clause.name} wurde in die Zwischenablage kopiert.` })
+    } else {
+      throw new Error('Clipboard API nicht verfügbar')
+    }
+  } catch (error) {
+    showToast({ title: 'Fehler', description: 'Klausel konnte nicht kopiert werden.' })
+  }
+}
+
+const openClauseLibrary = () => {
+  showToast({ title: 'Klauselbibliothek', description: 'Erweiterte Ansicht ist in Vorbereitung.' })
+}
+
+const resetClauseForm = () => {
+  clauseForm.value = {
+    title: '',
+    category: '',
+    language: 'de',
+    content: ''
+  }
+}
+
+const openClauseModal = () => {
+  resetClauseForm()
+  showClauseModal.value = true
+}
+
+const closeClauseModal = () => {
+  if (isSavingClause.value) return
+  showClauseModal.value = false
+}
+
+const getTemplateTags = (template: TemplateRecord) => {
   const tags = []
   if (template.category) tags.push(template.category)
+  if (template.type) tags.push(template.type)
   tags.push('Vorlage')
   return tags
 }
 
-const formatDate = (dateString: string) => {
+const formatDate = (dateString: string | null | undefined) => {
   if (!dateString) return 'Nie'
   const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return 'Nie'
   const now = new Date()
   const diff = now.getTime() - date.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
@@ -702,8 +1255,48 @@ const formatDate = (dateString: string) => {
   return date.toLocaleDateString()
 }
 
-onMounted(() => {
-  loadTemplates()
+const submitClauseForm = async () => {
+  const title = clauseForm.value.title.trim()
+  const content = clauseForm.value.content.trim()
+  const category = clauseForm.value.category.trim()
+  const language = clauseForm.value.language || 'de'
+
+  if (!title || !content) {
+    showToast({ title: 'Hinweis', description: 'Bitte geben Sie Titel und Inhalt der Klausel an.' })
+    return
+  }
+
+  isSavingClause.value = true
+  try {
+    await $fetch('/api/clauses', {
+      method: 'POST',
+      body: {
+        title,
+        content,
+        category: category || null,
+        language
+      }
+    })
+    showToast({ title: 'Klausel erstellt', description: `"${title}" steht jetzt im Katalog bereit.` })
+    showClauseModal.value = false
+    resetClauseForm()
+    await loadClauses()
+  } catch (error: any) {
+    const message = error?.data?.detail || error?.message || 'Klausel konnte nicht erstellt werden.'
+    showToast({ title: 'Fehler', description: message })
+  } finally {
+    isSavingClause.value = false
+  }
+}
+
+watch(templates, () => {
+  if (isUsingFallbackClauses.value) {
+    clauses.value = buildClauseFallback()
+  }
+})
+
+onMounted(async () => {
+  await Promise.all([loadTemplates(), loadInsights(), loadClauses()])
   loadUser()
 })
 </script>
@@ -726,6 +1319,18 @@ onMounted(() => {
 
 * {
   box-sizing: border-box;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .templates-intro {
@@ -1084,6 +1689,38 @@ onMounted(() => {
   gap: 12px;
 }
 
+.clause-empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 96px;
+  border-radius: 16px;
+  border: 1px dashed var(--border-soft);
+  background: rgba(91, 124, 230, 0.06);
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 16px;
+}
+
+.clause-empty--error {
+  border-color: rgba(226, 77, 77, 0.4);
+  background: rgba(226, 77, 77, 0.08);
+  color: #b91c1c;
+}
+
+.clause-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clause-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: rgba(22, 33, 62, 0.68);
+}
+
 .clause-pill {
   display: flex;
   align-items: center;
@@ -1118,6 +1755,12 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.clause-pill__headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .clause-title {
   font-size: 13px;
   font-weight: 600;
@@ -1125,6 +1768,17 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.clause-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(91, 124, 230, 0.16);
+  color: var(--primary-strong);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
 }
 
 .clause-desc {
@@ -1136,6 +1790,11 @@ onMounted(() => {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+.clause-meta {
+  font-size: 11px;
+  color: rgba(22, 33, 62, 0.6);
 }
 
 .clause-pill__icon {
@@ -1253,6 +1912,12 @@ onMounted(() => {
   align-items: center;
   gap: 18px;
   text-align: center;
+}
+
+.templates-empty--error {
+  border-radius: 24px;
+  border: 1px solid rgba(226, 77, 77, 0.3);
+  background: rgba(226, 77, 77, 0.08);
 }
 
 .empty-icon {
@@ -1632,7 +2297,9 @@ onMounted(() => {
 }
 
 .modal-shell {
-  width: min(720px, 100%);
+  width: min(840px, 100%);
+  max-width: 840px;
+  min-width: min(640px, 100%);
   border-radius: 28px;
   background: var(--surface);
   border: 1px solid rgba(36, 51, 83, 0.12);
@@ -1841,25 +2508,27 @@ onMounted(() => {
   }
 
   .modal-backdrop {
-    padding: 16px;
+    padding: 0;
     align-items: flex-end;
   }
 
   .modal-shell {
+    width: 100%;
+    max-width: 100%;
+    min-width: 100%;
     border-radius: 24px 24px 0 0;
-    max-height: 90vh;
-    overflow-y: auto;
+    max-height: 92vh;
+    overflow: hidden;
   }
 
   .modal-header,
   .modal-body {
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-height: calc(90vh - 200px);
-  overflow-y: auto;
-}
+    padding: 24px;
+  }
+
+  .modal-body {
+    max-height: calc(92vh - 184px);
+  }
 }
 
 /* Keyboard navigation focus rings */
