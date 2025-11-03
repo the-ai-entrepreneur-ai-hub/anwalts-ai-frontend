@@ -2759,10 +2759,11 @@ onMounted(async () => {
 
 .email-footer {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 1.5rem 1.25rem;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem 5.5rem; /* extra bottom space to clear chat widget */
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
@@ -2770,6 +2771,7 @@ onMounted(async () => {
 .email-footer-count {
   font-size: 0.8125rem;
   color: var(--text-muted);
+  text-align: center;
 }
 
 .fade-300-enter-active,
@@ -2799,6 +2801,7 @@ onMounted(async () => {
 }
 
 @media (max-width: 1024px) {
+  .email-footer { padding-bottom: 6.5rem; }
   .inbox-header {
     flex-direction: column;
     align-items: flex-start;
