@@ -31,7 +31,7 @@
         </div>
 
         <div class="header-right">
-          <button @click="syncEmails" class="icon-button" title="Aktualisieren">
+          <button @click="requestSync" class="icon-button" title="Aktualisieren">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
@@ -144,6 +144,20 @@
           </svg>
           <span class="ml-2">Sichere Verbindung wird hergestellt...</span>
         </div>
+
+        <div v-if="connectionSuccess" class="consent-success">
+          <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <span class="ml-2">Gmail erfolgreich verbunden! E-Mails werden geladen...</span>
+        </div>
+
+        <div v-if="errorMessage" class="consent-error">
+          <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span class="ml-2">{{ errorMessage }}</span>
+        </div>
       </div>
     </div>
 
@@ -176,7 +190,7 @@
               <label class="checkbox-all">
                 <input type="checkbox" v-model="selectAll" />
               </label>
-              <button class="toolbar-button" title="Aktualisieren" @click="syncEmails">
+              <button class="toolbar-button" title="Aktualisieren" @click="requestSync">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
@@ -209,8 +223,15 @@
             </div>
           </div>
 
+          <div v-if="emailError" class="email-error-banner">
+            <svg class="email-error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>{{ emailError }}</span>
+          </div>
+
           <!-- Loading State -->
-          <div v-if="loading" class="loading-state">
+          <div v-if="showSkeleton" class="loading-state">
             <div v-for="i in 5" :key="i" class="email-skeleton"></div>
           </div>
 
@@ -224,48 +245,142 @@
           </div>
 
           <!-- Email List -->
-          <div v-else class="email-list">
-            <div
-              v-for="email in filteredEmails"
-              :key="email.id"
-              @click="openEmail(email)"
-              :class="['email-row', { 'email-unread': email.status === 'Ungelesen', 'email-selected': email.id === selectedEmail?.id }]"
-            >
-              <div class="email-checkbox">
-                <input type="checkbox" :value="email.id" @click.stop />
-              </div>
-
-              <div class="email-star" @click.stop="toggleStar(email.id)">
-                <svg v-if="email.starred" class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                </svg>
-                <svg v-else class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
-                </svg>
-              </div>
-
-              <div class="email-sender">
-                <span class="sender-name">{{ email.sender.name }}</span>
-              </div>
-
-              <div class="email-content">
-                <div class="email-subject-line">
-                  <span class="subject-text">{{ email.subject }}</span>
-                  <svg v-if="email.hasAttachment" class="email-attachment-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+          <template v-else>
+            <Transition name="fade-300" mode="out-in">
+              <div :key="`${activeFolder}-${listVersion}`" class="email-list">
+                <div v-if="isRefreshing" class="list-loading-indicator">
+                  <svg class="list-loading-spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                   </svg>
+                  <span>E-Mails werden aktualisiert…</span>
                 </div>
-                <div class="email-snippet">{{ email.snippet }}</div>
-              </div>
 
-              <div class="email-meta">
-                <span :class="['status-badge', getStatusClass(email.status)]">
-                  {{ email.status }}
-                </span>
-                <span class="email-date">{{ formatEmailDate(email.date) }}</span>
+                <div class="email-rows">
+                  <TransitionGroup name="fade-rows" tag="div" class="email-rows-inner">
+                    <div
+                      v-for="email in filteredEmails"
+                      :key="email.id"
+                      @click="openEmail(email)"
+                      :class="['email-row', { 'email-unread': email.status === 'Ungelesen', 'email-selected': email.id === selectedEmail?.id }]"
+                    >
+                      <div class="email-checkbox">
+                        <input type="checkbox" :value="email.id" @click.stop />
+                      </div>
+
+                      <div class="email-star" @click.stop="toggleStar(email.id)">
+                        <svg v-if="email.starred" class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        <svg v-else class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                        </svg>
+                      </div>
+
+                      <div class="email-sender">
+                        <span class="sender-name">{{ email.sender.name }}</span>
+                      </div>
+
+                      <div class="email-content">
+                        <div class="email-subject-line">
+                          <span class="subject-text">{{ email.subject }}</span>
+                          <svg v-if="email.hasAttachment" class="email-attachment-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                          </svg>
+                        </div>
+                        <div class="email-snippet">{{ email.snippet }}</div>
+                      </div>
+
+                      <div class="email-meta">
+                        <span :class="['status-badge', getStatusClass(email.status)]">
+                          {{ email.status }}
+                        </span>
+                        <span class="email-date">{{ formatEmailDate(email.date) }}</span>
+                      </div>
+
+                      <div class="email-actions">
+                        <button
+                          class="email-action-button"
+                          type="button"
+                          title="Archivieren"
+                          aria-label="E-Mail archivieren"
+                          @click.stop="archiveEmail(email)"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                          </svg>
+                        </button>
+
+                        <button
+                          class="email-action-button"
+                          type="button"
+                          title="In Papierkorb verschieben"
+                          aria-label="E-Mail löschen"
+                          @click.stop="moveEmailToTrash(email)"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                          </svg>
+                        </button>
+
+                        <button
+                          class="email-action-button"
+                          type="button"
+                          :title="email.starred ? 'Markierung entfernen' : 'Markieren'"
+                          :aria-label="email.starred ? 'Markierung entfernen' : 'E-Mail markieren'"
+                          @click.stop="toggleStar(email.id)"
+                        >
+                          <svg v-if="email.starred" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                          </svg>
+                          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                          </svg>
+                        </button>
+
+                        <button
+                          class="email-action-button"
+                          type="button"
+                          :title="email.status === 'Ungelesen' ? 'Als gelesen markieren' : 'Als ungelesen markieren'"
+                          :aria-label="email.status === 'Ungelesen' ? 'Als gelesen markieren' : 'Als ungelesen markieren'"
+                          @click.stop="toggleReadState(email)"
+                        >
+                          <svg v-if="email.status === 'Ungelesen'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-18 8V8a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                          </svg>
+                          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </TransitionGroup>
+                </div>
+
+                <div class="email-footer">
+                  <span class="email-footer-count">Showing {{ filteredEmails.length }} E-Mails</span>
+                  <div v-if="loadingMore" class="load-more-progress">
+                    <svg class="load-more-spinner" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V2C5.373 2 0 7.373 0 14h4zm2 5.291A7.962 7.962 0 014 14H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Weitere E-Mails werden geladen...</span>
+                  </div>
+                  <button
+                    v-else-if="showLoadMoreButton"
+                    class="load-more-button"
+                    type="button"
+                    @click="loadMoreEmails"
+                  >
+                    <svg class="load-more-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Mehr laden
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
+            </Transition>
+          </template>
         </div>
       </div>
     </div>
@@ -327,7 +442,7 @@
                   <span class="info-label">An:</span>
                   <span class="info-value">Sie</span>
                 </div>
-                <div v-if="selectedEmail.priority === 'High'" class="priority-badge">
+                <div v-if="selectedEmail.priority" class="priority-badge">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                   </svg>
@@ -361,25 +476,67 @@
               <!-- AI Summary -->
               <div v-if="settings.aiReadAccess" class="ai-summary">
                 <div class="ai-summary-header">
-                  <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                  </svg>
-                  <span>KI-Zusammenfassung</span>
+                  <div class="ai-summary-title">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                    <span>KI-Zusammenfassung</span>
+                  </div>
+                  <button
+                    class="ai-summary-refresh"
+                    type="button"
+                    :disabled="currentAiStatus === 'loading'"
+                    @click.stop="refreshAiSummary"
+                    title="Zusammenfassung aktualisieren"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      :class="{ 'ai-spinner': currentAiStatus === 'loading' }"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                  </button>
                 </div>
-                <p class="ai-summary-text">{{ getAISummary(selectedEmail) }}</p>
-                <div class="ai-summary-tags">
-                  <span class="ai-tag">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    Frist: 3 Tage
-                  </span>
-                  <span class="ai-tag">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                    </svg>
-                    Priorität: {{ selectedEmail.priority }}
-                  </span>
+                <div v-if="currentAiStatus === 'loading'" class="ai-summary-loading">
+                  <svg class="w-4 h-4 ai-spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12a8 8 0 0116 0"/>
+                  </svg>
+                  <span>KI analysiert die E-Mail …</span>
+                </div>
+                <div v-else-if="currentAiStatus === 'error'" class="ai-summary-error">
+                  <span>{{ currentAiError || 'Die KI-Zusammenfassung konnte nicht erstellt werden.' }}</span>
+                  <button type="button" class="ai-retry-button" @click.stop="refreshAiSummary">
+                    Erneut versuchen
+                  </button>
+                </div>
+                <template v-else-if="currentAiSummary">
+                  <p class="ai-summary-text">{{ currentAiSummary.summary }}</p>
+                  <div class="ai-summary-tags">
+                    <span class="ai-tag">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                      </svg>
+                      Kategorie: {{ currentAiCategory }}
+                    </span>
+                    <span v-if="selectedEmail.priority" class="ai-tag">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                      </svg>
+                      Priorität: Hoch
+                    </span>
+                    <span v-if="currentAiSummary.processedAt" class="ai-tag">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      Aktualisiert: {{ currentAiProcessedAt }}
+                    </span>
+                  </div>
+                </template>
+                <div v-else class="ai-summary-placeholder">
+                  <span>Keine KI-Zusammenfassung vorhanden. Nutzen Sie die Aktualisieren-Schaltfläche, um die Analyse zu starten.</span>
                 </div>
               </div>
 
@@ -401,6 +558,47 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                   </button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- AI Floating Actions -->
+            <div class="ai-floating-actions" v-if="selectedEmail">
+              <div class="ai-actions-row">
+                <button class="ai-action-btn primary" :disabled="aiActions.generatingReply" @click="onGenerateReply" title="Antwortentwurf erstellen">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                  <span>{{ aiActions.generatingReply ? 'Erzeuge Antwort…' : 'Antwortentwurf' }}</span>
+                </button>
+                <button class="ai-action-btn secondary" @click="onSendToDocuments" title="Im Dokument-Assistenten weiterführen">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  <span>Zu Dokumenten</span>
+                </button>
+              </div>
+
+              <!-- Reply Result -->
+              <div v-if="aiActions.replyText || aiActions.replyError" class="ai-result">
+                <div class="ai-result-header">
+                  <span class="ai-result-title">Antwortentwurf</span>
+                  <div class="ai-result-actions">
+                    <button v-if="aiActions.replyText" class="mini" @click="copyReplyToClipboard">Kopieren</button>
+                  </div>
+                </div>
+                <div v-if="aiActions.replyError" class="ai-error">{{ aiActions.replyError }}</div>
+                <pre v-else class="reply-preview">{{ aiActions.replyText }}</pre>
+              </div>
+
+              <!-- Document Result -->
+              <div v-if="aiActions.docResult || aiActions.docError" class="ai-result">
+                <div class="ai-result-header">
+                  <span class="ai-result-title">Dokument</span>
+                </div>
+                <div v-if="aiActions.docError" class="ai-error">{{ aiActions.docError }}</div>
+                <div v-else class="ai-doc-success" v-if="aiActions.docResult">
+                  <div class="ai-doc-title">{{ aiActions.docResult.title }}</div>
+                  <div class="ai-doc-links" v-if="aiActions.docResult.download">
+                    <a v-if="aiActions.docResult.download.pdf" :href="aiActions.docResult.download.pdf" target="_blank" rel="noopener">PDF</a>
+                    <a v-if="aiActions.docResult.download.docx" :href="aiActions.docResult.download.docx" target="_blank" rel="noopener">DOCX</a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -491,16 +689,29 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, reactive } from 'vue'
 import PortalShell from '~/components/PortalShell.vue'
 
 definePageMeta({ layout: false })
+
+const PAGE_SIZE = 20
+const FOLDER_LABEL_MAP = Object.freeze({
+  inbox: 'INBOX',
+  starred: 'STARRED',
+  flagged: 'STARRED',
+  sent: 'SENT',
+  drafts: 'DRAFT',
+  archive: 'ARCHIVE',
+  trash: 'TRASH',
+  spam: 'SPAM',
+  all: 'ALL'
+})
 
 // State
 const currentView = ref('consent')
 const selectedEmail = ref(null)
 const activeFolder = ref('inbox')
-const activeLabel = ref(null)
+const activeLabel = ref(FOLDER_LABEL_MAP[activeFolder.value] || 'INBOX')
 const searchQuery = ref('')
 const sortBy = ref('date-desc')
 const selectAll = ref(false)
@@ -509,6 +720,12 @@ const loading = ref(false)
 const showSettings = ref(false)
 const composing = ref(false)
 const lastSyncTime = ref(new Date())
+const connectionSuccess = ref(false)
+const errorMessage = ref('')
+const nextPageToken = ref('')
+const loadingMore = ref(false)
+const emailError = ref('')
+const listVersion = ref(0)
 
 const consents = ref({
   oauth: false,
@@ -516,86 +733,162 @@ const consents = ref({
 })
 
 const settings = ref({
-  aiReadAccess: true,
+  aiReadAccess: false,
   draftOnlyMode: true,
   consentTimestamp: null
 })
 
-// Mock data
+const lastManualSyncReason = ref(null)
+
+const aiState = reactive({
+  summaries: {},
+  status: {},
+  errors: {}
+})
+
+// Floating AI actions state
+const aiActions = reactive({
+  generatingReply: false,
+  replyText: '',
+  replyError: '',
+  generatingDoc: false,
+  docResult: null,
+  docError: ''
+})
+
+const gmailErrorMessages = {
+  login_email_conflict: 'Verbinden Sie bitte ein separates Gmail-Konto. Ihre Portal-Login-E-Mail kann nicht für die Postfach-Verknüpfung verwendet werden.'
+}
+
+const resolveLabelForFolder = (folderKey) => {
+  if (!folderKey) {
+    return 'INBOX'
+  }
+  const normalized = String(folderKey).toLowerCase()
+  return FOLDER_LABEL_MAP[normalized] || 'INBOX'
+}
+
+// Mock data - matches Gmail API response structure
 const mockEmails = [
   {
-    id: 1,
+    id: '18c1f2a3b4d5e6f7',
     sender: { name: 'Dr. Sarah Mitchell', email: 'smitchell@lawfirm.com', initials: 'SM' },
     subject: 'Vertragsprüfung - Henderson Fall',
     snippet: 'Bitte überprüfen Sie die beigefügte Vergleichsvereinbarung für die Henderson-Angelegenheit. Wichtige Bedingungen umfassen Vertraulichkeitsklauseln, Zahlungspläne und Haftungsausschlüsse...',
     date: new Date(Date.now() - 2 * 3600000),
-    type: 'Contracts',
+    type: 'Contract',
     status: 'Ungelesen',
-    priority: 'High',
+    priority: true,
     hasAttachment: true,
     starred: false
   },
   {
-    id: 2,
+    id: '18c1f2a3b4d5e6f8',
     sender: { name: 'James Chen', email: 'jchen@corporate.com', initials: 'JC' },
     subject: 'Aktualisierung Zeugenaussage-Termin',
     snippet: 'Die für nächsten Dienstag geplante Zeugenaussage wurde auf Donnerstag 14 Uhr verschoben. Alle Parteien wurden benachrichtigt...',
     date: new Date(Date.now() - 5 * 3600000),
-    type: 'Reminders',
+    type: 'Reminder',
     status: 'Read',
-    priority: 'Normal',
+    priority: false,
     hasAttachment: false,
     starred: true
   },
   {
-    id: 3,
+    id: '18c1f2a3b4d5e6f9',
     sender: { name: 'Emily Rodriguez', email: 'erodriguez@client.com', initials: 'ER' },
     subject: 'Kündigungsvereinbarung - Finaler Entwurf',
     snippet: 'Anbei der finale Entwurf der Arbeitskündigungsvereinbarung mit allen angeforderten Überarbeitungen einschließlich Abfindungsbedingungen...',
     date: new Date(Date.now() - 24 * 3600000),
-    type: 'Terminations',
-    status: 'AI Draft',
-    priority: 'High',
+    type: 'Termination',
+    status: 'Read',
+    priority: true,
     hasAttachment: true,
     starred: false
   },
   {
-    id: 4,
+    id: '18c1f2a3b4d5e700',
     sender: { name: 'Gerichtskanzlei', email: 'clerk@court.gov', initials: 'GK' },
     subject: 'Einreichungsbestätigung - Fall 2025-CV-1842',
     snippet: 'Ihr Antrag wurde erfolgreich eingereicht. Die Anhörung ist für den 25. September um 10:00 Uhr in Gerichtssaal 3B geplant...',
     date: new Date(Date.now() - 48 * 3600000),
-    type: 'All',
+    type: 'General',
     status: 'Read',
-    priority: 'Normal',
+    priority: false,
     hasAttachment: false,
     starred: false
   },
   {
-    id: 5,
+    id: '18c1f2a3b4d5e701',
     sender: { name: 'Michael Thompson', email: 'mthompson@opposing.com', initials: 'MT' },
     subject: 'Beweisanfrage - Johnson gegen Smith',
     snippet: 'Bitte stellen Sie alle Dokumente im Zusammenhang mit dem Vorfall vom 15. März 2025 bereit. Antwort innerhalb von 30 Tagen fällig...',
     date: new Date(Date.now() - 72 * 3600000),
-    type: 'Contracts',
+    type: 'Contract',
     status: 'Ungelesen',
-    priority: 'High',
+    priority: true,
     hasAttachment: true,
     starred: false
   },
   {
-    id: 6,
+    id: '18c1f2a3b4d5e702',
     sender: { name: 'Rechtsassistent', email: 'assistant@lawfirm.com', initials: 'RA' },
     subject: 'Mandantentermin Erinnerung - Morgen 15 Uhr',
     snippet: 'Erinnerung: Sie haben morgen um 15 Uhr einen Mandantentermin. Konferenzraum B ist reserviert...',
     date: new Date(Date.now() - 96 * 3600000),
-    type: 'Reminders',
-    status: 'AI Pending',
-    priority: 'Normal',
+    type: 'Reminder',
+    status: 'Read',
+    priority: false,
     hasAttachment: false,
     starred: true
   }
 ]
+
+const computeInitials = (name = '', email = '') => {
+  const cleanedName = name.replace(/[<>"']/g, ' ').trim()
+  const parts = cleanedName.split(/\s+/).filter(Boolean)
+  const letters = parts.map(part => part[0]).filter(Boolean)
+  const candidate = (letters[0] || '') + (letters[1] || '')
+  const alphaCandidate = candidate.replace(/[^A-Za-zÄÖÜäöüß]/g, '')
+  if (alphaCandidate.length >= 2) {
+    return alphaCandidate.slice(0, 2).toUpperCase()
+  }
+  if (alphaCandidate.length === 1) {
+    return alphaCandidate.toUpperCase()
+  }
+  const fallback = (email || '').replace(/[^A-Za-z]/g, '')
+  if (fallback.length >= 2) {
+    return fallback.slice(0, 2).toUpperCase()
+  }
+  const alnum = (email || '').replace(/[^A-Za-z0-9]/g, '')
+  return alnum.slice(0, 2).toUpperCase() || 'U'
+}
+
+const normalizeEmailRecord = (email) => {
+  const senderName = email.senderName || email.sender?.name || ''
+  const senderEmail = email.senderEmail || email.sender?.email || ''
+  const displayName = senderName || senderEmail || 'Unbekannt'
+  const dateValue = email.date ? new Date(email.date) : new Date()
+  const date = isNaN(dateValue.getTime()) ? new Date() : dateValue
+
+  return {
+    id: email.id,
+    labelIds: Array.isArray(email.labelIds) ? [...email.labelIds] : [],
+    sender: {
+      name: displayName,
+      email: senderEmail,
+      initials: computeInitials(displayName, senderEmail)
+    },
+    subject: email.subject || '(kein Betreff)',
+    snippet: email.snippet || '',
+    date,
+    type: email.type || 'General',
+    status: email.unread || email.status === 'Unread' || email.status === 'Ungelesen' ? 'Ungelesen' : 'Read',
+    priority: Boolean(email.priority),
+    hasAttachment: Boolean(email.hasAttachment),
+    starred: Boolean(email.starred)
+  }
+}
 
 // Folders and Labels
 const folders = computed(() => [
@@ -636,32 +929,684 @@ const filteredEmails = computed(() => {
 
   // Sort
   if (sortBy.value === 'date-desc') {
-    filtered = [...filtered].sort((a, b) => b.date - a.date)
+    filtered = [...filtered].sort((a, b) => b.date.getTime() - a.date.getTime())
   } else if (sortBy.value === 'date-asc') {
-    filtered = [...filtered].sort((a, b) => a.date - b.date)
+    filtered = [...filtered].sort((a, b) => a.date.getTime() - b.date.getTime())
+  } else if (sortBy.value === 'sender') {
+    filtered = [...filtered].sort((a, b) => {
+      const aName = (a.sender.name || a.sender.email || '').toLowerCase()
+      const bName = (b.sender.name || b.sender.email || '').toLowerCase()
+      if (aName === bName) {
+        return (a.sender.email || '').localeCompare(b.sender.email || '')
+      }
+      return aName.localeCompare(bName)
+    })
+  } else if (sortBy.value === 'subject') {
+    filtered = [...filtered].sort((a, b) => {
+      const aSubject = (a.subject || '').toLowerCase()
+      const bSubject = (b.subject || '').toLowerCase()
+      if (aSubject === bSubject) {
+        return b.date.getTime() - a.date.getTime()
+      }
+      return aSubject.localeCompare(bSubject)
+    })
   }
 
   return filtered
 })
 
+const showLoadMoreButton = computed(() =>
+  Boolean(nextPageToken.value) &&
+  !loading.value &&
+  !loadingMore.value &&
+  !searchQuery.value.trim()
+)
+
+const showSkeleton = computed(() => loading.value && emails.value.length === 0)
+const isRefreshing = computed(() => loading.value && emails.value.length > 0)
+
+const currentAiSummary = computed(() => {
+  const id = selectedEmail.value?.id
+  if (!id) return null
+  return aiState.summaries[id] || null
+})
+
+const currentAiStatus = computed(() => {
+  const id = selectedEmail.value?.id
+  if (!id) return 'idle'
+  return aiState.status[id] || 'idle'
+})
+
+const currentAiError = computed(() => {
+  const id = selectedEmail.value?.id
+  if (!id) return ''
+  return aiState.errors[id] || ''
+})
+
+const currentAiCategory = computed(() => currentAiSummary.value?.category || 'General')
+
+const currentAiProcessedAt = computed(() => {
+  const processedAt = currentAiSummary.value?.processedAt
+  if (!processedAt) return ''
+  return formatRelativeTime(processedAt)
+})
+
 // Methods
-const handleOAuthConnect = (provider) => {
-  if (consents.value.oauth && consents.value.aiReading) {
+const persistConsentPreferences = async () => {
+  const headers = {
+    'Content-Type': 'application/json'
+  }
+  const authToken = getAuthToken()
+  if (authToken) {
+    const bearer = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`
+    headers.Authorization = bearer
+    headers['X-Portal-Auth'] = bearer
+  }
+
+  const payload = {
+    oauth_consent: consents.value.oauth,
+    ai_read_consent: consents.value.aiReading,
+    draft_only_mode: settings.value.draftOnlyMode
+  }
+
+  const response = await fetch('/api/user/gmail/consent', {
+    method: 'POST',
+    headers,
+    credentials: 'include',
+    body: JSON.stringify(payload)
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    console.error('Gmail consent save failed:', {
+      status: response.status,
+      statusText: response.statusText,
+      errorData
+    })
+    const detail = errorData.detail || errorData.message || 'Zustimmungen konnten nicht gespeichert werden.'
+    throw new Error(detail)
+  }
+
+  return response.json().catch(() => ({}))
+}
+
+const handleOAuthConnect = async (provider) => {
+  if (!consents.value.oauth || !consents.value.aiReading) {
+    errorMessage.value = 'Bitte akzeptieren Sie beide Zustimmungen.'
+    setTimeout(() => { errorMessage.value = '' }, 3000)
+    return
+  }
+
+  if (provider === 'gmail') {
     loading.value = true
-    setTimeout(() => {
-      settings.value.consentTimestamp = new Date()
-      currentView.value = 'inbox'
+    errorMessage.value = ''
+    connectionSuccess.value = false
+
+    try {
+      console.log('Persisting consent preferences...')
+      await persistConsentPreferences()
+      console.log('Consent saved successfully')
+      settings.value.aiReadAccess = true
+
+      // Store return path for OAuth callback to redirect back here
+      const returnPath = '/email'
+      try {
+        sessionStorage.setItem('gmail_oauth_return', returnPath)
+        localStorage.removeItem('gmail_oauth_return')
+      } catch (err) {
+        console.warn('Failed to persist gmail return path in sessionStorage', err)
+        // Fallback for environments without sessionStorage support
+        try { localStorage.setItem('gmail_oauth_return', returnPath) } catch (_) {}
+      }
+
+      // Redirect to backend OAuth flow which will include Gmail scopes
+      const authorizeUrl = new URL('/auth/google/authorize', window.location.origin)
+      authorizeUrl.searchParams.set('mode', 'gmail')
+      window.location.href = authorizeUrl.toString()
+    } catch (error) {
+      console.error('OAuth connection error:', error)
+      errorMessage.value = typeof error?.message === 'string'
+        ? error.message
+        : 'Fehler beim Verbinden mit Gmail. Bitte versuchen Sie es erneut.'
       loading.value = false
-    }, 1500)
+      setTimeout(() => { errorMessage.value = '' }, 5000)
+    }
+  } else {
+    // Outlook support not yet implemented
+    errorMessage.value = 'Outlook-Integration kommt bald'
+    setTimeout(() => { errorMessage.value = '' }, 3000)
   }
 }
 
-const syncEmails = () => {
-  loading.value = true
-  setTimeout(() => {
-    lastSyncTime.value = new Date()
-    loading.value = false
-  }, 1000)
+// Helper function to get auth token consistently
+const getAuthToken = () => {
+  const storageKeys = ['auth_token', 'anwalts_auth_token', 'access_token', 'token', 'sat']
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  const readFromCookies = () => {
+    try {
+      if (typeof document === 'undefined' || !document.cookie) {
+        return ''
+      }
+      const entries = document.cookie.split(';').map(entry => entry.trim()).filter(Boolean)
+      for (const entry of entries) {
+        const [name, ...rest] = entry.split('=')
+        if (storageKeys.includes(name)) {
+          return decodeURIComponent(rest.join('=') || '')
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to retrieve auth token from cookies', err)
+    }
+    return ''
+  }
+
+  // Prefer cookie-based session token so backend always sees the active user even if localStorage is stale
+  const cookieValue = readFromCookies()
+  if (cookieValue) {
+    return cookieValue
+  }
+
+  const readFromStorage = (storage) => {
+    if (!storage) {
+      return ''
+    }
+    try {
+      for (const key of storageKeys) {
+        const value = storage.getItem(key)
+        if (value) {
+          return value
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to read auth token from web storage', err)
+    }
+    return ''
+  }
+
+  const localValue = typeof localStorage !== 'undefined' ? readFromStorage(localStorage) : ''
+  if (localValue) {
+    return localValue
+  }
+
+  const sessionValue = typeof sessionStorage !== 'undefined' ? readFromStorage(sessionStorage) : ''
+  if (sessionValue) {
+    return sessionValue
+  }
+
+  return ''
+}
+
+const consumeGmailErrorFromLocation = () => {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const errorCode = params.get('gmail_error')
+    if (!errorCode) {
+      return
+    }
+
+    errorMessage.value = gmailErrorMessages[errorCode] || 'Gmail-Verknüpfung fehlgeschlagen. Bitte wählen Sie ein anderes Konto.'
+    setTimeout(() => { errorMessage.value = '' }, 5000)
+
+    params.delete('gmail_error')
+    const nextQuery = params.toString()
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`
+    window.history.replaceState({}, '', nextUrl)
+  } catch (err) {
+    console.warn('Failed to parse gmail_error query parameter', err)
+  }
+}
+
+const runManualSync = async ({
+  pageToken = '',
+  append = false,
+  labelOverride,
+  folderOverride,
+} = {}) => {
+  if (append && loadingMore.value) {
+    return { ok: false, reason: 'in_progress' }
+  }
+  if (!append && loading.value) {
+    return { ok: false, reason: 'in_progress' }
+  }
+
+  const headers = {}
+  const authToken = getAuthToken()
+  if (authToken) {
+    const bearer = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`
+    headers.Authorization = bearer
+    headers['X-Portal-Auth'] = bearer
+  }
+
+  const params = new URLSearchParams()
+  params.set('limit', String(PAGE_SIZE))
+
+  const effectiveFolder = (folderOverride || activeFolder.value || 'inbox').toLowerCase()
+  if (effectiveFolder) {
+    params.set('folder', effectiveFolder)
+  }
+
+  const requestLabel = typeof labelOverride === 'string'
+    ? labelOverride
+    : (activeLabel.value || resolveLabelForFolder(activeFolder.value))
+  if (requestLabel) {
+    params.set('label', requestLabel)
+  }
+
+  if (pageToken) {
+    params.set('pageToken', pageToken)
+  }
+
+  const endpoint = `/api/user/gmail/sync?${params.toString()}`
+
+  if (append) {
+    loadingMore.value = true
+  } else {
+    loading.value = true
+  }
+  emailError.value = ''
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      credentials: 'include'
+    })
+
+    const parsePayload = async () => {
+      try {
+        return await response.json()
+      } catch (_err) {
+        return {}
+      }
+    }
+
+    if (response.ok) {
+      const data = await parsePayload()
+      if (data && data.success && Array.isArray(data.emails)) {
+        const normalized = data.emails.map(normalizeEmailRecord)
+        if (append) {
+          const existingIds = new Set(emails.value.map(e => e.id))
+          const deduped = normalized.filter(item => {
+            if (existingIds.has(item.id)) {
+              return false
+            }
+            existingIds.add(item.id)
+            return true
+          })
+          if (deduped.length > 0) {
+            emails.value = [...emails.value, ...deduped]
+          }
+        } else {
+          emails.value = normalized
+        }
+
+        const selectedId = selectedEmail.value?.id
+        if (selectedId) {
+          const updated = emails.value.find(e => e.id === selectedId)
+          selectedEmail.value = updated || null
+        }
+
+        nextPageToken.value = data.nextPageToken || ''
+        lastSyncTime.value = new Date()
+        if (!append) {
+          listVersion.value += 1
+        }
+        return { ok: true }
+      }
+
+      if (!append) {
+        emails.value = []
+        nextPageToken.value = ''
+      }
+      return { ok: true }
+    }
+
+    const payload = await parsePayload()
+    const detail = typeof payload.detail === 'string' ? payload.detail : ''
+    const message = payload.message || detail || ''
+    const errorCode = payload.error || ''
+
+    if (response.status === 401) {
+      if (errorCode === 'not_linked' || /Kein verknüpftes/i.test(detail || '')) {
+        return { ok: false, reason: 'not_linked', detail: detail || 'Konto nicht verknüpft' }
+      }
+      emailError.value = message || 'Authentifizierungsfehler bei der Synchronisation.'
+      return { ok: false, reason: 'unauthorized', detail: message }
+    }
+
+    if (response.status === 403) {
+      emailError.value = message || 'Zugriff auf Gmail wurde nicht freigegeben.'
+      return { ok: false, reason: 'forbidden', detail: message }
+    }
+
+    if (response.status === 429) {
+      emailError.value = 'Zu viele Synchronisationsanfragen. Bitte warten Sie einen Moment.'
+      return { ok: false, reason: 'rate_limited' }
+    }
+
+    // If manual endpoint is missing (404) or other server error, signal fallback by returning reason=null
+    if (response.status === 404) {
+      console.warn('[Email Sync] Manual endpoint not found; will fallback to list endpoint')
+      return { ok: false, reason: null }
+    }
+    emailError.value = message || `Fehler beim Synchronisieren der E-Mails (Status ${response.status}).`
+    console.warn('[Email Sync] API error:', response.status, emailError.value)
+    return { ok: false, reason: 'error', detail: message }
+  } catch (error) {
+    console.error('Manual sync failed:', error)
+    // Let caller fallback to list endpoint when network fails
+    return { ok: false, reason: null, detail: String(error) }
+  } finally {
+    if (append) {
+      loadingMore.value = false
+    } else {
+      loading.value = false
+    }
+  }
+}
+
+const syncEmails = async ({ pageToken = '', append = false, labelOverride, manual = false } = {}) => {
+  if (manual) {
+    const manualResult = await runManualSync({ pageToken, append, labelOverride, folderOverride: activeFolder.value })
+    lastManualSyncReason.value = manualResult.reason || null
+
+    if (!manualResult.ok) {
+      if (manualResult.reason === 'not_linked') {
+        currentView.value = 'consent'
+        emails.value = mockEmails
+        nextPageToken.value = ''
+        Object.keys(aiState.summaries).forEach(key => delete aiState.summaries[key])
+        Object.keys(aiState.status).forEach(key => delete aiState.status[key])
+        Object.keys(aiState.errors).forEach(key => delete aiState.errors[key])
+        settings.value.aiReadAccess = false
+        return false
+      }
+      // Fallback: use standard list endpoint when manual sync is unavailable or fails
+      const ok2 = await syncEmails({ pageToken: '', append: false, labelOverride, manual: false })
+      lastManualSyncReason.value = null
+      return ok2
+    }
+
+    lastManualSyncReason.value = null
+    return true
+  }
+  lastManualSyncReason.value = null
+  if (append && loadingMore.value) {
+    return
+  }
+  if (!append && loading.value) {
+    return
+  }
+
+  if (append && !pageToken) {
+    pageToken = nextPageToken.value
+  }
+
+  if (append && !pageToken) {
+    return
+  }
+
+  if (!append) {
+    nextPageToken.value = ''
+    selectAll.value = false
+  }
+
+  if (append) {
+    loadingMore.value = true
+  } else {
+    loading.value = true
+  }
+
+  emailError.value = ''
+
+  try {
+    const headers = {}
+    const authToken = getAuthToken()
+    if (authToken) {
+      const bearer = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`
+      headers.Authorization = bearer
+      headers['X-Portal-Auth'] = bearer
+    }
+
+    const query = new URLSearchParams()
+    query.set('limit', String(PAGE_SIZE))
+    if (pageToken) {
+      query.set('pageToken', pageToken)
+    }
+
+    const requestLabel = typeof labelOverride === 'string'
+      ? labelOverride
+      : (activeLabel.value || resolveLabelForFolder(activeFolder.value))
+
+    if (requestLabel) {
+      query.set('label', requestLabel)
+    }
+
+    if (!query.has('label') && activeFolder.value) {
+      query.set('folder', activeFolder.value.toLowerCase())
+    }
+
+    const queryString = query.toString()
+    const endpoint = queryString ? `/api/email/list?${queryString}` : '/api/email/list'
+
+    const response = await fetch(endpoint, {
+      headers,
+      credentials: 'include'
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      if (data.success && Array.isArray(data.emails)) {
+        const normalized = data.emails.map(normalizeEmailRecord)
+        if (append) {
+          const existingIds = new Set(emails.value.map(e => e.id))
+          const deduped = normalized.filter(item => {
+            if (existingIds.has(item.id)) {
+              return false
+            }
+            existingIds.add(item.id)
+            return true
+          })
+          if (deduped.length > 0) {
+            emails.value = [...emails.value, ...deduped]
+          }
+        } else {
+          emails.value = normalized
+        }
+
+        const selectedId = selectedEmail.value?.id
+        if (selectedId) {
+          const updated = emails.value.find(e => e.id === selectedId)
+          selectedEmail.value = updated || null
+        }
+
+        nextPageToken.value = data.nextPageToken || ''
+        lastSyncTime.value = new Date()
+        if (!append) {
+          listVersion.value += 1
+        }
+      } else if (!append) {
+        emails.value = []
+        nextPageToken.value = ''
+      }
+    } else if (response.status === 401) {
+      const errorData = await response.json().catch(() => ({}))
+      const detail = typeof errorData.detail === 'string' ? errorData.detail : ''
+      const errorCode = errorData.error
+      if (errorCode === 'not_linked' || /Kein verknüpftes/i.test(detail || '')) {
+        currentView.value = 'consent'
+        emails.value = mockEmails
+        nextPageToken.value = ''
+        Object.keys(aiState.summaries).forEach(key => delete aiState.summaries[key])
+        Object.keys(aiState.status).forEach(key => delete aiState.status[key])
+        Object.keys(aiState.errors).forEach(key => delete aiState.errors[key])
+        settings.value.aiReadAccess = false
+      } else {
+        const message = errorData.message || detail || 'Authentifizierungsfehler beim Abrufen der E-Mails.'
+        emailError.value = message
+        console.warn('[Email List] Authentication error:', message)
+      }
+    } else {
+      const errorData = await response.json().catch(() => ({}))
+      const detail = typeof errorData.detail === 'string' ? errorData.detail : ''
+      const message = errorData.message || detail || `Fehler beim Abrufen der E-Mails (Status ${response.status}).`
+      emailError.value = message
+      console.warn('[Email List] API error:', response.status, message)
+      if (!append && emails.value.length === 0) {
+        emails.value = []
+      }
+    }
+  } catch (error) {
+    console.error('Error syncing emails:', error)
+    emailError.value = 'Netzwerkfehler beim Abrufen der E-Mails. Bitte versuchen Sie es erneut.'
+    if (!append && emails.value.length === 0) {
+      emails.value = []
+    }
+  } finally {
+    if (append) {
+      loadingMore.value = false
+    } else {
+      loading.value = false
+    }
+  }
+}
+
+const requestSync = async () => {
+  const ok = await syncEmails({ manual: true, append: false, labelOverride: activeLabel.value })
+  if (!ok && lastManualSyncReason.value !== 'not_linked') {
+    console.warn('Manual sync did not complete successfully:', lastManualSyncReason.value)
+  }
+}
+
+const mutateEmailLabels = async (emailId, labelsToAdd = [], labelsToRemove = []) => {
+  if (!emailId) {
+    return false
+  }
+
+  const headers = {
+    'Content-Type': 'application/json'
+  }
+  const authToken = getAuthToken()
+  if (authToken) {
+    const bearer = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`
+    headers.Authorization = bearer
+    headers['X-Portal-Auth'] = bearer
+  }
+
+  try {
+    const response = await fetch('/api/email/modify', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ id: emailId, add: labelsToAdd, remove: labelsToRemove })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const detail = errorData.detail || errorData.message || 'E-Mail-Aktion fehlgeschlagen.'
+      throw new Error(detail)
+    }
+
+    return true
+  } catch (error) {
+    console.error('Failed to mutate email labels:', error)
+    const message = typeof error?.message === 'string' ? error.message : 'E-Mail-Aktion fehlgeschlagen.'
+    emailError.value = message
+    setTimeout(() => {
+      if (emailError.value === message) {
+        emailError.value = ''
+      }
+    }, 4000)
+    return false
+  }
+}
+
+const fetchAiSummary = async (email, { force = false } = {}) => {
+  if (!email?.id || !settings.value.aiReadAccess) {
+    return
+  }
+
+  const emailId = email.id
+  const status = aiState.status[emailId]
+  if (!force) {
+    if (status === 'loading') return
+    if (status === 'success') return
+  }
+
+  aiState.status[emailId] = 'loading'
+  aiState.errors[emailId] = ''
+
+  try {
+    const headers = {
+      'Content-Type': 'application/json'
+    }
+    const authToken = getAuthToken()
+    if (authToken) {
+      const bearer = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`
+      headers.Authorization = bearer
+      headers['X-Portal-Auth'] = bearer
+    }
+
+    const response = await fetch('/api/email/process', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ email_id: emailId })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const detail = errorData.detail || errorData.message || `AI-Verarbeitung fehlgeschlagen (${response.status}).`
+      aiState.errors[emailId] = detail
+      aiState.status[emailId] = 'error'
+      return
+    }
+
+    const data = await response.json()
+    if (!data?.success) {
+      const detail = data?.detail || data?.message || 'AI-Verarbeitung ohne Ergebnis abgeschlossen.'
+      aiState.errors[emailId] = detail
+      aiState.status[emailId] = 'error'
+      return
+    }
+
+    const summaryPayload = data.summary || {}
+    const summaryPoints = Array.isArray(summaryPayload.summary_points) ? summaryPayload.summary_points : []
+    const risks = Array.isArray(summaryPayload.risks) ? summaryPayload.risks : []
+    const actions = Array.isArray(summaryPayload.actions) ? summaryPayload.actions : []
+    const summaryText = summaryPoints.length > 0
+      ? summaryPoints.join('\n')
+      : (summaryPayload.summary || summaryPayload.raw || 'Keine Zusammenfassung verfügbar.')
+
+    aiState.summaries[emailId] = {
+      summary: summaryText,
+      points: summaryPoints,
+      actions,
+      risks,
+      deadline: summaryPayload.deadline || '',
+      category: summaryPayload.category || data.category || 'General',
+      processedAt: summaryPayload.generated_at || data.processed_at || data.processedAt || null,
+      raw: summaryPayload
+    }
+    aiState.status[emailId] = 'success'
+  } catch (error) {
+    console.error('AI processing error:', error)
+    aiState.errors[emailId] = error?.message || 'Netzwerkfehler bei der AI-Verarbeitung.'
+    aiState.status[emailId] = 'error'
+  }
+}
+
+const refreshAiSummary = async () => {
+  if (!selectedEmail.value) {
+    return
+  }
+  await fetchAiSummary(selectedEmail.value, { force: true })
 }
 
 const openEmail = (email) => {
@@ -669,6 +1614,16 @@ const openEmail = (email) => {
   if (email.status === 'Ungelesen') {
     email.status = 'Read'
   }
+  if (settings.value.aiReadAccess) {
+    fetchAiSummary(email).catch((err) => {
+      console.warn('Failed to start AI processing', err)
+    })
+  }
+  // Reset floating actions state for new selection
+  aiActions.replyText = ''
+  aiActions.replyError = ''
+  aiActions.docResult = null
+  aiActions.docError = ''
 }
 
 const closeEmail = () => {
@@ -685,10 +1640,235 @@ const forwardEmail = () => {
   selectedEmail.value = null
 }
 
-const toggleStar = (emailId) => {
+const toggleStar = async (emailId) => {
   const email = emails.value.find(e => e.id === emailId)
-  if (email) {
-    email.starred = !email.starred
+  if (!email) {
+    return
+  }
+
+  const shouldStar = !email.starred
+  const success = await mutateEmailLabels(emailId, shouldStar ? ['STARRED'] : [], shouldStar ? [] : ['STARRED'])
+  if (!success) {
+    return
+  }
+
+  email.starred = shouldStar
+  email.labelIds = Array.isArray(email.labelIds) ? [...email.labelIds] : []
+  if (shouldStar) {
+    if (!email.labelIds.includes('STARRED')) {
+      email.labelIds.push('STARRED')
+    }
+  } else {
+    email.labelIds = email.labelIds.filter(label => label !== 'STARRED')
+  }
+
+  if (selectedEmail.value?.id === emailId) {
+    selectedEmail.value = {
+      ...selectedEmail.value,
+      starred: shouldStar,
+      labelIds: [...email.labelIds]
+    }
+  }
+
+  if (!shouldStar && activeFolder.value === 'starred') {
+    emails.value = emails.value.filter(e => e.id !== emailId)
+    if (selectedEmail.value?.id === emailId) {
+      selectedEmail.value = null
+    }
+  }
+}
+
+const archiveEmail = async (email) => {
+  if (!email?.id) {
+    return
+  }
+  const success = await mutateEmailLabels(email.id, [], ['INBOX'])
+  if (!success) {
+    return
+  }
+
+  email.labelIds = Array.isArray(email.labelIds) ? email.labelIds.filter(label => label !== 'INBOX') : []
+  email.status = 'Archived'
+
+  if (selectedEmail.value?.id === email.id) {
+    selectedEmail.value = {
+      ...selectedEmail.value,
+      status: email.status,
+      labelIds: [...email.labelIds]
+    }
+  }
+
+  if (activeFolder.value === 'inbox') {
+    emails.value = emails.value.filter(e => e.id !== email.id)
+    if (selectedEmail.value?.id === email.id) {
+      selectedEmail.value = null
+    }
+  }
+}
+
+const moveEmailToTrash = async (email) => {
+  if (!email?.id) {
+    return
+  }
+  const success = await mutateEmailLabels(email.id, ['TRASH'], ['INBOX'])
+  if (!success) {
+    return
+  }
+
+  const nextLabels = Array.isArray(email.labelIds) ? email.labelIds.filter(label => label !== 'INBOX') : []
+  if (!nextLabels.includes('TRASH')) {
+    nextLabels.push('TRASH')
+  }
+  email.labelIds = nextLabels
+  email.status = 'Deleted'
+
+  if (selectedEmail.value?.id === email.id) {
+    selectedEmail.value = {
+      ...selectedEmail.value,
+      status: email.status,
+      labelIds: [...email.labelIds]
+    }
+  }
+
+  if (activeFolder.value !== 'trash') {
+    emails.value = emails.value.filter(e => e.id !== email.id)
+    if (selectedEmail.value?.id === email.id) {
+      selectedEmail.value = null
+    }
+  }
+}
+
+const toggleReadState = async (email) => {
+  if (!email?.id) {
+    return
+  }
+  const labelIds = Array.isArray(email.labelIds) ? [...email.labelIds] : []
+  const isUnread = labelIds.includes('UNREAD') || email.status === 'Ungelesen'
+  const add = isUnread ? [] : ['UNREAD']
+  const remove = isUnread ? ['UNREAD'] : []
+
+  const success = await mutateEmailLabels(email.id, add, remove)
+  if (!success) {
+    return
+  }
+
+  let nextStatus = 'Read'
+  let nextLabels = labelIds.filter(label => label !== 'UNREAD')
+  if (!isUnread) {
+    nextLabels = [...nextLabels, 'UNREAD']
+    nextStatus = 'Ungelesen'
+  }
+
+  email.labelIds = nextLabels
+  email.status = nextStatus
+
+  if (selectedEmail.value?.id === email.id) {
+    selectedEmail.value = {
+      ...selectedEmail.value,
+      status: nextStatus,
+      labelIds: [...nextLabels]
+    }
+  }
+}
+
+// Floating actions handlers
+const onGenerateReply = async () => {
+  if (!selectedEmail.value || aiActions.generatingReply) return
+  aiActions.replyError = ''
+  aiActions.replyText = ''
+  aiActions.generatingReply = true
+  try {
+    const headers = { 'Content-Type': 'application/json' }
+    const authToken = getAuthToken()
+    if (authToken) {
+      const bearer = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`
+      headers.Authorization = bearer
+      headers['X-Portal-Auth'] = bearer
+    }
+    // Use assistant chat endpoint to generate a formal German reply
+    const prompt = [
+      'Formuliere eine professionelle Antwort-E-Mail in der Sie-Form.',
+      'Ton: juristisch präzise, knapp, freundlich.',
+      `Betreff: ${selectedEmail.value.subject || '(kein Betreff)'}`,
+      'Originaltext (Auszug):',
+      (selectedEmail.value.snippet || '').slice(0, 12000)
+    ].join('\n\n')
+    const res = await fetch('/api/assistant/chat', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ message: prompt, temperature: 0.25 })
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.detail || data.message || `Fehler (${res.status})`)
+    }
+    const data = await res.json()
+    aiActions.replyText = (data.content || '').trim()
+  } catch (e) {
+    aiActions.replyError = e?.message || 'Antwortentwurf fehlgeschlagen.'
+  } finally {
+    aiActions.generatingReply = false
+  }
+}
+
+const copyReplyToClipboard = async () => {
+  try {
+    await navigator.clipboard.writeText(aiActions.replyText || '')
+    // Optional: simple toast
+    console.log('Antwort in die Zwischenablage kopiert')
+  } catch (e) {
+    console.warn('Kopieren fehlgeschlagen', e)
+  }
+}
+
+// Hand-off to Documents page with prefill
+const router = useRouter()
+const onSendToDocuments = async () => {
+  if (!selectedEmail.value) return
+  try {
+    const payload = {
+      subject: selectedEmail.value.subject || 'E-Mail',
+      content: (selectedEmail.value.snippet || '').slice(0, 20000)
+    }
+    try { localStorage.setItem('anwalt.emailToDocument', JSON.stringify(payload)) } catch (_) {}
+    await router.push({ path: '/documents', query: { from: 'email' } })
+  } catch (e) {
+    console.warn('[Email] Navigation to documents failed:', e)
+  }
+}
+
+const loadMoreEmails = () => {
+  if (!nextPageToken.value || loadingMore.value || searchQuery.value.trim()) {
+    return
+  }
+  syncEmails({ append: true })
+}
+
+const formatRelativeTime = (isoString) => {
+  try {
+    const timestamp = new Date(isoString)
+    if (Number.isNaN(timestamp.getTime())) {
+      return ''
+    }
+    const now = new Date()
+    const diffMs = now.getTime() - timestamp.getTime()
+    const diffMinutes = Math.floor(diffMs / 60000)
+    if (diffMinutes < 1) return 'Gerade eben'
+    if (diffMinutes < 60) return `Vor ${diffMinutes} Min.`
+    const diffHours = Math.floor(diffMinutes / 60)
+    if (diffHours < 24) return `Vor ${diffHours} Std.`
+    const diffDays = Math.floor(diffHours / 24)
+    if (diffDays === 1) return 'Vor 1 Tag'
+    if (diffDays < 7) return `Vor ${diffDays} Tagen`
+    return timestamp.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+  } catch (err) {
+    console.warn('Failed to format relative time', err)
+    return ''
   }
 }
 
@@ -719,52 +1899,164 @@ const getStatusClass = (status) => {
     'Ungelesen': 'status-unread',
     'Read': 'status-read',
     'AI Draft': 'status-draft',
-    'AI Pending': 'status-pending'
+    'AI Pending': 'status-pending',
+    'Archived': 'status-archived',
+    'Deleted': 'status-deleted'
   }
   return classes[status] || 'status-read'
 }
 
-const getAISummary = (email) => {
-  const summaries = {
-    'Contracts': 'Wichtige Vertragsüberprüfung erforderlich. Schwerpunkt auf Haftungsausschlüssen und Zahlungsbedingungen. Antwort innerhalb von 48 Stunden empfohlen.',
-    'Reminders': 'Terminaktualisierung - Zeugenaussage verschoben auf Donnerstag 14 Uhr. Keine Aktion erforderlich, nur zur Kenntnis.',
-    'Terminations': 'Finaler Entwurf der Kündigungsvereinbarung bereit zur Überprüfung. Alle vorherigen Überarbeitungen wurden berücksichtigt.',
-    'All': 'Gerichtseinreichung bestätigt - Anhörung geplant für 25. September 10:00 Uhr, Saal 3B.'
+const handleRevokeAccess = async () => {
+  if (!confirm('Sind Sie sicher, dass Sie den E-Mail-Zugriff widerrufen möchten? Sie müssen die Verbindung wiederherstellen, um diese Funktion zu nutzen.')) {
+    return
   }
-  return summaries[email.type] || 'Keine KI-Zusammenfassung verfügbar.'
-}
 
-const handleRevokeAccess = () => {
-  if (confirm('Sind Sie sicher, dass Sie den E-Mail-Zugriff widerrufen möchten? Sie müssen die Verbindung wiederherstellen, um diese Funktion zu nutzen.')) {
-    currentView.value = 'consent'
-    consents.value = { oauth: false, aiReading: false }
-    emails.value = []
-    settings.value = {
-      aiReadAccess: true,
-      draftOnlyMode: true,
-      consentTimestamp: null
+  try {
+    const authToken = getAuthToken()
+    if (!authToken) {
+      console.error('No auth token available')
+      alert('Authentifizierungsfehler. Bitte melden Sie sich erneut an.')
+      return
     }
-    showSettings.value = false
+
+    const response = await fetch('/api/user/gmail/revoke', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      credentials: 'include'
+    })
+
+    if (response.ok) {
+      currentView.value = 'consent'
+      consents.value = { oauth: false, aiReading: false }
+      emails.value = []
+      settings.value = {
+        aiReadAccess: false,
+        draftOnlyMode: true,
+        consentTimestamp: null
+      }
+      Object.keys(aiState.summaries).forEach(key => delete aiState.summaries[key])
+      Object.keys(aiState.status).forEach(key => delete aiState.status[key])
+      Object.keys(aiState.errors).forEach(key => delete aiState.errors[key])
+      showSettings.value = false
+      console.log('Gmail access revoked successfully')
+    } else {
+      const errorData = await response.json().catch(() => ({}))
+      console.error('Failed to revoke access:', response.status, errorData)
+      alert('Fehler beim Widerrufen des Zugriffs. Bitte versuchen Sie es erneut.')
+    }
+  } catch (error) {
+    console.error('Error revoking Gmail access:', error)
+    alert('Netzwerkfehler beim Widerrufen des Zugriffs. Bitte überprüfen Sie Ihre Internetverbindung.')
   }
 }
 
 // Watchers
-watch(() => currentView.value, (newView) => {
+watch(() => currentView.value, async (newView) => {
   if (newView === 'inbox') {
-    loading.value = true
-    setTimeout(() => {
-      emails.value = mockEmails
-      loading.value = false
-      lastSyncTime.value = new Date()
-    }, 1000)
+    activeLabel.value = resolveLabelForFolder(activeFolder.value)
+    if (emails.value.length === 0) {
+      await syncEmails({ append: false, labelOverride: activeLabel.value })
+    }
+  }
+})
+
+watch(activeFolder, async (nextFolder) => {
+  if (currentView.value === 'consent') {
+    return
+  }
+  activeLabel.value = resolveLabelForFolder(nextFolder)
+  if (currentView.value !== 'inbox') {
+    currentView.value = 'inbox'
+  }
+  selectedEmail.value = null
+  await syncEmails({ append: false, labelOverride: activeLabel.value })
+})
+
+watch(() => settings.value.aiReadAccess, (enabled) => {
+  if (enabled && selectedEmail.value) {
+    fetchAiSummary(selectedEmail.value).catch((err) => {
+      console.warn('Failed to initiate AI summary after enabling access', err)
+    })
   }
 })
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  consumeGmailErrorFromLocation()
+  // Check Gmail connection status
+  try {
+    const headers = {}
+    const authToken = getAuthToken()
+    if (authToken) {
+      const bearer = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`
+      headers.Authorization = bearer
+      headers['X-Portal-Auth'] = bearer
+    }
+
+    const response = await fetch('/api/user/gmail/status', {
+      headers,
+      credentials: 'include'
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      if (data.connected) {
+        // Gmail is connected, show inbox
+        connectionSuccess.value = true
+        setTimeout(() => { connectionSuccess.value = false }, 2000)
+        currentView.value = 'inbox'
+        if (data.consent_timestamp) {
+          settings.value.consentTimestamp = new Date(data.consent_timestamp)
+        }
+        if (typeof data.ai_read_consent !== 'undefined') {
+          settings.value.aiReadAccess = Boolean(data.ai_read_consent)
+        } else if (typeof data.aiReadConsent !== 'undefined') {
+          settings.value.aiReadAccess = Boolean(data.aiReadConsent)
+        } else {
+          settings.value.aiReadAccess = true
+        }
+        console.log('Gmail connected, loading emails...')
+        activeLabel.value = resolveLabelForFolder(activeFolder.value)
+        const manualLoaded = await syncEmails({ manual: true, append: false, labelOverride: activeLabel.value })
+        if (!manualLoaded && !lastManualSyncReason.value) {
+          await syncEmails({ append: false, labelOverride: activeLabel.value })
+        }
+      } else {
+        // Not connected, show consent screen
+        console.log('Gmail not connected, showing consent screen')
+        currentView.value = 'consent'
+        emails.value = mockEmails
+        nextPageToken.value = ''
+        Object.keys(aiState.summaries).forEach(key => delete aiState.summaries[key])
+        Object.keys(aiState.status).forEach(key => delete aiState.status[key])
+        Object.keys(aiState.errors).forEach(key => delete aiState.errors[key])
+        settings.value.aiReadAccess = false
+      }
+    } else if (response.status === 401) {
+      // Authentication error
+      console.warn('Authentication error checking Gmail status')
+      currentView.value = 'consent'
+      emails.value = mockEmails
+      nextPageToken.value = ''
+    } else {
+      // Other error, show consent screen
+      console.error(`Error checking Gmail status: ${response.status}`)
+      currentView.value = 'consent'
+      emails.value = mockEmails
+      nextPageToken.value = ''
+    }
+  } catch (error) {
+    console.error('Network error checking Gmail status:', error)
+    currentView.value = 'consent'
+    emails.value = mockEmails
+    nextPageToken.value = ''
+  }
+
   const interval = setInterval(() => {
     if (currentView.value === 'inbox') {
-      lastSyncTime.value = new Date()
+      syncEmails() // Auto-refresh emails every 30 seconds
     }
   }, 30000)
 
@@ -969,6 +2261,26 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
+.consent-success {
+  margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10b981;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.consent-error {
+  margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
 /* ========== INBOX LAYOUT ========== */
 .inbox-layout {
   flex: 1;
@@ -1122,12 +2434,14 @@ onMounted(() => {
   background: transparent;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
   color: var(--text-medium);
   font-size: 0.8125rem;
   font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
 }
 
 .tab-item:hover {
@@ -1135,10 +2449,31 @@ onMounted(() => {
   color: var(--text-strong);
 }
 
+.tab-item::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+
+.tab-item:hover::after {
+  transform: scaleX(0.4);
+}
+
 .tab-item-active {
   background: var(--primary-soft) !important;
   color: var(--primary) !important;
   font-weight: 600;
+}
+
+.tab-item-active::after {
+  transform: scaleX(1);
 }
 
 .tab-label {
@@ -1174,6 +2509,7 @@ onMounted(() => {
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 .folder-icon {
@@ -1245,6 +2581,7 @@ onMounted(() => {
 /* Email List Container */
 .email-list-container {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1271,6 +2608,7 @@ onMounted(() => {
   height: 16px;
   accent-color: var(--primary);
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .toolbar-button {
@@ -1309,11 +2647,44 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.email-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 1.5rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: rgba(254, 226, 226, 0.75);
+  border: 1px solid rgba(254, 202, 202, 0.9);
+  color: #b91c1c;
+  font-size: 0.875rem;
+}
+
+.email-error-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
 /* Email List */
 .email-list {
   flex: 1;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.email-rows {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+
+.email-rows-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
 .email-row {
@@ -1321,9 +2692,203 @@ onMounted(() => {
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.5rem;
+  padding-right: 5.5rem;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.load-more-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.load-more-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.3rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(91, 124, 230, 0.35);
+  background: rgba(91, 124, 230, 0.12);
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.load-more-button:hover {
+  background: rgba(91, 124, 230, 0.18);
+  border-color: rgba(91, 124, 230, 0.55);
+  transform: translateY(-1px);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.load-more-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.load-more-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.load-more-spinner {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(91, 124, 230, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(91, 124, 230, 0);
+  }
+}
+
+.email-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem 1.25rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.email-footer-count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.fade-300-enter-active,
+.fade-300-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-300-enter-from,
+.fade-300-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.fade-rows-enter-active,
+.fade-rows-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.fade-rows-enter-from,
+.fade-rows-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.fade-rows-move {
+  transition: transform 0.25s ease;
+}
+
+@media (max-width: 1024px) {
+  .inbox-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-center {
+    width: 100%;
+  }
+
+  .header-right {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .compose-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .email-tabs {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .tab-item {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .email-row {
+    flex-direction: column;
+    align-items: flex-start;
+    padding-right: 1.5rem;
+    gap: 0.75rem;
+  }
+
+  .email-sender {
+    width: 100%;
+  }
+
+  .email-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .email-date {
+    width: auto;
+  }
+
+  .email-actions {
+    position: static;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+    width: 100%;
+    justify-content: flex-start;
+    margin-top: 0.25rem;
+    gap: 0.5rem;
+  }
+
+  .email-action-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .email-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}
+
+.list-loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.list-loading-spinner {
+  width: 1rem;
+  height: 1rem;
+  animation: spin 0.9s linear infinite;
 }
 
 .email-row:hover {
@@ -1342,11 +2907,74 @@ onMounted(() => {
   background: rgba(91, 124, 230, 0.12) !important;
 }
 
+.email-actions {
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%) translateX(12px);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.email-row:hover .email-actions,
+.email-row.email-selected .email-actions,
+.email-row:focus-within .email-actions {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+  pointer-events: auto;
+}
+
+.email-action-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: rgba(91, 124, 230, 0.08);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+
+.email-action-button:hover {
+  background: rgba(91, 124, 230, 0.16);
+  border-color: rgba(91, 124, 230, 0.35);
+  transform: translateY(-1px);
+}
+
+.email-action-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(91, 124, 230, 0.25);
+}
+
+.email-action-button svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .email-checkbox input {
   width: 16px;
   height: 16px;
   accent-color: var(--primary);
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.checkbox-all input:active,
+.email-checkbox input:active {
+  transform: scale(0.92);
+}
+
+.checkbox-all input:checked,
+.email-checkbox input:checked {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 3px rgba(91, 124, 230, 0.25);
 }
 
 .email-star {
@@ -1441,6 +3069,16 @@ onMounted(() => {
 .status-pending {
   background: rgba(245, 158, 11, 0.14);
   color: #f59e0b;
+}
+
+.status-archived {
+  background: rgba(99, 102, 241, 0.14);
+  color: #6366f1;
+}
+
+.status-deleted {
+  background: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
 }
 
 .email-date {
@@ -1713,11 +3351,87 @@ onMounted(() => {
 .ai-summary-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: 0.75rem;
   font-weight: 600;
   font-size: 0.875rem;
   color: var(--primary);
   margin-bottom: 0.75rem;
+}
+
+.ai-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ai-summary-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 124, 230, 0.3);
+  background: rgba(91, 124, 230, 0.08);
+  color: var(--primary);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.ai-summary-refresh:hover:not(:disabled) {
+  background: rgba(91, 124, 230, 0.16);
+  border-color: rgba(91, 124, 230, 0.45);
+}
+
+.ai-summary-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ai-summary-loading,
+.ai-summary-error,
+.ai-summary-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.ai-summary-loading {
+  color: var(--text-muted);
+}
+
+.ai-summary-error {
+  color: #ef4444;
+  flex-wrap: wrap;
+}
+
+.ai-summary-placeholder {
+  color: var(--text-muted);
+}
+
+.ai-retry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.ai-retry-button:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.ai-spinner {
+  animation: spin 1s linear infinite;
 }
 
 .ai-summary-text {
@@ -1744,6 +3458,12 @@ onMounted(() => {
   font-size: 0.75rem;
   color: var(--text-medium);
   font-weight: 500;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .email-attachments {
@@ -2070,4 +3790,58 @@ onMounted(() => {
     width: auto;
   }
 }
+
+/* AI Floating Actions */
+.ai-floating-actions {
+  position: sticky;
+  bottom: 0;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+.ai-actions-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ai-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(91, 124, 230, 0.25);
+  background: rgba(91, 124, 230, 0.06);
+  color: var(--text-strong);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.ai-action-btn.primary {
+  background: linear-gradient(135deg, #5b7ce6 0%, #4a6cd4 100%);
+  color: #fff;
+  border-color: rgba(91, 124, 230, 0.25);
+  box-shadow: 0 10px 30px rgba(91, 124, 230, 0.25);
+}
+.ai-action-btn.secondary {
+  border-color: rgba(91, 124, 230, 0.3);
+  background: rgba(91, 124, 230, 0.1);
+  color: var(--primary-strong);
+}
+.ai-action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.ai-action-btn:hover:not(:disabled) { box-shadow: 0 18px 28px rgba(60, 76, 150, 0.18); transform: translateY(-1px); }
+
+.ai-result { margin-top: 0.75rem; }
+.ai-result-header { display:flex; align-items:center; justify-content: space-between; margin-bottom: 0.25rem; }
+.ai-result-title { font-weight: 600; color: var(--text-strong); }
+.ai-result-actions .mini { font-size: 0.75rem; padding: 0.25rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--background); }
+.reply-preview { white-space: pre-wrap; background: var(--background); border: 1px dashed var(--border); border-radius: 8px; padding: 0.5rem; font-size: 0.875rem; line-height: 1.35; }
+.ai-error { color: #b91c1c; font-size: 0.875rem; }
+.ai-doc-success { font-size: 0.875rem; }
+.ai-doc-title { font-weight: 600; margin-bottom: 0.25rem; }
+.ai-doc-links a { margin-right: 0.5rem; color: var(--primary); text-decoration: underline; }
 </style>
