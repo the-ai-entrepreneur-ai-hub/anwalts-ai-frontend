@@ -1,7 +1,7 @@
 <template>
   <PortalShell>
     <template #header>
-      <div v-if="currentView === 'inbox'" class="inbox-header">
+      <div v-if="uiReady && currentView === 'inbox'" class="inbox-header">
         <div class="header-left">
           <NuxtLink to="/dashboard" class="back-link">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,7 +55,7 @@
     <div class="email-app">
 
       <!-- Consent Screen -->
-      <div v-if="currentView === 'consent'" class="consent-screen">
+      <div v-if="uiReady && currentView === 'consent'" class="consent-screen">
       <NuxtLink
         to="/dashboard"
         class="back-to-dashboard"
@@ -162,7 +162,7 @@
     </div>
 
     <!-- Inbox View -->
-    <div v-if="currentView === 'inbox'" class="inbox-layout">
+    <div v-if="uiReady && currentView === 'inbox'" class="inbox-layout">
       <!-- Email Tabs -->
       <div class="email-tabs">
         <button
@@ -708,6 +708,8 @@ const FOLDER_LABEL_MAP = Object.freeze({
 })
 
 // State
+// UI gating to avoid consent flash after user connected
+const uiReady = ref(false)
 const currentView = ref('consent')
 const selectedEmail = ref(null)
 const activeFolder = ref('inbox')
@@ -1985,6 +1987,14 @@ watch(() => settings.value.aiReadAccess, (enabled) => {
 // Lifecycle
 onMounted(async () => {
   consumeGmailErrorFromLocation()
+  // Pre-set view from last known state to minimize flicker (client-only)
+  try {
+    if (typeof window !== 'undefined') {
+      const last = localStorage.getItem('anwalt.email.connected')
+      if (last === '1') currentView.value = 'inbox'
+    }
+  } catch(_) {}
+
   // Check Gmail connection status
   try {
     const headers = {}
@@ -2007,6 +2017,7 @@ onMounted(async () => {
         connectionSuccess.value = true
         setTimeout(() => { connectionSuccess.value = false }, 2000)
         currentView.value = 'inbox'
+        try { localStorage.setItem('anwalt.email.connected', '1') } catch(_) {}
         if (data.consent_timestamp) {
           settings.value.consentTimestamp = new Date(data.consent_timestamp)
         }
@@ -2027,6 +2038,7 @@ onMounted(async () => {
         // Not connected, show consent screen
         console.log('Gmail not connected, showing consent screen')
         currentView.value = 'consent'
+        try { localStorage.removeItem('anwalt.email.connected') } catch(_) {}
         emails.value = mockEmails
         nextPageToken.value = ''
         Object.keys(aiState.summaries).forEach(key => delete aiState.summaries[key])
@@ -2038,21 +2050,27 @@ onMounted(async () => {
       // Authentication error
       console.warn('Authentication error checking Gmail status')
       currentView.value = 'consent'
+      try { localStorage.removeItem('anwalt.email.connected') } catch(_) {}
       emails.value = mockEmails
       nextPageToken.value = ''
     } else {
       // Other error, show consent screen
       console.error(`Error checking Gmail status: ${response.status}`)
       currentView.value = 'consent'
+      try { localStorage.removeItem('anwalt.email.connected') } catch(_) {}
       emails.value = mockEmails
       nextPageToken.value = ''
     }
   } catch (error) {
     console.error('Network error checking Gmail status:', error)
     currentView.value = 'consent'
+    try { localStorage.removeItem('anwalt.email.connected') } catch(_) {}
     emails.value = mockEmails
     nextPageToken.value = ''
   }
+
+  // Release UI gating after status resolved
+  uiReady.value = true
 
   const interval = setInterval(() => {
     if (currentView.value === 'inbox') {
