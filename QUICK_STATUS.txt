@@ -1,0 +1,41 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                    502 ERROR - FIXED! ✅                                  ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+PROBLEM: Nginx couldn't find frontend container
+CAUSE:   Missing network alias "frontend" in Docker DNS
+FIX:     Recreated containers using docker-compose
+
+CURRENT STATUS:
+═══════════════
+✅ anwalts_frontend   Up 4 minutes (healthy)
+✅ anwalts_backend    Up 4 minutes (healthy)
+✅ anwalts_nginx      Up 11 hours (healthy)
+✅ Network DNS:       frontend → 172.19.0.6
+✅ Network DNS:       backend → 172.19.0.4
+✅ Site accessible:   https://portal-anwalts.ai/settings → 200 OK
+✅ No 502 errors:     Confirmed in nginx logs
+
+WHAT YOU NEED TO DO:
+═══════════════════
+1. Open: https://portal-anwalts.ai/settings
+2. Hard refresh: Ctrl + Shift + R (Windows) or Cmd + Shift + R (Mac)
+3. Verify all 5 tabs load data
+
+FIXES DEPLOYED:
+══════════════
+✅ Authentication headers added to Settings page (earlier)
+✅ Network aliases fixed for nginx resolution (just now)
+
+EXPECTED RESULT:
+═══════════════
+✓ Site loads without 502 error
+✓ Settings tabs display data (not error messages)
+✓ KPIs, charts, API keys, webhooks, users all visible
+✓ No more "konnte nicht geladen werden" errors
+
+═══════════════════════════════════════════════════════════════════════════
+                    READY TO USE! 🎉
+═══════════════════════════════════════════════════════════════════════════
+
+Complete docs: /root/502_ERROR_FIXED_COMPLETE.md

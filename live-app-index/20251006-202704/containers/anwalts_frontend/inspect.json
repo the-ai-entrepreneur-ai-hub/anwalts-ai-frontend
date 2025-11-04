@@ -1,0 +1,306 @@
+[
+    {
+        "Id": "1b66691cd61e0f694dff0cbb0c4db755548c29fc2df65ed052af5ee208375d17",
+        "Created": "2025-10-06T18:17:23.714022087Z",
+        "Path": "docker-entrypoint.sh",
+        "Args": [
+            "node",
+            ".output/server/index.mjs"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 509097,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T18:17:25.261644097Z",
+            "FinishedAt": "0001-01-01T00:00:00Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:25:02.244676399+02:00",
+                        "End": "2025-10-06T20:25:02.353944675+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:25:32.354965769+02:00",
+                        "End": "2025-10-06T20:25:32.469572739+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:02.470669862+02:00",
+                        "End": "2025-10-06T20:26:02.598121502+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:32.598418378+02:00",
+                        "End": "2025-10-06T20:26:32.721889885+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:27:02.722321636+02:00",
+                        "End": "2025-10-06T20:27:02.83134417+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:ee83d2fed9ff8aada03f2f9ace7cdc471653d64837182e8bca08f6b0373d6275",
+        "ResolvConfPath": "/var/lib/docker/containers/1b66691cd61e0f694dff0cbb0c4db755548c29fc2df65ed052af5ee208375d17/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/1b66691cd61e0f694dff0cbb0c4db755548c29fc2df65ed052af5ee208375d17/hostname",
+        "HostsPath": "/var/lib/docker/containers/1b66691cd61e0f694dff0cbb0c4db755548c29fc2df65ed052af5ee208375d17/hosts",
+        "LogPath": "/var/lib/docker/containers/1b66691cd61e0f694dff0cbb0c4db755548c29fc2df65ed052af5ee208375d17/1b66691cd61e0f694dff0cbb0c4db755548c29fc2df65ed052af5ee208375d17-json.log",
+        "Name": "/anwalts_frontend",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "root_default",
+            "PortBindings": {
+                "3000/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "3000"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/99e0b632f89bba245e786d2ef5e47937d26aa12d2f75efba14a6d86ac553c1ac-init/diff:/var/lib/docker/overlay2/6o3kmh9qo7q92jjx71gby8thn/diff:/var/lib/docker/overlay2/zknxuwiei4ofmv1jgz4z66hbl/diff:/var/lib/docker/overlay2/wdnv99vj95eor86cuwf1ms2b6/diff:/var/lib/docker/overlay2/vmzikh8bw8q1xdurui919txy8/diff:/var/lib/docker/overlay2/sa4k2gl4c18uq3t0y0pa6ra5q/diff:/var/lib/docker/overlay2/f95b33eb1cfdb9537d39bff3879980e2ac2522c194fea45b855b107d33040192/diff:/var/lib/docker/overlay2/0b52e7c53cf8fbf657eed4d1c21003340e4919f7b81d0889eca6de65dc09c600/diff:/var/lib/docker/overlay2/2692b177a3b47352585843289a23f2de36be37e5cc84729acf874013ed111c8c/diff:/var/lib/docker/overlay2/a80439a8aae05684a95dc5c51529db7ee99252e293613e3fd5d3c5f04a963d32/diff",
+                "MergedDir": "/var/lib/docker/overlay2/99e0b632f89bba245e786d2ef5e47937d26aa12d2f75efba14a6d86ac553c1ac/merged",
+                "UpperDir": "/var/lib/docker/overlay2/99e0b632f89bba245e786d2ef5e47937d26aa12d2f75efba14a6d86ac553c1ac/diff",
+                "WorkDir": "/var/lib/docker/overlay2/99e0b632f89bba245e786d2ef5e47937d26aa12d2f75efba14a6d86ac553c1ac/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "1b66691cd61e",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "ExposedPorts": {
+                "3000/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "NITRO_HOST=0.0.0.0",
+                "NITRO_PORT=3000",
+                "DASHBOARD_SERVICE_KEY=<REDACTED_DASHBOARD_SERVICE_KEY>",
+                "NUXT_PUBLIC_API_BASE=/api",
+                "SUPABASE_SERVICE_ROLE_KEY=<REDACTED_SUPABASE_SERVICE_ROLE_KEY>",
+                "GOOGLE_REDIRECT_URI=https://portal-anwalts.ai/api/auth/google/callback",
+                "SUPABASE_URL=https://portal-anwalts.ai/supabase",
+                "NODE_OPTIONS=--max_old_space_size=3072",
+                "GOOGLE_CLIENT_SECRET=<REDACTED_GOOGLE_SECRET>",
+                "SUPABASE_ANON_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH",
+                "BACKEND_BASE=http://backend:8000",
+                "SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=<REDACTED_GOOGLE_SECRET>",
+                "GOOGLE_CLIENT_ID=<REDACTED_GOOGLE_CLIENT_ID>",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NODE_VERSION=20.19.5",
+                "YARN_VERSION=1.22.22",
+                "NODE_ENV=production"
+            ],
+            "Cmd": [
+                "node",
+                ".output/server/index.mjs"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "node",
+                    "-e",
+                    "require('http').get('http://localhost:3000', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"
+                ],
+                "Interval": 30000000000,
+                "Timeout": 10000000000,
+                "StartPeriod": 5000000000,
+                "Retries": 3
+            },
+            "Image": "root-frontend",
+            "Volumes": null,
+            "WorkingDir": "/app",
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.config-hash": "32b28f7bd7dbc882c8b06985f554ae41eb788564254f40d881cb5ef02be3fb60",
+                "com.docker.compose.container-number": "1",
+                "com.docker.compose.depends_on": "backend:service_healthy:false",
+                "com.docker.compose.image": "sha256:ee83d2fed9ff8aada03f2f9ace7cdc471653d64837182e8bca08f6b0373d6275",
+                "com.docker.compose.oneoff": "False",
+                "com.docker.compose.project": "root",
+                "com.docker.compose.project.config_files": "/root/docker-compose.yml",
+                "com.docker.compose.project.working_dir": "/root",
+                "com.docker.compose.replace": "anwalts_frontend",
+                "com.docker.compose.service": "frontend",
+                "com.docker.compose.version": "2.39.4"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "353e32c6bf3099361e8f0532b72b48bd4ede757f176ec9897ee736b0b62cfbf6",
+            "SandboxKey": "/var/run/docker/netns/353e32c6bf30",
+            "Ports": {
+                "3000/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "3000"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "3000"
+                    }
+                ]
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "root_default": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "anwalts_frontend",
+                        "frontend"
+                    ],
+                    "MacAddress": "02:42:ac:13:00:05",
+                    "DriverOpts": null,
+                    "NetworkID": "bb614e66b61326b67a8bb1daf2a6d6a0e8fbdfc8b57d398f9e24e6feeb6e6719",
+                    "EndpointID": "2526eac7f40c995a4c9346746874050034976b7f6e94718b6516bda947ded1c9",
+                    "Gateway": "172.19.0.1",
+                    "IPAddress": "172.19.0.5",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "anwalts_frontend",
+                        "frontend",
+                        "1b66691cd61e"
+                    ]
+                }
+            }
+        }
+    }
+]

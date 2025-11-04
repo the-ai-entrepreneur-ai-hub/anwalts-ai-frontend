@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #4285f4;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Google OAuth Test Page</h1>
+    
+    <div class="status">
+        <h3>Test OAuth Endpoints:</h3>
+        <p>Click the links below to test different OAuth endpoints:</p>
+        
+        <h4>Backend Direct Routes (Port 8000):</h4>
+        <a href="http://localhost:8000/auth/google/authorize" class="button" target="_blank">
+            Backend: /auth/google/authorize
+        </a>
+        <br>
+        <a href="http://localhost:8000/api/auth/google/authorize" class="button" target="_blank">
+            Backend: /api/auth/google/authorize
+        </a>
+        
+        <h4>Frontend Proxied Routes (Port 3001):</h4>
+        <a href="http://localhost:3001/api/auth/google/authorize" class="button" target="_blank">
+            Frontend Proxy: /api/auth/google/authorize
+        </a>
+        
+        <h4>Production Routes (portal-anwalts.ai):</h4>
+        <a href="https://portal-anwalts.ai/api/auth/google" class="button" target="_blank">
+            Production: /api/auth/google
+        </a>
+    </div>
+    
+    <div class="status">
+        <h3>Callback Test Results:</h3>
+        <button onclick="testCallback()">Test Callback Endpoints</button>
+        <pre id="results"></pre>
+    </div>
+    
+    <script>
+        async function testCallback() {
+            const results = document.getElementById('results');
+            results.textContent = 'Testing...';
+            
+            const endpoints = [
+                'http://localhost:8000/auth/google/callback?code=test&state=test',
+                'http://localhost:8000/api/auth/google/callback?code=test&state=test',
+                'http://localhost:3001/api/auth/google/callback?code=test&state=test'
+            ];
+            
+            let output = '';
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint);
+                    const text = await response.text();
+                    output += `\n${endpoint}:\n  Status: ${response.status}\n  Response: ${text.substring(0, 100)}\n`;
+                } catch (error) {
+                    output += `\n${endpoint}:\n  Error: ${error.message}\n`;
+                }
+            }
+            
+            results.textContent = output;
+        }
+        
+        // Check URL for OAuth callback
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('code')) {
+            document.querySelector('.status').innerHTML += `
+                <div style="background: #d4edda; padding: 10px; margin: 10px 0; border-radius: 4px;">
+                    <strong>OAuth Callback Received!</strong><br>
+                    Code: ${urlParams.get('code')}<br>
+                    State: ${urlParams.get('state')}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

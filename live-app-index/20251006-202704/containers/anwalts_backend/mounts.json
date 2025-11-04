@@ -1,0 +1,1 @@
+[{"Type":"bind","Source":"/root/models","Destination":"/app/models","Mode":"rw","RW":true,"Propagation":"rprivate"},{"Type":"bind","Source":"/root/legal-corpus","Destination":"/app/legal-corpus","Mode":"rw","RW":true,"Propagation":"rprivate"},{"Type":"bind","Source":"/root/data","Destination":"/app/data","Mode":"rw","RW":true,"Propagation":"rprivate"}]

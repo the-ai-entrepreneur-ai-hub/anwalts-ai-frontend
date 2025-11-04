@@ -1,0 +1,329 @@
+[
+    {
+        "Id": "30b08aaebe4e4fd98c8e33d2340f98f7165160b987c75df821a829d26d3ab5e1",
+        "Created": "2025-10-06T06:09:25.356873429Z",
+        "Path": "auth",
+        "Args": [],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3701278,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:04:22.216776145Z",
+            "FinishedAt": "2025-10-06T07:04:10.180848494Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:26:22.309795174+02:00",
+                        "End": "2025-10-06T20:26:22.369506142+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:9999 (127.0.0.1:9999)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:32.370050831+02:00",
+                        "End": "2025-10-06T20:26:32.414409588+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:9999 (127.0.0.1:9999)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:42.415552558+02:00",
+                        "End": "2025-10-06T20:26:42.469519706+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:9999 (127.0.0.1:9999)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:52.470867126+02:00",
+                        "End": "2025-10-06T20:26:52.531265286+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:9999 (127.0.0.1:9999)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:27:02.532061276+02:00",
+                        "End": "2025-10-06T20:27:02.571304786+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:9999 (127.0.0.1:9999)\nremote file exists\n"
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:caf18875a474232453e3a23d463c80c056d1e5f0e8c87e37826f648c4b9773a8",
+        "ResolvConfPath": "/var/lib/docker/containers/30b08aaebe4e4fd98c8e33d2340f98f7165160b987c75df821a829d26d3ab5e1/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/30b08aaebe4e4fd98c8e33d2340f98f7165160b987c75df821a829d26d3ab5e1/hostname",
+        "HostsPath": "/var/lib/docker/containers/30b08aaebe4e4fd98c8e33d2340f98f7165160b987c75df821a829d26d3ab5e1/hosts",
+        "LogPath": "/var/lib/docker/containers/30b08aaebe4e4fd98c8e33d2340f98f7165160b987c75df821a829d26d3ab5e1/30b08aaebe4e4fd98c8e33d2340f98f7165160b987c75df821a829d26d3ab5e1-json.log",
+        "Name": "/supabase_auth_anwalts-frontend-new",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_anwalts-frontend-new",
+            "PortBindings": null,
+            "RestartPolicy": {
+                "Name": "always",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [
+                "host.docker.internal:host-gateway"
+            ],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/3bb69157d520e6bb5269b36dac451dae330e6c1a9c74aee964da31070a639179-init/diff:/var/lib/docker/overlay2/292af982963f6d4e1064194f13a3edcc8f326e7b57befc35f5080ca09623d131/diff:/var/lib/docker/overlay2/0c95ab928094aa1cb1e8bc778bcee6ffae24a58feaf8e40c4e2e664268d05829/diff:/var/lib/docker/overlay2/c81d3bcabcec59dbb592841ba5fdb2cd798201044f2ccbdfe0d56fa663aecd55/diff:/var/lib/docker/overlay2/21b5f73d1d54bd0857df91d0db1e75859811abf2caa307136c0a5ac9e0bb758d/diff:/var/lib/docker/overlay2/60465d83e46930998b862c5b5608ed5779ca70d2c63f228b6708de1fd6562026/diff:/var/lib/docker/overlay2/a80439a8aae05684a95dc5c51529db7ee99252e293613e3fd5d3c5f04a963d32/diff",
+                "MergedDir": "/var/lib/docker/overlay2/3bb69157d520e6bb5269b36dac451dae330e6c1a9c74aee964da31070a639179/merged",
+                "UpperDir": "/var/lib/docker/overlay2/3bb69157d520e6bb5269b36dac451dae330e6c1a9c74aee964da31070a639179/diff",
+                "WorkDir": "/var/lib/docker/overlay2/3bb69157d520e6bb5269b36dac451dae330e6c1a9c74aee964da31070a639179/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "30b08aaebe4e",
+            "Domainname": "",
+            "User": "supabase",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "9999/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "API_EXTERNAL_URL=http://127.0.0.1:54321",
+                "GOTRUE_API_HOST=0.0.0.0",
+                "GOTRUE_API_PORT=9999",
+                "GOTRUE_DB_DRIVER=postgres",
+                "GOTRUE_DB_DATABASE_URL=postgresql://supabase_auth_admin:postgres@supabase_db_anwalts-frontend-new:5432/postgres",
+                "GOTRUE_SITE_URL=https://portal-anwalts.ai",
+                "GOTRUE_URI_ALLOW_LIST=https://portal-anwalts.ai/auth/callback,https://portal-anwalts.ai/api/auth/google/callback,https://portal-anwalts.ai/dashboard,http://localhost:3000,http://localhost:3000/auth/callback",
+                "GOTRUE_DISABLE_SIGNUP=false",
+                "GOTRUE_JWT_ADMIN_ROLES=service_role",
+                "GOTRUE_JWT_AUD=authenticated",
+                "GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated",
+                "GOTRUE_JWT_EXP=3600",
+                "GOTRUE_JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long",
+                "GOTRUE_JWT_ISSUER=http://127.0.0.1:54321/auth/v1",
+                "GOTRUE_EXTERNAL_EMAIL_ENABLED=true",
+                "GOTRUE_MAILER_SECURE_EMAIL_CHANGE_ENABLED=true",
+                "GOTRUE_MAILER_AUTOCONFIRM=true",
+                "GOTRUE_MAILER_OTP_LENGTH=6",
+                "GOTRUE_MAILER_OTP_EXP=3600",
+                "GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED=false",
+                "GOTRUE_SMTP_MAX_FREQUENCY=1s",
+                "GOTRUE_MAILER_URLPATHS_INVITE=http://127.0.0.1:54321/auth/v1/verify",
+                "GOTRUE_MAILER_URLPATHS_CONFIRMATION=http://127.0.0.1:54321/auth/v1/verify",
+                "GOTRUE_MAILER_URLPATHS_RECOVERY=http://127.0.0.1:54321/auth/v1/verify",
+                "GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE=http://127.0.0.1:54321/auth/v1/verify",
+                "GOTRUE_RATE_LIMIT_EMAIL_SENT=360000",
+                "GOTRUE_EXTERNAL_PHONE_ENABLED=false",
+                "GOTRUE_SMS_AUTOCONFIRM=true",
+                "GOTRUE_SMS_MAX_FREQUENCY=5s",
+                "GOTRUE_SMS_OTP_EXP=6000",
+                "GOTRUE_SMS_OTP_LENGTH=6",
+                "GOTRUE_SMS_TEMPLATE=Your code is {{ .Code }}",
+                "GOTRUE_SMS_TEST_OTP=",
+                "GOTRUE_PASSWORD_MIN_LENGTH=6",
+                "GOTRUE_PASSWORD_REQUIRED_CHARACTERS=",
+                "GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED=true",
+                "GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL=10",
+                "GOTRUE_SECURITY_MANUAL_LINKING_ENABLED=false",
+                "GOTRUE_SECURITY_UPDATE_PASSWORD_REQUIRE_REAUTHENTICATION=false",
+                "GOTRUE_MFA_PHONE_ENROLL_ENABLED=false",
+                "GOTRUE_MFA_PHONE_VERIFY_ENABLED=false",
+                "GOTRUE_MFA_TOTP_ENROLL_ENABLED=false",
+                "GOTRUE_MFA_TOTP_VERIFY_ENABLED=false",
+                "GOTRUE_MFA_WEB_AUTHN_ENROLL_ENABLED=false",
+                "GOTRUE_MFA_WEB_AUTHN_VERIFY_ENABLED=false",
+                "GOTRUE_MFA_MAX_ENROLLED_FACTORS=10",
+                "GOTRUE_RATE_LIMIT_ANONYMOUS_USERS=30",
+                "GOTRUE_RATE_LIMIT_TOKEN_REFRESH=150",
+                "GOTRUE_RATE_LIMIT_OTP=30",
+                "GOTRUE_RATE_LIMIT_VERIFY=30",
+                "GOTRUE_RATE_LIMIT_SMS_SENT=30",
+                "GOTRUE_RATE_LIMIT_WEB3=30",
+                "GOTRUE_SMTP_HOST=supabase_inbucket_anwalts-frontend-new",
+                "GOTRUE_SMTP_PORT=1025",
+                "GOTRUE_SMTP_ADMIN_EMAIL=admin@email.com",
+                "GOTRUE_SMTP_SENDER_NAME=Admin",
+                "GOTRUE_EXTERNAL_GOOGLE_ENABLED=true",
+                "GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID=<REDACTED_GOOGLE_CLIENT_ID>",
+                "GOTRUE_EXTERNAL_GOOGLE_SECRET=<REDACTED_GOOGLE_SECRET>",
+                "GOTRUE_EXTERNAL_GOOGLE_SKIP_NONCE_CHECK=false",
+                "GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI=https://portal-anwalts.ai/auth/callback",
+                "GOTRUE_EXTERNAL_APPLE_ENABLED=false",
+                "GOTRUE_EXTERNAL_APPLE_CLIENT_ID=",
+                "GOTRUE_EXTERNAL_APPLE_SECRET=env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)",
+                "GOTRUE_EXTERNAL_APPLE_SKIP_NONCE_CHECK=false",
+                "GOTRUE_EXTERNAL_APPLE_REDIRECT_URI=http://127.0.0.1:54321/auth/v1/callback",
+                "GOTRUE_EXTERNAL_WEB3_SOLANA_ENABLED=false",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "GOTRUE_DB_MIGRATIONS_PATH=/usr/local/etc/auth/migrations"
+            ],
+            "Cmd": [
+                "auth"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "wget",
+                    "--no-verbose",
+                    "--tries=1",
+                    "--spider",
+                    "http://127.0.0.1:9999/health"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/gotrue:v2.180.0",
+            "Volumes": null,
+            "WorkingDir": "/",
+            "Entrypoint": null,
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.project": "anwalts-frontend-new",
+                "com.supabase.cli.project": "anwalts-frontend-new"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "e5412669c46c582cd9c67e0c92e6dfb5f838da6dafacc48cc09a439e7261a95f",
+            "SandboxKey": "/var/run/docker/netns/e5412669c46c",
+            "Ports": {
+                "9999/tcp": null
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "supabase_network_anwalts-frontend-new": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "auth"
+                    ],
+                    "MacAddress": "02:42:ac:12:00:06",
+                    "DriverOpts": null,
+                    "NetworkID": "ef674fa3fc1547fce8cbcaedeba261580a20cc48cefb63a0ed28a32e29d584a4",
+                    "EndpointID": "067aefe165edace17b195235578b2cb81f763c0a07d9da87363f352375adfe3a",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.6",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_auth_anwalts-frontend-new",
+                        "auth",
+                        "30b08aaebe4e"
+                    ]
+                }
+            }
+        }
+    }
+]

@@ -1,0 +1,325 @@
+[
+    {
+        "Id": "8ae82653f4ace181d3ccd9037668023d1167f86eee76d3b51db752041c07e3f6",
+        "Created": "2025-10-06T06:09:13.761715345Z",
+        "Path": "sh",
+        "Args": [
+            "-c",
+            "\ncat <<'EOF' > /etc/postgresql.schema.sql && \\\ncat <<'EOF' > /etc/postgresql-custom/pgsodium_root.key && \\\ncat <<'EOF' >> /etc/postgresql/postgresql.conf && \\\ndocker-entrypoint.sh postgres -D /etc/postgresql -c search_path='$user,public,extensions'\n\\set pgpass `echo \"$PGPASSWORD\"`\n\\set jwt_secret `echo \"$JWT_SECRET\"`\n\\set jwt_exp `echo \"$JWT_EXP\"`\n\nALTER DATABASE postgres SET \"app.settings.jwt_secret\" TO :'jwt_secret';\nALTER DATABASE postgres SET \"app.settings.jwt_exp\" TO :'jwt_exp';\n\nALTER USER postgres WITH PASSWORD :'pgpass';\nALTER USER authenticator WITH PASSWORD :'pgpass';\nALTER USER pgbouncer WITH PASSWORD :'pgpass';\nALTER USER supabase_auth_admin WITH PASSWORD :'pgpass';\nALTER USER supabase_storage_admin WITH PASSWORD :'pgpass';\nALTER USER supabase_replication_admin WITH PASSWORD :'pgpass';\nALTER USER supabase_read_only_user WITH PASSWORD :'pgpass';\n\ncreate schema if not exists _realtime;\nalter schema _realtime owner to postgres;\n\nBEGIN;\n\n-- Create pg_net extension\nCREATE EXTENSION IF NOT EXISTS pg_net SCHEMA extensions;\n\n-- Create supabase_functions schema\nCREATE SCHEMA supabase_functions AUTHORIZATION supabase_admin;\n\nGRANT USAGE ON SCHEMA supabase_functions TO postgres, anon, authenticated, service_role;\nALTER DEFAULT PRIVILEGES IN SCHEMA supabase_functions GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;\nALTER DEFAULT PRIVILEGES IN SCHEMA supabase_functions GRANT ALL ON FUNCTIONS TO postgres, anon, authenticated, service_role;\nALTER DEFAULT PRIVILEGES IN SCHEMA supabase_functions GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;\n\n-- supabase_functions.migrations definition\nCREATE TABLE supabase_functions.migrations (\n  version text PRIMARY KEY,\n  inserted_at timestamptz NOT NULL DEFAULT NOW()\n);\n\n-- Initial supabase_functions migration\nINSERT INTO supabase_functions.migrations (version) VALUES ('initial');\n\n-- supabase_functions.hooks definition\nCREATE TABLE supabase_functions.hooks (\n  id bigserial PRIMARY KEY,\n  hook_table_id integer NOT NULL,\n  hook_name text NOT NULL,\n  created_at timestamptz NOT NULL DEFAULT NOW(),\n  request_id bigint\n);\nCREATE INDEX supabase_functions_hooks_request_id_idx ON supabase_functions.hooks USING btree (request_id);\nCREATE INDEX supabase_functions_hooks_h_table_id_h_name_idx ON supabase_functions.hooks USING btree (hook_table_id, hook_name);\nCOMMENT ON TABLE supabase_functions.hooks IS 'Supabase Functions Hooks: Audit trail for triggered hooks.';\n\nCREATE FUNCTION supabase_functions.http_request()\n  RETURNS trigger\n  LANGUAGE plpgsql\n  AS $function$\n  DECLARE\n    request_id bigint;\n    payload jsonb;\n    url text := TG_ARGV[0]::text;\n    method text := TG_ARGV[1]::text;\n    headers jsonb DEFAULT '{}'::jsonb;\n    params jsonb DEFAULT '{}'::jsonb;\n    timeout_ms integer DEFAULT 1000;\n  BEGIN\n    IF url IS NULL OR url = 'null' THEN\n      RAISE EXCEPTION 'url argument is missing';\n    END IF;\n\n    IF method IS NULL OR method = 'null' THEN\n      RAISE EXCEPTION 'method argument is missing';\n    END IF;\n\n    IF TG_ARGV[2] IS NULL OR TG_ARGV[2] = 'null' THEN\n      headers = '{\"Content-Type\": \"application/json\"}'::jsonb;\n    ELSE\n      headers = TG_ARGV[2]::jsonb;\n    END IF;\n\n    IF TG_ARGV[3] IS NULL OR TG_ARGV[3] = 'null' THEN\n      params = '{}'::jsonb;\n    ELSE\n      params = TG_ARGV[3]::jsonb;\n    END IF;\n\n    IF TG_ARGV[4] IS NULL OR TG_ARGV[4] = 'null' THEN\n      timeout_ms = 1000;\n    ELSE\n      timeout_ms = TG_ARGV[4]::integer;\n    END IF;\n\n    CASE\n      WHEN method = 'GET' THEN\n        SELECT http_get INTO request_id FROM net.http_get(\n          url,\n          params,\n          headers,\n          timeout_ms\n        );\n      WHEN method = 'POST' THEN\n        payload = jsonb_build_object(\n          'old_record', OLD,\n          'record', NEW,\n          'type', TG_OP,\n          'table', TG_TABLE_NAME,\n          'schema', TG_TABLE_SCHEMA\n        );\n\n        SELECT http_post INTO request_id FROM net.http_post(\n          url,\n          payload,\n          params,\n          headers,\n          timeout_ms\n        );\n      ELSE\n        RAISE EXCEPTION 'method argument % is invalid', method;\n    END CASE;\n\n    INSERT INTO supabase_functions.hooks\n      (hook_table_id, hook_name, request_id)\n    VALUES\n      (TG_RELID, TG_NAME, request_id);\n\n    RETURN NEW;\n  END\n$function$;\n\n-- Supabase super admin\nDO\n$$\nBEGIN\n  IF NOT EXISTS (\n    SELECT 1\n    FROM pg_roles\n    WHERE rolname = 'supabase_functions_admin'\n  )\n  THEN\n    CREATE USER supabase_functions_admin NOINHERIT CREATEROLE LOGIN NOREPLICATION;\n  END IF;\nEND\n$$;\n\nGRANT ALL PRIVILEGES ON SCHEMA supabase_functions TO supabase_functions_admin;\nGRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA supabase_functions TO supabase_functions_admin;\nGRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA supabase_functions TO supabase_functions_admin;\nALTER USER supabase_functions_admin SET search_path = \"supabase_functions\";\nALTER table \"supabase_functions\".migrations OWNER TO supabase_functions_admin;\nALTER table \"supabase_functions\".hooks OWNER TO supabase_functions_admin;\nALTER function \"supabase_functions\".http_request() OWNER TO supabase_functions_admin;\nGRANT supabase_functions_admin TO postgres;\n\n-- Remove unused supabase_pg_net_admin role\nDO\n$$\nBEGIN\n  IF EXISTS (\n    SELECT 1\n    FROM pg_roles\n    WHERE rolname = 'supabase_pg_net_admin'\n  )\n  THEN\n    REASSIGN OWNED BY supabase_pg_net_admin TO supabase_admin;\n    DROP OWNED BY supabase_pg_net_admin;\n    DROP ROLE supabase_pg_net_admin;\n  END IF;\nEND\n$$;\n\n-- pg_net grants when extension is already enabled\nDO\n$$\nBEGIN\n  IF EXISTS (\n    SELECT 1\n    FROM pg_extension\n    WHERE extname = 'pg_net'\n  )\n  THEN\n    GRANT USAGE ON SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n\n    ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;\n    ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;\n\n    ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;\n    ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;\n\n    REVOKE ALL ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;\n    REVOKE ALL ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;\n\n    GRANT EXECUTE ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n    GRANT EXECUTE ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n  END IF;\nEND\n$$;\n\n-- Event trigger for pg_net\nCREATE OR REPLACE FUNCTION extensions.grant_pg_net_access()\nRETURNS event_trigger\nLANGUAGE plpgsql\nAS $$\nBEGIN\n  IF EXISTS (\n    SELECT 1\n    FROM pg_event_trigger_ddl_commands() AS ev\n    JOIN pg_extension AS ext\n    ON ev.objid = ext.oid\n    WHERE ext.extname = 'pg_net'\n  )\n  THEN\n    GRANT USAGE ON SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n\n    ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;\n    ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;\n\n    ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;\n    ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;\n\n    REVOKE ALL ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;\n    REVOKE ALL ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;\n\n    GRANT EXECUTE ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n    GRANT EXECUTE ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n  END IF;\nEND;\n$$;\nCOMMENT ON FUNCTION extensions.grant_pg_net_access IS 'Grants access to pg_net';\n\nDO\n$$\nBEGIN\n  IF NOT EXISTS (\n    SELECT 1\n    FROM pg_event_trigger\n    WHERE evtname = 'issue_pg_net_access'\n  ) THEN\n    CREATE EVENT TRIGGER issue_pg_net_access ON ddl_command_end WHEN TAG IN ('CREATE EXTENSION')\n    EXECUTE PROCEDURE extensions.grant_pg_net_access();\n  END IF;\nEND\n$$;\n\nINSERT INTO supabase_functions.migrations (version) VALUES ('20210809183423_update_grants');\n\nALTER function supabase_functions.http_request() SECURITY DEFINER;\nALTER function supabase_functions.http_request() SET search_path = supabase_functions;\nREVOKE ALL ON FUNCTION supabase_functions.http_request() FROM PUBLIC;\nGRANT EXECUTE ON FUNCTION supabase_functions.http_request() TO postgres, anon, authenticated, service_role;\n\nCOMMIT;\n\nCREATE DATABASE _supabase WITH OWNER postgres;\n\n-- Switch to the newly created _supabase database\n\\c _supabase\n-- Create schemas in _supabase database for\n-- internals tools and reports to not overload user database\n-- with non-user activity\nCREATE SCHEMA IF NOT EXISTS _analytics;\nALTER SCHEMA _analytics OWNER TO postgres;\n\nCREATE SCHEMA IF NOT EXISTS _supavisor;\nALTER SCHEMA _supavisor OWNER TO postgres;\n\\c postgres\n\nEOF\nd4dc5b6d4a1d6a10b2c1e76112c994d65db7cec380572cc1839624d4be3fa275\nEOF\n\n# supabase [db.settings] configuration\n\nEOF"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3705869,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:05:55.404748121Z",
+            "FinishedAt": "2025-10-06T07:05:43.783722975Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:26:22.316421864+02:00",
+                        "End": "2025-10-06T20:26:22.374564551+02:00",
+                        "ExitCode": 0,
+                        "Output": "127.0.0.1:5432 - accepting connections\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:32.375562153+02:00",
+                        "End": "2025-10-06T20:26:32.417835756+02:00",
+                        "ExitCode": 0,
+                        "Output": "127.0.0.1:5432 - accepting connections\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:42.419131242+02:00",
+                        "End": "2025-10-06T20:26:42.474409658+02:00",
+                        "ExitCode": 0,
+                        "Output": "127.0.0.1:5432 - accepting connections\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:52.475253701+02:00",
+                        "End": "2025-10-06T20:26:52.534266494+02:00",
+                        "ExitCode": 0,
+                        "Output": "127.0.0.1:5432 - accepting connections\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:27:02.534953759+02:00",
+                        "End": "2025-10-06T20:27:02.576185952+02:00",
+                        "ExitCode": 0,
+                        "Output": "127.0.0.1:5432 - accepting connections\n"
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:532c0cf9c57bcdd1c4fc3a7c78966ecec5c927cd85ce668147a6dce3a1524148",
+        "ResolvConfPath": "/var/lib/docker/containers/8ae82653f4ace181d3ccd9037668023d1167f86eee76d3b51db752041c07e3f6/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/8ae82653f4ace181d3ccd9037668023d1167f86eee76d3b51db752041c07e3f6/hostname",
+        "HostsPath": "/var/lib/docker/containers/8ae82653f4ace181d3ccd9037668023d1167f86eee76d3b51db752041c07e3f6/hosts",
+        "LogPath": "/var/lib/docker/containers/8ae82653f4ace181d3ccd9037668023d1167f86eee76d3b51db752041c07e3f6/8ae82653f4ace181d3ccd9037668023d1167f86eee76d3b51db752041c07e3f6-json.log",
+        "Name": "/supabase_db_anwalts-frontend-new",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "supabase_db_anwalts-frontend-new:/var/lib/postgresql/data",
+                "supabase_config_anwalts-frontend-new:/etc/postgresql-custom"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_anwalts-frontend-new",
+            "PortBindings": {
+                "5432/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "54322"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "always",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [
+                "host.docker.internal:host-gateway"
+            ],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/cfd2e2a61d098e1c9c32394b96fdaf2594cff006c1c84fbdf30c2c0ba008c60a-init/diff:/var/lib/docker/overlay2/7a72a5145549a3da17cb4ef725750eafe04a6d8642855fc392f7ef989955d526/diff:/var/lib/docker/overlay2/f1d12b8a82a62112e464fc553e1d78d83003262847966539c42dffa0a3e4d309/diff:/var/lib/docker/overlay2/db7c4e8cb3d4ae3dfe42a8e03152aa0f07c316fe7df4a05a63c92bbc00178ead/diff:/var/lib/docker/overlay2/d86d4a518f7be10f941d99628303457385853eff05118d8e77e7d4f94d4c590a/diff:/var/lib/docker/overlay2/bd033b5362ac91e2390330dbec083968a56205f6659d8070c44e2b8866f824d3/diff:/var/lib/docker/overlay2/7aaca1b67d54a4b8d52b288a83b2b06193ba2aa288fff7b74791033369294746/diff:/var/lib/docker/overlay2/6edfa8eda0bb3a11506958c669ac5a58e2c9965b8a71e6115a1ba5c35ca71cf2/diff:/var/lib/docker/overlay2/69c10d4a20fc19e25bd233fd9ea92a78336db656651233bffb1cf980ee993351/diff:/var/lib/docker/overlay2/5dd607af10b5795d00b49e26de9683130c562eed73765cc67d468af9648a9716/diff:/var/lib/docker/overlay2/3f12681ebf1be73c3c3456b58d46ee7b52c1c32f83cc9feaed2618ef0e43a066/diff:/var/lib/docker/overlay2/c9c093bb1ff09504c14149d72a0876fe37d61a869d604857c7fdc999555f41d5/diff:/var/lib/docker/overlay2/2ea54967fb127b2b6fe4ea58ce75c26e13ed7341ab5823fc33276518bf0bbbf5/diff:/var/lib/docker/overlay2/a679a7ed55575f8961debf6222ed2fdac88d08016541ae9c3992d419fc7f70ec/diff:/var/lib/docker/overlay2/b2fd1c97bdb2fa682eac21f1586222de3ce47305ab018faeabf489e0f52a61a3/diff:/var/lib/docker/overlay2/e5ecc1d730390f03b89ba573bd1bdb5963c2b411e35a345ceebf630678284db5/diff:/var/lib/docker/overlay2/96c1ce6770e10f2764d51736f7a71ecbd9776b272ffd5120a9056e45a4e9080a/diff:/var/lib/docker/overlay2/d79066df4ede082a035dc62fcc14d8043b446d900eb77566295e4962879c782b/diff:/var/lib/docker/overlay2/e2bcd2455fa2f9cd3d107ad4b7b0e776a4567a9570664eb62bd11f475d933aac/diff:/var/lib/docker/overlay2/15b43113dc1066dfd62b4846595ed23d4ad2ef43b4217b4f705501540a366a78/diff:/var/lib/docker/overlay2/1b0ba730832e09c05e08c7ae2d60b0e5966940b09ff79f9c827dde384de66f28/diff:/var/lib/docker/overlay2/035a92cd511b7fdde4aeb0a81a7e8e35e6388182d5ae0a4343d471e6e0b92f97/diff:/var/lib/docker/overlay2/6df61b333a38e535ac58b6053803553147445bd6de10d4614eff687dfbff5936/diff:/var/lib/docker/overlay2/6b82da464372b028267633999f100a62e97cff3948cb306097ad383cf798672a/diff:/var/lib/docker/overlay2/624a0be4c6716b5d75ef1be3941a0bf1dde3c8dbd1a6bc809848c9002fa6db98/diff:/var/lib/docker/overlay2/fa676ea61dde7cd2ddb1ce3fa0a25ef76a92afa95d3b2d3af4d18bdd607c60c8/diff:/var/lib/docker/overlay2/6718dbd26e5b2d7aee2c1c580cbc172a27a0a6f4b13737124fade7d6e1c74e64/diff:/var/lib/docker/overlay2/fa8d5ad28eb2abb7cfdaf2ab0d32049c649bae3438994e8e53fd284c33a0597c/diff:/var/lib/docker/overlay2/92d31adbe60d9f8c96e9962f6001baf9a5d8b613dc038de74429bd58d7af6735/diff:/var/lib/docker/overlay2/3c6e44ef5f76d7ab3d4fafee9676dc6452d7af6df63977e458b6239b7b059027/diff:/var/lib/docker/overlay2/a926c1d662fbf5685e911d4a63d5be9dd6caefd75041b864829968741023fb2e/diff:/var/lib/docker/overlay2/c53fc4b6220a84e6dab824421f821443099fab8c7544809e7edd3330ae10d975/diff:/var/lib/docker/overlay2/d0a0debc57477efee81536b8a8819e3c0a59fd66af09d8e491c63ab49b79a9a5/diff:/var/lib/docker/overlay2/5c923d3ece18ad97d22166fa57e30bd1f24662172ce774c537dd7a5a72cc65f3/diff:/var/lib/docker/overlay2/2b0071b3cec3cee1a555b4a0851b36f5dcc0dd29379c23af6290d86f90272cfa/diff:/var/lib/docker/overlay2/dec5294fff22e85e408f197f34342faac38232f194115a006ebcb8d2e50aa599/diff:/var/lib/docker/overlay2/9fdd2036a535d1c34b6ad6a5461c949d1c80f56e993078908fa62ec9d333ec8b/diff:/var/lib/docker/overlay2/0fffd4c131717e07efaca8d6df1e8f86b34fb8fa88bb6f15730b86009b8ab6fc/diff:/var/lib/docker/overlay2/e118c1aeb19d305ec5a84019baec822ec5b5598844a39e52d47f4ab9fd379a59/diff:/var/lib/docker/overlay2/e1e673872ae44b08c050073e48214c7b3a06380abd55b8d87d7eee340f7f5bef/diff:/var/lib/docker/overlay2/8d61d29b63a511609a0bb83f1722c1781c5f86df98161eb1996b84c23a7b099f/diff:/var/lib/docker/overlay2/aa2287fc34836e526ae810352727517fcae8d099d1e27787422a2ea8024f1373/diff:/var/lib/docker/overlay2/5b80a01917ef9978b3f60d7b1b32bf61fdcfe39f2ff05830bc4f74ce77b38783/diff:/var/lib/docker/overlay2/acfb10b640bb8cdaa169264c0354e28111c4083b9f5e93176748c5abba34f1cb/diff:/var/lib/docker/overlay2/8aed874a166fbdd76e6e024f756b96c35203135e6b129c423aed6cf3e4e3a116/diff:/var/lib/docker/overlay2/a143d65e4fbbf5b9aec9f4d06cc541159447fe9084c7de810e9bb0f77db619a7/diff:/var/lib/docker/overlay2/9fda22c953bb17f0855dc5770b46bf48e7622f945acc403f1b6fb2509c1039ff/diff:/var/lib/docker/overlay2/08f193efe00de4cd1f44f656b6c8b09b171ecc5b807472182a9f4e63d5c01d16/diff:/var/lib/docker/overlay2/17b4a533558ca29bfd6dd0e9239a29462cc4a7c885fbd8d92b38a710cde85a41/diff:/var/lib/docker/overlay2/bce2a41a6eb8d4d8bba01474f17e21752065be5770b57545aee4ad59b9a476ad/diff:/var/lib/docker/overlay2/684dc30893753fb8b4e790f2df0aea5480d3bb9c1a16ba455ae30721cbcb9834/diff:/var/lib/docker/overlay2/13db3451b9771e07ff1ecbfcb35255de39c27397312c18c10edfe11f7724c547/diff",
+                "MergedDir": "/var/lib/docker/overlay2/cfd2e2a61d098e1c9c32394b96fdaf2594cff006c1c84fbdf30c2c0ba008c60a/merged",
+                "UpperDir": "/var/lib/docker/overlay2/cfd2e2a61d098e1c9c32394b96fdaf2594cff006c1c84fbdf30c2c0ba008c60a/diff",
+                "WorkDir": "/var/lib/docker/overlay2/cfd2e2a61d098e1c9c32394b96fdaf2594cff006c1c84fbdf30c2c0ba008c60a/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "supabase_db_anwalts-frontend-new",
+                "Source": "/var/lib/docker/volumes/supabase_db_anwalts-frontend-new/_data",
+                "Destination": "/var/lib/postgresql/data",
+                "Driver": "local",
+                "Mode": "z",
+                "RW": true,
+                "Propagation": ""
+            },
+            {
+                "Type": "volume",
+                "Name": "supabase_config_anwalts-frontend-new",
+                "Source": "/var/lib/docker/volumes/supabase_config_anwalts-frontend-new/_data",
+                "Destination": "/etc/postgresql-custom",
+                "Driver": "local",
+                "Mode": "z",
+                "RW": true,
+                "Propagation": ""
+            }
+        ],
+        "Config": {
+            "Hostname": "8ae82653f4ac",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "5432/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "POSTGRES_PASSWORD=postgres",
+                "POSTGRES_HOST=/var/run/postgresql",
+                "JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long",
+                "JWT_EXP=3600",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/nix/var/nix/profiles/default/bin",
+                "PGDATA=/var/lib/postgresql/data",
+                "POSTGRES_USER=supabase_admin",
+                "POSTGRES_DB=postgres",
+                "POSTGRES_INITDB_ARGS=--allow-group-access --locale-provider=icu --encoding=UTF-8 --icu-locale=en_US.UTF-8",
+                "LANG=en_US.UTF-8",
+                "LANGUAGE=en_US:en",
+                "LC_ALL=en_US.UTF-8",
+                "LOCALE_ARCHIVE=/usr/lib/locale/locale-archive"
+            ],
+            "Cmd": null,
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "pg_isready",
+                    "-U",
+                    "postgres",
+                    "-h",
+                    "127.0.0.1",
+                    "-p",
+                    "5432"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/postgres:17.6.1.011",
+            "Volumes": null,
+            "WorkingDir": "/",
+            "Entrypoint": [
+                "sh",
+                "-c",
+                "\ncat <<'EOF' > /etc/postgresql.schema.sql && \\\ncat <<'EOF' > /etc/postgresql-custom/pgsodium_root.key && \\\ncat <<'EOF' >> /etc/postgresql/postgresql.conf && \\\ndocker-entrypoint.sh postgres -D /etc/postgresql -c search_path='$user,public,extensions'\n\\set pgpass `echo \"$PGPASSWORD\"`\n\\set jwt_secret `echo \"$JWT_SECRET\"`\n\\set jwt_exp `echo \"$JWT_EXP\"`\n\nALTER DATABASE postgres SET \"app.settings.jwt_secret\" TO :'jwt_secret';\nALTER DATABASE postgres SET \"app.settings.jwt_exp\" TO :'jwt_exp';\n\nALTER USER postgres WITH PASSWORD :'pgpass';\nALTER USER authenticator WITH PASSWORD :'pgpass';\nALTER USER pgbouncer WITH PASSWORD :'pgpass';\nALTER USER supabase_auth_admin WITH PASSWORD :'pgpass';\nALTER USER supabase_storage_admin WITH PASSWORD :'pgpass';\nALTER USER supabase_replication_admin WITH PASSWORD :'pgpass';\nALTER USER supabase_read_only_user WITH PASSWORD :'pgpass';\n\ncreate schema if not exists _realtime;\nalter schema _realtime owner to postgres;\n\nBEGIN;\n\n-- Create pg_net extension\nCREATE EXTENSION IF NOT EXISTS pg_net SCHEMA extensions;\n\n-- Create supabase_functions schema\nCREATE SCHEMA supabase_functions AUTHORIZATION supabase_admin;\n\nGRANT USAGE ON SCHEMA supabase_functions TO postgres, anon, authenticated, service_role;\nALTER DEFAULT PRIVILEGES IN SCHEMA supabase_functions GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;\nALTER DEFAULT PRIVILEGES IN SCHEMA supabase_functions GRANT ALL ON FUNCTIONS TO postgres, anon, authenticated, service_role;\nALTER DEFAULT PRIVILEGES IN SCHEMA supabase_functions GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;\n\n-- supabase_functions.migrations definition\nCREATE TABLE supabase_functions.migrations (\n  version text PRIMARY KEY,\n  inserted_at timestamptz NOT NULL DEFAULT NOW()\n);\n\n-- Initial supabase_functions migration\nINSERT INTO supabase_functions.migrations (version) VALUES ('initial');\n\n-- supabase_functions.hooks definition\nCREATE TABLE supabase_functions.hooks (\n  id bigserial PRIMARY KEY,\n  hook_table_id integer NOT NULL,\n  hook_name text NOT NULL,\n  created_at timestamptz NOT NULL DEFAULT NOW(),\n  request_id bigint\n);\nCREATE INDEX supabase_functions_hooks_request_id_idx ON supabase_functions.hooks USING btree (request_id);\nCREATE INDEX supabase_functions_hooks_h_table_id_h_name_idx ON supabase_functions.hooks USING btree (hook_table_id, hook_name);\nCOMMENT ON TABLE supabase_functions.hooks IS 'Supabase Functions Hooks: Audit trail for triggered hooks.';\n\nCREATE FUNCTION supabase_functions.http_request()\n  RETURNS trigger\n  LANGUAGE plpgsql\n  AS $function$\n  DECLARE\n    request_id bigint;\n    payload jsonb;\n    url text := TG_ARGV[0]::text;\n    method text := TG_ARGV[1]::text;\n    headers jsonb DEFAULT '{}'::jsonb;\n    params jsonb DEFAULT '{}'::jsonb;\n    timeout_ms integer DEFAULT 1000;\n  BEGIN\n    IF url IS NULL OR url = 'null' THEN\n      RAISE EXCEPTION 'url argument is missing';\n    END IF;\n\n    IF method IS NULL OR method = 'null' THEN\n      RAISE EXCEPTION 'method argument is missing';\n    END IF;\n\n    IF TG_ARGV[2] IS NULL OR TG_ARGV[2] = 'null' THEN\n      headers = '{\"Content-Type\": \"application/json\"}'::jsonb;\n    ELSE\n      headers = TG_ARGV[2]::jsonb;\n    END IF;\n\n    IF TG_ARGV[3] IS NULL OR TG_ARGV[3] = 'null' THEN\n      params = '{}'::jsonb;\n    ELSE\n      params = TG_ARGV[3]::jsonb;\n    END IF;\n\n    IF TG_ARGV[4] IS NULL OR TG_ARGV[4] = 'null' THEN\n      timeout_ms = 1000;\n    ELSE\n      timeout_ms = TG_ARGV[4]::integer;\n    END IF;\n\n    CASE\n      WHEN method = 'GET' THEN\n        SELECT http_get INTO request_id FROM net.http_get(\n          url,\n          params,\n          headers,\n          timeout_ms\n        );\n      WHEN method = 'POST' THEN\n        payload = jsonb_build_object(\n          'old_record', OLD,\n          'record', NEW,\n          'type', TG_OP,\n          'table', TG_TABLE_NAME,\n          'schema', TG_TABLE_SCHEMA\n        );\n\n        SELECT http_post INTO request_id FROM net.http_post(\n          url,\n          payload,\n          params,\n          headers,\n          timeout_ms\n        );\n      ELSE\n        RAISE EXCEPTION 'method argument % is invalid', method;\n    END CASE;\n\n    INSERT INTO supabase_functions.hooks\n      (hook_table_id, hook_name, request_id)\n    VALUES\n      (TG_RELID, TG_NAME, request_id);\n\n    RETURN NEW;\n  END\n$function$;\n\n-- Supabase super admin\nDO\n$$\nBEGIN\n  IF NOT EXISTS (\n    SELECT 1\n    FROM pg_roles\n    WHERE rolname = 'supabase_functions_admin'\n  )\n  THEN\n    CREATE USER supabase_functions_admin NOINHERIT CREATEROLE LOGIN NOREPLICATION;\n  END IF;\nEND\n$$;\n\nGRANT ALL PRIVILEGES ON SCHEMA supabase_functions TO supabase_functions_admin;\nGRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA supabase_functions TO supabase_functions_admin;\nGRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA supabase_functions TO supabase_functions_admin;\nALTER USER supabase_functions_admin SET search_path = \"supabase_functions\";\nALTER table \"supabase_functions\".migrations OWNER TO supabase_functions_admin;\nALTER table \"supabase_functions\".hooks OWNER TO supabase_functions_admin;\nALTER function \"supabase_functions\".http_request() OWNER TO supabase_functions_admin;\nGRANT supabase_functions_admin TO postgres;\n\n-- Remove unused supabase_pg_net_admin role\nDO\n$$\nBEGIN\n  IF EXISTS (\n    SELECT 1\n    FROM pg_roles\n    WHERE rolname = 'supabase_pg_net_admin'\n  )\n  THEN\n    REASSIGN OWNED BY supabase_pg_net_admin TO supabase_admin;\n    DROP OWNED BY supabase_pg_net_admin;\n    DROP ROLE supabase_pg_net_admin;\n  END IF;\nEND\n$$;\n\n-- pg_net grants when extension is already enabled\nDO\n$$\nBEGIN\n  IF EXISTS (\n    SELECT 1\n    FROM pg_extension\n    WHERE extname = 'pg_net'\n  )\n  THEN\n    GRANT USAGE ON SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n\n    ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;\n    ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;\n\n    ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;\n    ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;\n\n    REVOKE ALL ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;\n    REVOKE ALL ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;\n\n    GRANT EXECUTE ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n    GRANT EXECUTE ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n  END IF;\nEND\n$$;\n\n-- Event trigger for pg_net\nCREATE OR REPLACE FUNCTION extensions.grant_pg_net_access()\nRETURNS event_trigger\nLANGUAGE plpgsql\nAS $$\nBEGIN\n  IF EXISTS (\n    SELECT 1\n    FROM pg_event_trigger_ddl_commands() AS ev\n    JOIN pg_extension AS ext\n    ON ev.objid = ext.oid\n    WHERE ext.extname = 'pg_net'\n  )\n  THEN\n    GRANT USAGE ON SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n\n    ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;\n    ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;\n\n    ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;\n    ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;\n\n    REVOKE ALL ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;\n    REVOKE ALL ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;\n\n    GRANT EXECUTE ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n    GRANT EXECUTE ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n  END IF;\nEND;\n$$;\nCOMMENT ON FUNCTION extensions.grant_pg_net_access IS 'Grants access to pg_net';\n\nDO\n$$\nBEGIN\n  IF NOT EXISTS (\n    SELECT 1\n    FROM pg_event_trigger\n    WHERE evtname = 'issue_pg_net_access'\n  ) THEN\n    CREATE EVENT TRIGGER issue_pg_net_access ON ddl_command_end WHEN TAG IN ('CREATE EXTENSION')\n    EXECUTE PROCEDURE extensions.grant_pg_net_access();\n  END IF;\nEND\n$$;\n\nINSERT INTO supabase_functions.migrations (version) VALUES ('20210809183423_update_grants');\n\nALTER function supabase_functions.http_request() SECURITY DEFINER;\nALTER function supabase_functions.http_request() SET search_path = supabase_functions;\nREVOKE ALL ON FUNCTION supabase_functions.http_request() FROM PUBLIC;\nGRANT EXECUTE ON FUNCTION supabase_functions.http_request() TO postgres, anon, authenticated, service_role;\n\nCOMMIT;\n\nCREATE DATABASE _supabase WITH OWNER postgres;\n\n-- Switch to the newly created _supabase database\n\\c _supabase\n-- Create schemas in _supabase database for\n-- internals tools and reports to not overload user database\n-- with non-user activity\nCREATE SCHEMA IF NOT EXISTS _analytics;\nALTER SCHEMA _analytics OWNER TO postgres;\n\nCREATE SCHEMA IF NOT EXISTS _supavisor;\nALTER SCHEMA _supavisor OWNER TO postgres;\n\\c postgres\n\nEOF\nd4dc5b6d4a1d6a10b2c1e76112c994d65db7cec380572cc1839624d4be3fa275\nEOF\n\n# supabase [db.settings] configuration\n\nEOF"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.project": "anwalts-frontend-new",
+                "com.supabase.cli.project": "anwalts-frontend-new",
+                "org.opencontainers.image.ref.name": "ubuntu",
+                "org.opencontainers.image.version": "24.04"
+            },
+            "StopSignal": "SIGINT"
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "70bc019310ee79c7c7019baa485d606df6f1aadfc04b0271136e15a3b1aad108",
+            "SandboxKey": "/var/run/docker/netns/70bc019310ee",
+            "Ports": {
+                "5432/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "54322"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "54322"
+                    }
+                ]
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "supabase_network_anwalts-frontend-new": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "db",
+                        "db.supabase.internal"
+                    ],
+                    "MacAddress": "02:42:ac:12:00:02",
+                    "DriverOpts": null,
+                    "NetworkID": "ef674fa3fc1547fce8cbcaedeba261580a20cc48cefb63a0ed28a32e29d584a4",
+                    "EndpointID": "d91fbbb2b51eeb1d23492f2554c65ac8eee1c6c67169953bf9953f127b509d45",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.2",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_db_anwalts-frontend-new",
+                        "db",
+                        "db.supabase.internal",
+                        "8ae82653f4ac"
+                    ]
+                }
+            }
+        }
+    }
+]

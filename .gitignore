@@ -1,0 +1,79 @@
+.env
+.env.*
+docker-compose.override.yml
+# Node / JS outputs
+node_modules/
+*/node_modules/
+.pnpm-store/
+
+# Large local data dumps
+data/
+
+# Python virtualenvs
+.venv/
+anwalts-backend-venv/
+env/
+__pycache__/
+
+# Build artifacts
+dist/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Logs / temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.swp
+*.tar.gz
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local tooling/state
+.augment/
+.cursor/
+.cursor-server/
+.codex/
+.mcp/
+.mcp-auth/
+.trae-aicc/
+.trae-server/
+.zed_server/
+.vscode-server/
+.local/
+.cache/
+.bun/
+.npm/
+.ssh/
+.qoder/
+.qoder.json
+.cloud-locale-test.skip
+.factory/
+.docker/
+.dotnet/
+.claude/
+.claude.json
+.claude.json.backup
+.gemini/
+.kaggle/
+.pki/
+.wget-hsts
+.profile
+.bashrc
+.bash_history
+.zshrc
+
+# Misc artifacts
+=*
+codex-spr/
+claude-super/
+opencodetmp/
+.config/
+.traycer/

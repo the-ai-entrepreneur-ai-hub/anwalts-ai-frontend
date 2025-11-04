@@ -1,0 +1,1 @@
+public.ecr.aws/supabase/vector:0.28.1-alpine

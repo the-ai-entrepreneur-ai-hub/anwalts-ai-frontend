@@ -1,0 +1,1 @@
+["/usr/bin/tini","-s","-g","--","/app/run.sh"]

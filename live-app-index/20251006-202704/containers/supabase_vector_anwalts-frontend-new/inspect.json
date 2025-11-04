@@ -1,0 +1,274 @@
+[
+    {
+        "Id": "750635f2d6a3a113b8d31b7eceb3ccb2321a2a20028943aad478bd0b25b4346c",
+        "Created": "2025-10-06T06:09:25.067578804Z",
+        "Path": "sh",
+        "Args": [
+            "-c",
+            "cat <<'EOF' > /etc/vector/vector.yaml && vector --config /etc/vector/vector.yaml\napi:\n  enabled: true\n  address: 0.0.0.0:9001\n\nsources:\n  docker_host:\n    type: docker_logs\n    exclude_containers:\n      - \"supabase_vector_anwalts-frontend-new\"\n\ntransforms:\n  project_logs:\n    type: remap\n    inputs:\n      - docker_host\n    source: |-\n      .project = \"default\"\n      .event_message = del(.message)\n      .appname = del(.container_name)\n      del(.container_created_at)\n      del(.container_id)\n      del(.source_type)\n      del(.stream)\n      del(.label)\n      del(.image)\n      del(.host)\n      del(.stream)\n  router:\n    type: route\n    inputs:\n      - project_logs\n    route:\n      kong: '.appname == \"supabase_kong_anwalts-frontend-new\"'\n      auth: '.appname == \"supabase_auth_anwalts-frontend-new\"'\n      rest: '.appname == \"supabase_rest_anwalts-frontend-new\"'\n      realtime: '.appname == \"supabase_realtime_anwalts-frontend-new\"'\n      storage: '.appname == \"supabase_storage_anwalts-frontend-new\"'\n      functions: '.appname == \"supabase_edge_runtime_anwalts-frontend-new\"'\n      db: '.appname == \"supabase_db_anwalts-frontend-new\"'\n  # Ignores non nginx errors since they are related with kong booting up\n  kong_logs:\n    type: remap\n    inputs:\n      - router.kong\n    source: |-\n      req, err = parse_nginx_log(.event_message, \"combined\")\n      if err == null {\n          .timestamp = req.timestamp\n          .metadata.request.headers.referer = req.referer\n          .metadata.request.headers.user_agent = req.agent\n          .metadata.request.headers.cf_connecting_ip = req.client\n          .metadata.request.method = req.method\n          .metadata.request.path = req.path\n          .metadata.request.protocol = req.protocol\n          .metadata.response.status_code = req.status\n      }\n      if err != null {\n        abort\n      }\n  # Ignores non nginx errors since they are related with kong booting up\n  kong_err:\n    type: remap\n    inputs:\n      - router.kong\n    source: |-\n      .metadata.request.method = \"GET\"\n      .metadata.response.status_code = 200\n      parsed, err = parse_nginx_log(.event_message, \"error\")\n      if err == null {\n          .timestamp = parsed.timestamp\n          .severity = parsed.severity\n          .metadata.request.host = parsed.host\n          .metadata.request.headers.cf_connecting_ip = parsed.client\n          url, err = split(parsed.request, \" \")\n          if err == null {\n              .metadata.request.method = url[0]\n              .metadata.request.path = url[1]\n              .metadata.request.protocol = url[2]\n          }\n      }\n      if err != null {\n        abort\n      }\n  # Gotrue logs are structured json strings which frontend parses directly. But we keep metadata for consistency.\n  auth_logs:\n    type: remap\n    inputs:\n      - router.auth\n    source: |-\n      parsed, err = parse_json(.event_message)\n      if err == null {\n          .metadata.timestamp = parsed.time\n          .metadata = merge!(.metadata, parsed)\n      }\n  # PostgREST logs are structured so we separate timestamp from message using regex\n  rest_logs:\n    type: remap\n    inputs:\n      - router.rest\n    source: |-\n      parsed, err = parse_regex(.event_message, r'^(?P<time>.*): (?P<msg>.*)$')\n      if err == null {\n          .event_message = parsed.msg\n          .timestamp = to_timestamp!(parsed.time)\n          .metadata.host = .project\n      }\n  # Realtime logs are structured so we parse the severity level using regex (ignore time because it has no date)\n  realtime_logs:\n    type: remap\n    inputs:\n      - router.realtime\n    source: |-\n      .metadata.project = del(.project)\n      .metadata.external_id = .metadata.project\n      parsed, err = parse_regex(.event_message, r'^(?P<time>\\d+:\\d+:\\d+\\.\\d+) \\[(?P<level>\\w+)\\] (?P<msg>.*)$')\n      if err == null {\n          .event_message = parsed.msg\n          .metadata.level = parsed.level\n      }\n  # Storage logs may contain json objects so we parse them for completeness\n  storage_logs:\n    type: remap\n    inputs:\n      - router.storage\n    source: |-\n      .metadata.project = del(.project)\n      .metadata.tenantId = .metadata.project\n      parsed, err = parse_json(.event_message)\n      if err == null {\n          .event_message = parsed.msg\n          .metadata.level = parsed.level\n          .metadata.timestamp = parsed.time\n          .metadata.context[0].host = parsed.hostname\n          .metadata.context[0].pid = parsed.pid\n      }\n  # Postgres logs some messages to stderr which we map to warning severity level\n  db_logs:\n    type: remap\n    inputs:\n      - router.db\n    source: |-\n      .metadata.host = \"db-default\"\n      .metadata.parsed.timestamp = .timestamp\n\n      parsed, err = parse_regex(.event_message, r'.*(?P<level>INFO|NOTICE|WARNING|ERROR|LOG|FATAL|PANIC?):.*', numeric_groups: true)\n\n      if err != null || parsed == null {\n        .metadata.parsed.error_severity = \"info\"\n      }\n      if parsed != null {\n       .metadata.parsed.error_severity = parsed.level\n      }\n      if .metadata.parsed.error_severity == \"info\" {\n          .metadata.parsed.error_severity = \"log\"\n      }\n      .metadata.parsed.error_severity = upcase!(.metadata.parsed.error_severity)\n\nsinks:\n  logflare_auth:\n    type: \"http\"\n    inputs:\n      - auth_logs\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=gotrue.logs.prod\"\n  logflare_realtime:\n    type: \"http\"\n    inputs:\n      - realtime_logs\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=realtime.logs.prod\"\n  logflare_rest:\n    type: \"http\"\n    inputs:\n      - rest_logs\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=postgREST.logs.prod\"\n  logflare_db:\n    type: \"http\"\n    inputs:\n      - db_logs\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=postgres.logs\"\n  logflare_functions:\n    type: \"http\"\n    inputs:\n      - router.functions\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=deno-relay-logs\"\n  logflare_storage:\n    type: \"http\"\n    inputs:\n      - storage_logs\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=storage.logs.prod.2\"\n  logflare_kong:\n    type: \"http\"\n    inputs:\n      - kong_logs\n      - kong_err\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=cloudflare.logs.prod\"\n\nEOF\n"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3703833,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:05:07.116209153Z",
+            "FinishedAt": "2025-10-06T07:04:55.378935935Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:26:19.401686245+02:00",
+                        "End": "2025-10-06T20:26:19.477305391+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:9001 (127.0.0.1:9001)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:29.478170084+02:00",
+                        "End": "2025-10-06T20:26:29.540577387+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:9001 (127.0.0.1:9001)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:39.541028114+02:00",
+                        "End": "2025-10-06T20:26:39.595619067+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:9001 (127.0.0.1:9001)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:49.596572527+02:00",
+                        "End": "2025-10-06T20:26:49.641967203+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:9001 (127.0.0.1:9001)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:59.643382588+02:00",
+                        "End": "2025-10-06T20:26:59.699251275+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:9001 (127.0.0.1:9001)\nremote file exists\n"
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:f0494e814793db7c889d85e35d12cf5613a4e080a8cbe82d6f6ece79c9f2b4a6",
+        "ResolvConfPath": "/var/lib/docker/containers/750635f2d6a3a113b8d31b7eceb3ccb2321a2a20028943aad478bd0b25b4346c/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/750635f2d6a3a113b8d31b7eceb3ccb2321a2a20028943aad478bd0b25b4346c/hostname",
+        "HostsPath": "/var/lib/docker/containers/750635f2d6a3a113b8d31b7eceb3ccb2321a2a20028943aad478bd0b25b4346c/hosts",
+        "LogPath": "/var/lib/docker/containers/750635f2d6a3a113b8d31b7eceb3ccb2321a2a20028943aad478bd0b25b4346c/750635f2d6a3a113b8d31b7eceb3ccb2321a2a20028943aad478bd0b25b4346c-json.log",
+        "Name": "/supabase_vector_anwalts-frontend-new",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "/var/run/docker.sock:/var/run/docker.sock:ro"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_anwalts-frontend-new",
+            "PortBindings": null,
+            "RestartPolicy": {
+                "Name": "always",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [
+                "host.docker.internal:host-gateway"
+            ],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": [
+                "label:disable"
+            ],
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/11e47fa6c448bff4450d1721384e052267a7654a38d11ceb3d82924cf4e86901-init/diff:/var/lib/docker/overlay2/c33a3a5909a520ff4e8c3759fd7e607cfb50e39f7a945ffbd57fdf631344dc4b/diff:/var/lib/docker/overlay2/945c0267a0a28c5f32a207eaaaf0c1f1c7f47d198bb572673aff35c69b4c4827/diff:/var/lib/docker/overlay2/9799cdb07f200fc82629482fede6261f82350da432831b2e9087dbc596a11130/diff:/var/lib/docker/overlay2/ca11204da2866c17278deb8aa69a5be20dc0c898d860792d8782830ca8c7b348/diff:/var/lib/docker/overlay2/dac068dcb751a794af69df1c619eb397d788292b3be3cacaabc20ee91ec52681/diff:/var/lib/docker/overlay2/82b20ff055018cea6c98c904735c678187b5d16ce5905120685d3972a15ae0e2/diff",
+                "MergedDir": "/var/lib/docker/overlay2/11e47fa6c448bff4450d1721384e052267a7654a38d11ceb3d82924cf4e86901/merged",
+                "UpperDir": "/var/lib/docker/overlay2/11e47fa6c448bff4450d1721384e052267a7654a38d11ceb3d82924cf4e86901/diff",
+                "WorkDir": "/var/lib/docker/overlay2/11e47fa6c448bff4450d1721384e052267a7654a38d11ceb3d82924cf4e86901/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/var/run/docker.sock",
+                "Destination": "/var/run/docker.sock",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "750635f2d6a3",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "Cmd": null,
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "wget",
+                    "--no-verbose",
+                    "--tries=1",
+                    "--spider",
+                    "http://127.0.0.1:9001/health"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/vector:0.28.1-alpine",
+            "Volumes": null,
+            "WorkingDir": "",
+            "Entrypoint": [
+                "sh",
+                "-c",
+                "cat <<'EOF' > /etc/vector/vector.yaml && vector --config /etc/vector/vector.yaml\napi:\n  enabled: true\n  address: 0.0.0.0:9001\n\nsources:\n  docker_host:\n    type: docker_logs\n    exclude_containers:\n      - \"supabase_vector_anwalts-frontend-new\"\n\ntransforms:\n  project_logs:\n    type: remap\n    inputs:\n      - docker_host\n    source: |-\n      .project = \"default\"\n      .event_message = del(.message)\n      .appname = del(.container_name)\n      del(.container_created_at)\n      del(.container_id)\n      del(.source_type)\n      del(.stream)\n      del(.label)\n      del(.image)\n      del(.host)\n      del(.stream)\n  router:\n    type: route\n    inputs:\n      - project_logs\n    route:\n      kong: '.appname == \"supabase_kong_anwalts-frontend-new\"'\n      auth: '.appname == \"supabase_auth_anwalts-frontend-new\"'\n      rest: '.appname == \"supabase_rest_anwalts-frontend-new\"'\n      realtime: '.appname == \"supabase_realtime_anwalts-frontend-new\"'\n      storage: '.appname == \"supabase_storage_anwalts-frontend-new\"'\n      functions: '.appname == \"supabase_edge_runtime_anwalts-frontend-new\"'\n      db: '.appname == \"supabase_db_anwalts-frontend-new\"'\n  # Ignores non nginx errors since they are related with kong booting up\n  kong_logs:\n    type: remap\n    inputs:\n      - router.kong\n    source: |-\n      req, err = parse_nginx_log(.event_message, \"combined\")\n      if err == null {\n          .timestamp = req.timestamp\n          .metadata.request.headers.referer = req.referer\n          .metadata.request.headers.user_agent = req.agent\n          .metadata.request.headers.cf_connecting_ip = req.client\n          .metadata.request.method = req.method\n          .metadata.request.path = req.path\n          .metadata.request.protocol = req.protocol\n          .metadata.response.status_code = req.status\n      }\n      if err != null {\n        abort\n      }\n  # Ignores non nginx errors since they are related with kong booting up\n  kong_err:\n    type: remap\n    inputs:\n      - router.kong\n    source: |-\n      .metadata.request.method = \"GET\"\n      .metadata.response.status_code = 200\n      parsed, err = parse_nginx_log(.event_message, \"error\")\n      if err == null {\n          .timestamp = parsed.timestamp\n          .severity = parsed.severity\n          .metadata.request.host = parsed.host\n          .metadata.request.headers.cf_connecting_ip = parsed.client\n          url, err = split(parsed.request, \" \")\n          if err == null {\n              .metadata.request.method = url[0]\n              .metadata.request.path = url[1]\n              .metadata.request.protocol = url[2]\n          }\n      }\n      if err != null {\n        abort\n      }\n  # Gotrue logs are structured json strings which frontend parses directly. But we keep metadata for consistency.\n  auth_logs:\n    type: remap\n    inputs:\n      - router.auth\n    source: |-\n      parsed, err = parse_json(.event_message)\n      if err == null {\n          .metadata.timestamp = parsed.time\n          .metadata = merge!(.metadata, parsed)\n      }\n  # PostgREST logs are structured so we separate timestamp from message using regex\n  rest_logs:\n    type: remap\n    inputs:\n      - router.rest\n    source: |-\n      parsed, err = parse_regex(.event_message, r'^(?P<time>.*): (?P<msg>.*)$')\n      if err == null {\n          .event_message = parsed.msg\n          .timestamp = to_timestamp!(parsed.time)\n          .metadata.host = .project\n      }\n  # Realtime logs are structured so we parse the severity level using regex (ignore time because it has no date)\n  realtime_logs:\n    type: remap\n    inputs:\n      - router.realtime\n    source: |-\n      .metadata.project = del(.project)\n      .metadata.external_id = .metadata.project\n      parsed, err = parse_regex(.event_message, r'^(?P<time>\\d+:\\d+:\\d+\\.\\d+) \\[(?P<level>\\w+)\\] (?P<msg>.*)$')\n      if err == null {\n          .event_message = parsed.msg\n          .metadata.level = parsed.level\n      }\n  # Storage logs may contain json objects so we parse them for completeness\n  storage_logs:\n    type: remap\n    inputs:\n      - router.storage\n    source: |-\n      .metadata.project = del(.project)\n      .metadata.tenantId = .metadata.project\n      parsed, err = parse_json(.event_message)\n      if err == null {\n          .event_message = parsed.msg\n          .metadata.level = parsed.level\n          .metadata.timestamp = parsed.time\n          .metadata.context[0].host = parsed.hostname\n          .metadata.context[0].pid = parsed.pid\n      }\n  # Postgres logs some messages to stderr which we map to warning severity level\n  db_logs:\n    type: remap\n    inputs:\n      - router.db\n    source: |-\n      .metadata.host = \"db-default\"\n      .metadata.parsed.timestamp = .timestamp\n\n      parsed, err = parse_regex(.event_message, r'.*(?P<level>INFO|NOTICE|WARNING|ERROR|LOG|FATAL|PANIC?):.*', numeric_groups: true)\n\n      if err != null || parsed == null {\n        .metadata.parsed.error_severity = \"info\"\n      }\n      if parsed != null {\n       .metadata.parsed.error_severity = parsed.level\n      }\n      if .metadata.parsed.error_severity == \"info\" {\n          .metadata.parsed.error_severity = \"log\"\n      }\n      .metadata.parsed.error_severity = upcase!(.metadata.parsed.error_severity)\n\nsinks:\n  logflare_auth:\n    type: \"http\"\n    inputs:\n      - auth_logs\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=gotrue.logs.prod\"\n  logflare_realtime:\n    type: \"http\"\n    inputs:\n      - realtime_logs\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=realtime.logs.prod\"\n  logflare_rest:\n    type: \"http\"\n    inputs:\n      - rest_logs\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=postgREST.logs.prod\"\n  logflare_db:\n    type: \"http\"\n    inputs:\n      - db_logs\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=postgres.logs\"\n  logflare_functions:\n    type: \"http\"\n    inputs:\n      - router.functions\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=deno-relay-logs\"\n  logflare_storage:\n    type: \"http\"\n    inputs:\n      - storage_logs\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=storage.logs.prod.2\"\n  logflare_kong:\n    type: \"http\"\n    inputs:\n      - kong_logs\n      - kong_err\n    encoding:\n      codec: \"json\"\n    method: \"post\"\n    request:\n      retry_max_duration_secs: 10\n      headers:\n        x-api-key: \"api-key\"\n    uri: \"http://supabase_analytics_anwalts-frontend-new:4000/api/logs?source_name=cloudflare.logs.prod\"\n\nEOF\n"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.project": "anwalts-frontend-new",
+                "com.supabase.cli.project": "anwalts-frontend-new"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "9e6cb81ae1ae15a37483e66b5b4eaf9c6a0ccf4f48e4d52b92a8aea10f2b8e18",
+            "SandboxKey": "/var/run/docker/netns/9e6cb81ae1ae",
+            "Ports": {},
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "supabase_network_anwalts-frontend-new": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "vector"
+                    ],
+                    "MacAddress": "02:42:ac:12:00:04",
+                    "DriverOpts": null,
+                    "NetworkID": "ef674fa3fc1547fce8cbcaedeba261580a20cc48cefb63a0ed28a32e29d584a4",
+                    "EndpointID": "83f7132aac4091875eec3dbdfbbe1d0d1188c01bb644f2a82ca10e555ac46453",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.4",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_vector_anwalts-frontend-new",
+                        "vector",
+                        "750635f2d6a3"
+                    ]
+                }
+            }
+        }
+    }
+]

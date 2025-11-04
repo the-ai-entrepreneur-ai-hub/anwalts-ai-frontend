@@ -1,0 +1,175 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: anwalts_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-anwalts_ai}
+      POSTGRES_USER: ${POSTGRES_USER:-anwalts_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    # ports: REMOVED - internal Docker network only for security
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anwalts_user -d anwalts_ai"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: anwalts_redis
+    # ports: REMOVED - internal Docker network only for security
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: anwalts_mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    # Pin image tag to avoid Compose name drift (root_backend vs root-backend)
+    image: root_backend:latest
+    container_name: anwalts_backend
+    ports:
+      - "8000:8000"
+      - "8010:8010"
+    environment:
+      - DATABASE_URL=postgresql://anwalts_user:${POSTGRES_PASSWORD}@postgres:5432/anwalts_ai
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=anwalts_ai
+      - POSTGRES_USER=anwalts_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - CORS_ORIGIN=https://portal-anwalts.ai
+      - API_BASE_URL=https://portal-anwalts.ai
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=https://portal-anwalts.ai/api/auth/google/callback
+      - SUPABASE_URL=https://portal-anwalts.ai/supabase
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - DASHBOARD_SERVICE_KEY=${DASHBOARD_SERVICE_KEY:-}
+      - ADMIN_EMAILS=test.reg.e2e+20251026@anwalts.ai,angelageneralao.1997@gmail.com
+      - FEEDBACK_V1=true
+      - PYTHONPATH=/app
+      - LOCAL_AI_KIND=sidecar
+      - LOCAL_AI_URL=https://portal-anwalts.ai
+      - LOCAL_AI_MODEL=qwen_legal_q4_k_m
+      # AI provider configuration
+      - AI_PROVIDER=${AI_PROVIDER:-together}
+      - AI_MODEL_PROVIDER=${AI_MODEL_PROVIDER:-together}
+      - AI_MODEL_NAME=${AI_MODEL_NAME:-meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo}
+      - TOGETHER_BASE=${TOGETHER_BASE:-https://api.together.xyz/v1}
+      - TOGETHER_MODEL=${TOGETHER_MODEL:-meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY:-}
+      - TOGETHER_AI_API_KEY=${TOGETHER_AI_API_KEY:-}
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - SMTP_TLS=0
+      - SMTP_FROM=no-reply@anwalts.ai
+      - DEBUG_PASSWORD_RESET=0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./models:/app/models
+      - ./legal-corpus:/app/legal-corpus
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - backend
+
+  frontend:
+    build:
+      context: ./anwalts-frontend-new
+      dockerfile: Dockerfile
+    # Pin image tag to avoid Compose name drift (root_frontend vs root-frontend)
+    image: root_frontend:latest
+    container_name: anwalts_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - BACKEND_BASE=http://backend:8000
+      - NUXT_PUBLIC_API_BASE=/api
+      - NITRO_HOST=0.0.0.0
+      - NITRO_PORT=3000
+      - NODE_OPTIONS=--max_old_space_size=3072
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - SUPABASE_URL=https://portal-anwalts.ai/supabase
+      - SUPABASE_ANON_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
+      # Remove server-side secrets from frontend environment
+      # SUPABASE_SERVICE_ROLE_KEY is backend-only
+      # SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET is used by Supabase, not the Nuxt app
+      - DASHBOARD_SERVICE_KEY=${DASHBOARD_SERVICE_KEY:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      # GOOGLE_CLIENT_SECRET REMOVED - backend-only secret for security
+      - GOOGLE_REDIRECT_URI=https://portal-anwalts.ai/api/auth/google/callback
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      default:
+        aliases:
+          - frontend
+
+  nginx:
+    image: nginx:alpine
+    container_name: anwalts_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx-dev.conf:/etc/nginx/nginx.conf
+      - ./nginx/sites-dev:/etc/nginx/conf.d
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

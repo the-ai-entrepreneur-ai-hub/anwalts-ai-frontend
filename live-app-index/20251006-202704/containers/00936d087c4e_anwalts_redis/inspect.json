@@ -1,0 +1,318 @@
+[
+    {
+        "Id": "00936d087c4e2fc21411e0234b9e808df7b3242c42a2454804522d3cb78c06ec",
+        "Created": "2025-10-06T07:42:55.490496222Z",
+        "Path": "docker-entrypoint.sh",
+        "Args": [
+            "redis-server",
+            "--appendonly",
+            "yes",
+            "--maxmemory",
+            "512mb",
+            "--maxmemory-policy",
+            "allkeys-lru"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3812930,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T08:09:37.869704088Z",
+            "FinishedAt": "2025-10-06T08:04:00.477851724Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:24:36.114058997+02:00",
+                        "End": "2025-10-06T20:24:36.187063338+02:00",
+                        "ExitCode": 0,
+                        "Output": "PONG\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:25:06.18786004+02:00",
+                        "End": "2025-10-06T20:25:06.259857625+02:00",
+                        "ExitCode": 0,
+                        "Output": "PONG\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:25:36.260903213+02:00",
+                        "End": "2025-10-06T20:25:36.330329837+02:00",
+                        "ExitCode": 0,
+                        "Output": "PONG\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:06.331314534+02:00",
+                        "End": "2025-10-06T20:26:06.392429946+02:00",
+                        "ExitCode": 0,
+                        "Output": "PONG\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:36.393469142+02:00",
+                        "End": "2025-10-06T20:26:36.473379161+02:00",
+                        "ExitCode": 0,
+                        "Output": "PONG\n"
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:f218e591b571a4129aa29a8566b597d849fba21af7be853d31b03122b20db5e9",
+        "ResolvConfPath": "/var/lib/docker/containers/00936d087c4e2fc21411e0234b9e808df7b3242c42a2454804522d3cb78c06ec/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/00936d087c4e2fc21411e0234b9e808df7b3242c42a2454804522d3cb78c06ec/hostname",
+        "HostsPath": "/var/lib/docker/containers/00936d087c4e2fc21411e0234b9e808df7b3242c42a2454804522d3cb78c06ec/hosts",
+        "LogPath": "/var/lib/docker/containers/00936d087c4e2fc21411e0234b9e808df7b3242c42a2454804522d3cb78c06ec/00936d087c4e2fc21411e0234b9e808df7b3242c42a2454804522d3cb78c06ec-json.log",
+        "Name": "/00936d087c4e_anwalts_redis",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "root_redis_data:/data:rw"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "root_default",
+            "PortBindings": {
+                "6379/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "6379"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/24ff590d6ed65ea6ec61800e77fee1f7e89f4aba41a2de08653fde07602d3be9-init/diff:/var/lib/docker/overlay2/0357f64ed57747253def1691985bc7a287f004cb6790bda0794917c48ab0ac91/diff:/var/lib/docker/overlay2/8f8fe1505b65911bd8676ad18af4c6e6813bb0aa076acea404c7a66e78de958a/diff:/var/lib/docker/overlay2/ecc2d60108259c04eaf7028330230d0924f00e7c2ddcf28d43bf04623a1c5221/diff:/var/lib/docker/overlay2/62d2d821bbceb3b9f314ed7dcaa684fe9a37f894d2f7cc4259f99543e138f883/diff:/var/lib/docker/overlay2/cd478740eb81fdd8d22668a94aaadeb468d339761ab36bb46636fac49f024e17/diff:/var/lib/docker/overlay2/0a8f4a197e2730f4e8d8898ca77a161ac333f306059b10cc4065af78bd51d107/diff:/var/lib/docker/overlay2/8682de786ab2a9563dd8244425de89b97564c18a554bc09b4b49c11dbb25dbb7/diff:/var/lib/docker/overlay2/6ba4ef3a83b852d03afb42e2ab99cb0161df7b112c822a6201ef9c604b30dcf8/diff",
+                "MergedDir": "/var/lib/docker/overlay2/24ff590d6ed65ea6ec61800e77fee1f7e89f4aba41a2de08653fde07602d3be9/merged",
+                "UpperDir": "/var/lib/docker/overlay2/24ff590d6ed65ea6ec61800e77fee1f7e89f4aba41a2de08653fde07602d3be9/diff",
+                "WorkDir": "/var/lib/docker/overlay2/24ff590d6ed65ea6ec61800e77fee1f7e89f4aba41a2de08653fde07602d3be9/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "root_redis_data",
+                "Source": "/var/lib/docker/volumes/root_redis_data/_data",
+                "Destination": "/data",
+                "Driver": "local",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": ""
+            }
+        ],
+        "Config": {
+            "Hostname": "00936d087c4e",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "ExposedPorts": {
+                "6379/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "GOSU_VERSION=1.17",
+                "REDIS_VERSION=7.4.5",
+                "REDIS_DOWNLOAD_URL=http://download.redis.io/releases/redis-7.4.5.tar.gz",
+                "REDIS_DOWNLOAD_SHA=00bb280528f5d7934bec8ab309b8125088c209131e10609cb1563b91365633bb"
+            ],
+            "Cmd": [
+                "redis-server",
+                "--appendonly",
+                "yes",
+                "--maxmemory",
+                "512mb",
+                "--maxmemory-policy",
+                "allkeys-lru"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "redis-cli",
+                    "ping"
+                ],
+                "Interval": 30000000000,
+                "Timeout": 10000000000,
+                "Retries": 3
+            },
+            "Image": "redis:7-alpine",
+            "Volumes": {
+                "/data": {}
+            },
+            "WorkingDir": "/data",
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.config-hash": "a96acb7959b7c00a0034ffacdbe007a18b9f4d50e3092930bda057c3bbcd9ad5",
+                "com.docker.compose.container-number": "1",
+                "com.docker.compose.depends_on": "",
+                "com.docker.compose.image": "sha256:f218e591b571a4129aa29a8566b597d849fba21af7be853d31b03122b20db5e9",
+                "com.docker.compose.oneoff": "False",
+                "com.docker.compose.project": "root",
+                "com.docker.compose.project.config_files": "/root/docker-compose.yml",
+                "com.docker.compose.project.working_dir": "/root",
+                "com.docker.compose.replace": "anwalts_redis",
+                "com.docker.compose.service": "redis",
+                "com.docker.compose.version": "2.39.4"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "da6d3fd3f5c151aecf07c46bfc979e38358d6540912ea0a63b95c4996da1a38d",
+            "SandboxKey": "/var/run/docker/netns/da6d3fd3f5c1",
+            "Ports": {
+                "6379/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "6379"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "6379"
+                    }
+                ]
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "root_default": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "anwalts_redis",
+                        "redis"
+                    ],
+                    "MacAddress": "02:42:ac:13:00:03",
+                    "DriverOpts": null,
+                    "NetworkID": "bb614e66b61326b67a8bb1daf2a6d6a0e8fbdfc8b57d398f9e24e6feeb6e6719",
+                    "EndpointID": "3386c9f95a560badd656bcadf7db5731796c0e8c1f18dd73b0a2fd2a0c94158f",
+                    "Gateway": "172.19.0.1",
+                    "IPAddress": "172.19.0.3",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "00936d087c4e_anwalts_redis",
+                        "anwalts_redis",
+                        "redis",
+                        "00936d087c4e"
+                    ]
+                }
+            }
+        }
+    }
+]

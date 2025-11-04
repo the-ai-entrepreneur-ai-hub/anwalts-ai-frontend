@@ -1,0 +1,365 @@
+[
+    {
+        "Id": "09428803c3ce8a10393b928bc6d03e028dafce55986e62ee06eae07cee78ba81",
+        "Created": "2025-10-06T07:43:06.298751452Z",
+        "Path": "uvicorn",
+        "Args": [
+            "backend-main:app",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8000"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3771546,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:43:47.960058211Z",
+            "FinishedAt": "0001-01-01T00:00:00Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:24:56.675031354+02:00",
+                        "End": "2025-10-06T20:24:56.755395154+02:00",
+                        "ExitCode": 0,
+                        "Output": "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current\n                                 Dload  Upload   Total   Spent    Left  Speed\n\r  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0\r100   136  100   136    0     0  81437      0 --:--:-- --:--:-- --:--:--  132k\n{\"status\":\"healthy\",\"timestamp\":\"2025-10-06T18:24:56.754171\",\"services\":{\"database\":\"healthy\",\"cache\":\"healthy\",\"ai_service\":\"healthy\"}}"
+                    },
+                    {
+                        "Start": "2025-10-06T20:25:26.75591985+02:00",
+                        "End": "2025-10-06T20:25:26.829715367+02:00",
+                        "ExitCode": 0,
+                        "Output": "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current\n                                 Dload  Upload   Total   Spent    Left  Speed\n\r  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0\r100   136  100   136    0     0  80521      0 --:--:-- --:--:-- --:--:--  132k\n{\"status\":\"healthy\",\"timestamp\":\"2025-10-06T18:25:26.827745\",\"services\":{\"database\":\"healthy\",\"cache\":\"healthy\",\"ai_service\":\"healthy\"}}"
+                    },
+                    {
+                        "Start": "2025-10-06T20:25:56.830915994+02:00",
+                        "End": "2025-10-06T20:25:56.899242468+02:00",
+                        "ExitCode": 0,
+                        "Output": "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current\n                                 Dload  Upload   Total   Spent    Left  Speed\n\r  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0\r100   136  100   136    0     0  74074      0 --:--:-- --:--:-- --:--:--  132k\n{\"status\":\"healthy\",\"timestamp\":\"2025-10-06T18:25:56.898002\",\"services\":{\"database\":\"healthy\",\"cache\":\"healthy\",\"ai_service\":\"healthy\"}}"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:26.900000024+02:00",
+                        "End": "2025-10-06T20:26:26.982133879+02:00",
+                        "ExitCode": 0,
+                        "Output": "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current\n                                 Dload  Upload   Total   Spent    Left  Speed\n\r  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0{\"status\":\"healthy\",\"timestamp\":\"2025-10-06T18:26:26.980298\",\"services\":{\"database\":\"healthy\",\"cache\":\"healthy\",\"ai_service\":\"healthy\"}}\r100   136  100   136    0     0  55760      0 --:--:-- --:--:-- --:--:-- 68000\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:56.983145929+02:00",
+                        "End": "2025-10-06T20:26:57.091196493+02:00",
+                        "ExitCode": 0,
+                        "Output": "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current\n                                 Dload  Upload   Total   Spent    Left  Speed\n\r  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0\r100   136  100   136    0     0  77714      0 --:--:-- --:--:-- --:--:--  132k\n{\"status\":\"healthy\",\"timestamp\":\"2025-10-06T18:26:57.089997\",\"services\":{\"database\":\"healthy\",\"cache\":\"healthy\",\"ai_service\":\"healthy\"}}"
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:a345abd21b7e1f0033f124c4c18063f373cec237d8f3fa7ce149cb2244d5d310",
+        "ResolvConfPath": "/var/lib/docker/containers/09428803c3ce8a10393b928bc6d03e028dafce55986e62ee06eae07cee78ba81/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/09428803c3ce8a10393b928bc6d03e028dafce55986e62ee06eae07cee78ba81/hostname",
+        "HostsPath": "/var/lib/docker/containers/09428803c3ce8a10393b928bc6d03e028dafce55986e62ee06eae07cee78ba81/hosts",
+        "LogPath": "/var/lib/docker/containers/09428803c3ce8a10393b928bc6d03e028dafce55986e62ee06eae07cee78ba81/09428803c3ce8a10393b928bc6d03e028dafce55986e62ee06eae07cee78ba81-json.log",
+        "Name": "/anwalts_backend",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "/root/models:/app/models:rw",
+                "/root/legal-corpus:/app/legal-corpus:rw",
+                "/root/data:/app/data:rw"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "root_default",
+            "PortBindings": {
+                "8000/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "8000"
+                    }
+                ],
+                "8010/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "8010"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/1a91dbe266a1f5ec2d3bdeb04a06848098a364c8db9390ed6a02bd6eaaba3691-init/diff:/var/lib/docker/overlay2/rlu60b9baib11vric3p2c2tze/diff:/var/lib/docker/overlay2/kuc8zo13wkmtc5tkujggrblyk/diff:/var/lib/docker/overlay2/143skae0endc521i6m60k6mk3/diff:/var/lib/docker/overlay2/e2dojqoscumuqr6uvqftodw47/diff:/var/lib/docker/overlay2/agrp4ahyd27uxquveydh8wkqd/diff:/var/lib/docker/overlay2/a86e9781ae72a6073bc876c7c32a3b3e8dbe364441327040754855773ac4ecec/diff:/var/lib/docker/overlay2/bcf3366baf6a19eee044277b9505d1c37d02fe82604a04985ea67b8499d3a0b6/diff:/var/lib/docker/overlay2/3713c8a1cf46e85d72152e9c65de06f8ada94bebff7ba28de3a9ba0f37dc8c02/diff:/var/lib/docker/overlay2/a6b9780888d5a31f30b3077d399a9b5860a6d71d86ea16b1e12a862a65486d10/diff",
+                "MergedDir": "/var/lib/docker/overlay2/1a91dbe266a1f5ec2d3bdeb04a06848098a364c8db9390ed6a02bd6eaaba3691/merged",
+                "UpperDir": "/var/lib/docker/overlay2/1a91dbe266a1f5ec2d3bdeb04a06848098a364c8db9390ed6a02bd6eaaba3691/diff",
+                "WorkDir": "/var/lib/docker/overlay2/1a91dbe266a1f5ec2d3bdeb04a06848098a364c8db9390ed6a02bd6eaaba3691/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/root/legal-corpus",
+                "Destination": "/app/legal-corpus",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/root/data",
+                "Destination": "/app/data",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/root/models",
+                "Destination": "/app/models",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "09428803c3ce",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "ExposedPorts": {
+                "8000/tcp": {},
+                "8010/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "DASHBOARD_SERVICE_KEY=<REDACTED_DASHBOARD_SERVICE_KEY>",
+                "CORS_ORIGIN=https://portal-anwalts.ai",
+                "REDIS_URL=redis://redis:6379",
+                "GOOGLE_CLIENT_ID=<REDACTED_GOOGLE_CLIENT_ID>",
+                "DEBUG_PASSWORD_RESET=1",
+                "SMTP_TLS=0",
+                "SMTP_PORT=1025",
+                "SUPABASE_URL=https://portal-anwalts.ai/supabase",
+                "GOOGLE_REDIRECT_URI=https://portal-anwalts.ai/api/auth/google/callback",
+                "LOCAL_AI_MODEL=qwen_legal_q4_k_m",
+                "API_BASE_URL=https://portal-anwalts.ai",
+                "PYTHONPATH=/app",
+                "GOOGLE_CLIENT_SECRET=<REDACTED_GOOGLE_SECRET>",
+                "SMTP_FROM=no-reply@anwalts.ai",
+                "DATABASE_URL=postgresql://anwalts_user:<REDACTED_DB_PASSWORD>@postgres:5432/anwalts_ai",
+                "SMTP_HOST=mailhog",
+                "LOCAL_AI_URL=https://portal-anwalts.ai",
+                "LOCAL_AI_KIND=sidecar",
+                "FEEDBACK_V1=true",
+                "SUPABASE_SERVICE_ROLE_KEY=<REDACTED_SUPABASE_SERVICE_ROLE_KEY>",
+                "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "LANG=C.UTF-8",
+                "GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+                "PYTHON_VERSION=3.12.11",
+                "PYTHON_SHA256=c30bb24b7f1e9a19b11b55a546434f74e739bb4c271a3e3a80ff4380d49f7adb",
+                "PYTHONDONTWRITEBYTECODE=1",
+                "PYTHONUNBUFFERED=1"
+            ],
+            "Cmd": [
+                "uvicorn",
+                "backend-main:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8000"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "curl",
+                    "-f",
+                    "http://localhost:8000/health"
+                ],
+                "Interval": 30000000000,
+                "Timeout": 10000000000,
+                "Retries": 3
+            },
+            "Image": "root-backend",
+            "Volumes": null,
+            "WorkingDir": "/app",
+            "Entrypoint": null,
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.config-hash": "0322f8d99fe3544e1e8ff1128798e3e609e7a2591472b6fd54e4b4ef92e97f05",
+                "com.docker.compose.container-number": "1",
+                "com.docker.compose.depends_on": "redis:service_healthy:false,postgres:service_healthy:false",
+                "com.docker.compose.image": "sha256:a345abd21b7e1f0033f124c4c18063f373cec237d8f3fa7ce149cb2244d5d310",
+                "com.docker.compose.oneoff": "False",
+                "com.docker.compose.project": "root",
+                "com.docker.compose.project.config_files": "/root/docker-compose.yml",
+                "com.docker.compose.project.working_dir": "/root",
+                "com.docker.compose.service": "backend",
+                "com.docker.compose.version": "2.39.4"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "9150f19435867896bcc02c4ade60fbd62e465d1b7845bcf13aeefffe6ed3d1ab",
+            "SandboxKey": "/var/run/docker/netns/9150f1943586",
+            "Ports": {
+                "8000/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "8000"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "8000"
+                    }
+                ],
+                "8010/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "8010"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "8010"
+                    }
+                ]
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "root_default": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "anwalts_backend",
+                        "backend"
+                    ],
+                    "MacAddress": "02:42:ac:13:00:06",
+                    "DriverOpts": null,
+                    "NetworkID": "bb614e66b61326b67a8bb1daf2a6d6a0e8fbdfc8b57d398f9e24e6feeb6e6719",
+                    "EndpointID": "0d0d086a7ee6d0f66bab4d6569dde75b6e9f02090b0fd4e032c8719fd26f7804",
+                    "Gateway": "172.19.0.1",
+                    "IPAddress": "172.19.0.6",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "anwalts_backend",
+                        "backend",
+                        "09428803c3ce"
+                    ]
+                }
+            }
+        }
+    }
+]

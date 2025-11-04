@@ -1,0 +1,1 @@
+public.ecr.aws/supabase/realtime:v2.51.11

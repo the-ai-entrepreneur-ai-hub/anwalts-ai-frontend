@@ -1,0 +1,286 @@
+<style scoped>
+/* ===== ANALYTICS WRAPPER ===== */
+.analytics-wrapper {
+  width: 100%;
+}
+
+/* ===== SECTION SPACING - 40px between sections ===== */
+.section-kpi,
+.section-meta,
+.section-health {
+  margin-bottom: 40px;
+}
+
+.section-charts {
+  margin-bottom: 0; /* Last section */
+}
+
+/* ===== CARD GRIDS ===== */
+.card-grid-4,
+.card-grid-3,
+.card-grid-2 {
+  display: grid;
+  gap: 24px;
+}
+
+.card-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.card-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.card-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1023px) {
+  .card-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .card-grid-4,
+  .card-grid-3,
+  .card-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== BASE CARD STYLES ===== */
+.analytics-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-height: 160px;
+}
+
+/* ===== KPI CARDS ===== */
+.kpi-card .card-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.kpi-card .card-info {
+  flex: 1;
+}
+
+.kpi-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.kpi-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.kpi-change {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.kpi-change span:first-child {
+  margin-right: 4px;
+}
+
+.kpi-card .card-icon {
+  width: 48px;
+  height: 48px;
+  padding: 12px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.kpi-card .card-icon svg {
+  width: 100%;
+  height: 100%;
+  color: #3b82f6;
+}
+
+/* ===== META CARDS ===== */
+.meta-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 110px;
+}
+
+.meta-label {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.meta-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.meta-sub {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* ===== SYSTEM HEALTH ===== */
+.health-card {
+  padding: 24px;
+}
+
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 20px;
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+@media (max-width: 1279px) {
+  .health-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .health-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.health-item {
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 110px;
+}
+
+.health-operational {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.health-disrupted {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.health-info {
+  flex: 1;
+}
+
+.health-name {
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.health-uptime,
+.health-latency {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.health-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+.badge-operational {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-disrupted {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+/* ===== CHARTS ===== */
+.chart-card {
+  padding: 24px;
+}
+
+.chart-title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 16px;
+}
+
+.chart-container {
+  height: 320px;
+  background: #0f1419;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-container svg {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-empty {
+  color: #00ff41;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .chart-container {
+    height: 256px;
+  }
+}
+
+/* ===== ERROR STATE ===== */
+.error-text {
+  font-size: 0.875rem;
+  color: #dc2626;
+  margin-bottom: 24px;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+}
+
+/* ===== MOBILE ADJUSTMENTS ===== */
+@media (max-width: 640px) {
+  .analytics-card {
+    padding: 20px;
+  }
+  
+  .section-kpi,
+  .section-meta,
+  .section-health {
+    margin-bottom: 32px;
+  }
+}

@@ -1,0 +1,9 @@
+total 32
+drwxr-xr-x   1 nobody root 4096 Oct  2 04:35 .
+drwxr-xr-x   1 root   root 4096 Oct  6 06:09 ..
+drwxr-xr-x   2 nobody root 4096 Oct  2 04:35 bin
+-rw-r--r--   1 nobody root  306 Oct  2 04:35 config.example.yml
+drwxr-xr-x   3 nobody root 4096 Oct  2 04:35 erts-15.1.2
+drwxr-xr-x 101 nobody root 4096 Oct  2 04:35 lib
+drwxr-xr-x   3 nobody root 4096 Oct  2 04:35 releases
+-rwxr-xr-x   1 root   root 3497 Oct  2 04:34 run.sh

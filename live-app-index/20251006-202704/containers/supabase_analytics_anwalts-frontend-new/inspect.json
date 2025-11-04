@@ -1,0 +1,304 @@
+[
+    {
+        "Id": "b31a8dc6300522250cfe5356c0c26397182f259ca018561503428fec8c57c9b0",
+        "Created": "2025-10-06T06:09:24.927604388Z",
+        "Path": "sh",
+        "Args": [
+            "-c",
+            "cat <<'EOF' > run.sh && sh run.sh\n./logflare eval Logflare.Release.migrate\n./logflare start --sname logflare\nEOF\n"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3704654,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:05:29.552336527Z",
+            "FinishedAt": "2025-10-06T07:05:17.993278674Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:26:19.417095604+02:00",
+                        "End": "2025-10-06T20:26:19.490937304+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:29.491175378+02:00",
+                        "End": "2025-10-06T20:26:29.556544725+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:39.557720627+02:00",
+                        "End": "2025-10-06T20:26:39.610862052+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:49.61153849+02:00",
+                        "End": "2025-10-06T20:26:49.658747451+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:59.659184265+02:00",
+                        "End": "2025-10-06T20:26:59.713753856+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:86e1770e4d809db611da8d2408149bc11c428d59398169245f7756940cd1d0b9",
+        "ResolvConfPath": "/var/lib/docker/containers/b31a8dc6300522250cfe5356c0c26397182f259ca018561503428fec8c57c9b0/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/b31a8dc6300522250cfe5356c0c26397182f259ca018561503428fec8c57c9b0/hostname",
+        "HostsPath": "/var/lib/docker/containers/b31a8dc6300522250cfe5356c0c26397182f259ca018561503428fec8c57c9b0/hosts",
+        "LogPath": "/var/lib/docker/containers/b31a8dc6300522250cfe5356c0c26397182f259ca018561503428fec8c57c9b0/b31a8dc6300522250cfe5356c0c26397182f259ca018561503428fec8c57c9b0-json.log",
+        "Name": "/supabase_analytics_anwalts-frontend-new",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_anwalts-frontend-new",
+            "PortBindings": {
+                "4000/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "54327"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "always",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [
+                "host.docker.internal:host-gateway"
+            ],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/e615f6a2ba6868365b9d3cd3f7f712759ae0f9ff1293cbafd3aabd2c8203200d-init/diff:/var/lib/docker/overlay2/fd5407c1d10db741be656b6a4c4abda10c225736c608b01ff165b8cd9be0cb23/diff:/var/lib/docker/overlay2/bd5129ac7bea97b4798a999d23e59eea68e71ab88a2b5cd42bc9e8a10ef609c9/diff:/var/lib/docker/overlay2/1ea8aaba6ad9d922b2af051c551e8be5a1c6696282ea140101a9918828e25acc/diff:/var/lib/docker/overlay2/c75100ebe05f4af48115f886e9a79ca96736887684edbeb847ee136466e1d70e/diff:/var/lib/docker/overlay2/3dab7bf814076f436a5717afaf1b9cbaff68350afe4304f912d42e672cc2b2d1/diff:/var/lib/docker/overlay2/0284d026c34a24dea33dac5e0e1157884051ec0b62e3c64565a359a7b09d1297/diff:/var/lib/docker/overlay2/06aad1e2171697ff20bfb3b17f3bf1ed1d5d82600bdf79a93d04b87a3c3bf3a9/diff:/var/lib/docker/overlay2/e7613531fb90dddae5506b35c7a44d317373904142f3750c47cbf97736ca64b7/diff:/var/lib/docker/overlay2/971dc779f273c1355c10b9101d8b02e02549f579ccc5144d4fd8deef9495b6c3/diff:/var/lib/docker/overlay2/5e653b4532ed3c210dfa43ded8fb51e4de130a2343f61546bbcd879465690e2d/diff",
+                "MergedDir": "/var/lib/docker/overlay2/e615f6a2ba6868365b9d3cd3f7f712759ae0f9ff1293cbafd3aabd2c8203200d/merged",
+                "UpperDir": "/var/lib/docker/overlay2/e615f6a2ba6868365b9d3cd3f7f712759ae0f9ff1293cbafd3aabd2c8203200d/diff",
+                "WorkDir": "/var/lib/docker/overlay2/e615f6a2ba6868365b9d3cd3f7f712759ae0f9ff1293cbafd3aabd2c8203200d/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "127.0.0.1",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "4000/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "DB_DATABASE=_supabase",
+                "DB_HOSTNAME=supabase_db_anwalts-frontend-new",
+                "DB_PORT=5432",
+                "DB_SCHEMA=_analytics",
+                "DB_USERNAME=supabase_admin",
+                "DB_PASSWORD=postgres",
+                "LOGFLARE_MIN_CLUSTER_SIZE=1",
+                "LOGFLARE_SINGLE_TENANT=true",
+                "LOGFLARE_SUPABASE_MODE=true",
+                "LOGFLARE_PRIVATE_ACCESS_TOKEN=api-key",
+                "LOGFLARE_LOG_LEVEL=warn",
+                "LOGFLARE_NODE_HOST=127.0.0.1",
+                "LOGFLARE_FEATURE_FLAG_OVERRIDE='multibackend=true'",
+                "RELEASE_COOKIE=cookie",
+                "POSTGRES_BACKEND_URL=postgresql://postgres:postgres@supabase_db_anwalts-frontend-new:5432/_supabase",
+                "POSTGRES_BACKEND_SCHEMA=_analytics",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "LANG=en_US.UTF-8",
+                "LANGUAGE=en_US:en",
+                "LC_ALL=en_US.UTF-8"
+            ],
+            "Cmd": null,
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "curl",
+                    "-sSfL",
+                    "--head",
+                    "-o",
+                    "/dev/null",
+                    "http://127.0.0.1:4000/health"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "StartPeriod": 10000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/logflare:1.22.4",
+            "Volumes": null,
+            "WorkingDir": "/opt/app/rel/logflare/bin",
+            "Entrypoint": [
+                "sh",
+                "-c",
+                "cat <<'EOF' > run.sh && sh run.sh\n./logflare eval Logflare.Release.migrate\n./logflare start --sname logflare\nEOF\n"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.project": "anwalts-frontend-new",
+                "com.supabase.cli.project": "anwalts-frontend-new"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "f069e663be230e87a53f850285837fd19250eb2144bc9eca6e5a8253e0268cca",
+            "SandboxKey": "/var/run/docker/netns/f069e663be23",
+            "Ports": {
+                "4000/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "54327"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "54327"
+                    }
+                ]
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "supabase_network_anwalts-frontend-new": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "analytics"
+                    ],
+                    "MacAddress": "02:42:ac:12:00:03",
+                    "DriverOpts": null,
+                    "NetworkID": "ef674fa3fc1547fce8cbcaedeba261580a20cc48cefb63a0ed28a32e29d584a4",
+                    "EndpointID": "fa59f8f156d2ec01c8c22288768d1346c57fbb194716f1ca559ff1ec057d3782",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.3",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_analytics_anwalts-frontend-new",
+                        "analytics",
+                        "b31a8dc63005",
+                        "127.0.0.1"
+                    ]
+                }
+            }
+        }
+    }
+]

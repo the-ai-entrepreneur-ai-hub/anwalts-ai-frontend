@@ -1,0 +1,224 @@
+[
+    {
+        "Id": "751469dfce74ffdf1679ef8819145dc71fc2dc16d41e39ddcfd7271c95cea24f",
+        "Created": "2025-10-06T06:09:26.091062363Z",
+        "Path": "sh",
+        "Args": [
+            "-c",
+            "cat <<'EOF' > /root/index.ts && edge-runtime start --main-service=/root --port=8081 --policy=per_worker\nimport { STATUS_CODE, STATUS_TEXT } from \"https://deno.land/std/http/status.ts\";\nimport * as posix from \"https://deno.land/std/path/posix/mod.ts\";\n\nimport * as jose from \"https://deno.land/x/jose@v4.13.1/index.ts\";\n\nconst SB_SPECIFIC_ERROR_CODE = {\n  BootError:\n    STATUS_CODE.ServiceUnavailable, /** Service Unavailable (RFC 7231, 6.6.4) */\n  InvalidWorkerResponse:\n    STATUS_CODE.InternalServerError, /** Internal Server Error (RFC 7231, 6.6.1) */\n  WorkerLimit: 546, /** Extended */\n};\n\nconst SB_SPECIFIC_ERROR_TEXT = {\n  [SB_SPECIFIC_ERROR_CODE.BootError]: \"BOOT_ERROR\",\n  [SB_SPECIFIC_ERROR_CODE.InvalidWorkerResponse]: \"WORKER_ERROR\",\n  [SB_SPECIFIC_ERROR_CODE.WorkerLimit]: \"WORKER_LIMIT\",\n};\n\nconst SB_SPECIFIC_ERROR_REASON = {\n  [SB_SPECIFIC_ERROR_CODE.BootError]:\n    \"Worker failed to boot (please check logs)\",\n  [SB_SPECIFIC_ERROR_CODE.InvalidWorkerResponse]:\n    \"Function exited due to an error (please check logs)\",\n  [SB_SPECIFIC_ERROR_CODE.WorkerLimit]:\n    \"Worker failed to respond due to a resource limit (please check logs)\",\n};\n\n// OS stuff - we don't want to expose these to the functions.\nconst EXCLUDED_ENVS = [\"HOME\", \"HOSTNAME\", \"PATH\", \"PWD\"];\n\nconst JWT_SECRET = Deno.env.get(\"SUPABASE_INTERNAL_JWT_SECRET\")!;\nconst HOST_PORT = Deno.env.get(\"SUPABASE_INTERNAL_HOST_PORT\")!;\nconst DEBUG = Deno.env.get(\"SUPABASE_INTERNAL_DEBUG\") === \"true\";\nconst FUNCTIONS_CONFIG_STRING = Deno.env.get(\n  \"SUPABASE_INTERNAL_FUNCTIONS_CONFIG\",\n)!;\n\nconst WALLCLOCK_LIMIT_SEC = parseInt(\n  Deno.env.get(\"SUPABASE_INTERNAL_WALLCLOCK_LIMIT_SEC\"),\n);\n\nconst DENO_SB_ERROR_MAP = new Map([\n  [Deno.errors.InvalidWorkerCreation, SB_SPECIFIC_ERROR_CODE.BootError],\n  [Deno.errors.InvalidWorkerResponse, SB_SPECIFIC_ERROR_CODE.InvalidWorkerResponse],\n  [\n    Deno.errors.WorkerRequestCancelled,\n    SB_SPECIFIC_ERROR_CODE.WorkerLimit,\n  ],\n]);\nconst GENERIC_FUNCTION_SERVE_MESSAGE = `Serving functions on http://127.0.0.1:${HOST_PORT}/functions/v1/<function-name>`\n\ninterface FunctionConfig {\n  entrypointPath: string;\n  importMapPath: string;\n  verifyJWT: boolean;\n}\n\nfunction getResponse(payload: any, status: number, customHeaders = {}) {\n  const headers = { ...customHeaders };\n  let body: string | null = null;\n\n  if (payload) {\n    if (typeof payload === \"object\") {\n      headers[\"Content-Type\"] = \"application/json\";\n      body = JSON.stringify(payload);\n    } else if (typeof payload === \"string\") {\n      headers[\"Content-Type\"] = \"text/plain\";\n      body = payload;\n    } else {\n      body = null;\n    }\n  }\n\n  return new Response(body, { status, headers });\n}\n\nconst functionsConfig: Record<string, FunctionConfig> = (() => {\n  try {\n    const functionsConfig = JSON.parse(FUNCTIONS_CONFIG_STRING);\n\n    if (DEBUG) {\n      console.log(\n        \"Functions config:\",\n        JSON.stringify(functionsConfig, null, 2),\n      );\n    }\n\n    return functionsConfig;\n  } catch (cause) {\n    throw new Error(\"Failed to parse functions config\", { cause });\n  }\n})();\n\nfunction getAuthToken(req: Request) {\n  const authHeader = req.headers.get(\"authorization\");\n  if (!authHeader) {\n    throw new Error(\"Missing authorization header\");\n  }\n  const [bearer, token] = authHeader.split(\" \");\n  if (bearer !== \"Bearer\") {\n    throw new Error(`Auth header is not 'Bearer {token}'`);\n  }\n  return token;\n}\n\nasync function verifyJWT(jwt: string): Promise<boolean> {\n  const encoder = new TextEncoder();\n  const secretKey = encoder.encode(JWT_SECRET);\n  try {\n    await jose.jwtVerify(jwt, secretKey);\n  } catch (e) {\n    console.error(e);\n    return false;\n  }\n  return true;\n}\n\nDeno.serve({\n  handler: async (req: Request) => {\n    const url = new URL(req.url);\n    const { pathname } = url;\n\n    // handle health checks\n    if (pathname === \"/_internal/health\") {\n      return getResponse({ message: \"ok\" }, STATUS_CODE.OK);\n    }\n\n    // handle metrics\n    if (pathname === '/_internal/metric') {\n      const metric = await EdgeRuntime.getRuntimeMetrics();\n      return Response.json(metric);\n    }\n\n    const pathParts = pathname.split(\"/\");\n    const functionName = pathParts[1];\n\n    if (!functionName || !(functionName in functionsConfig)) {\n      return getResponse(\"Function not found\", STATUS_CODE.NotFound);\n    }\n\n    if (req.method !== \"OPTIONS\" && functionsConfig[functionName].verifyJWT) {\n      try {\n        const token = getAuthToken(req);\n        const isValidJWT = await verifyJWT(token);\n\n        if (!isValidJWT) {\n          return getResponse({ msg: \"Invalid JWT\" }, STATUS_CODE.Unauthorized);\n        }\n      } catch (e) {\n        console.error(e);\n        return getResponse({ msg: e.toString() }, STATUS_CODE.Unauthorized);\n      }\n    }\n\n    const servicePath = posix.dirname(functionsConfig[functionName].entrypointPath);\n    console.error(`serving the request with ${servicePath}`);\n\n    // Ref: https://supabase.com/docs/guides/functions/limits\n    const memoryLimitMb = 256;\n    const workerTimeoutMs = isFinite(WALLCLOCK_LIMIT_SEC) ? WALLCLOCK_LIMIT_SEC * 1000 : 400 * 1000;\n    const noModuleCache = false;\n    const envVarsObj = Deno.env.toObject();\n    const envVars = Object.entries(envVarsObj)\n      .filter(([name, _]) =>\n        !EXCLUDED_ENVS.includes(name) && !name.startsWith(\"SUPABASE_INTERNAL_\")\n      );\n\n    const forceCreate = false;\n    const customModuleRoot = \"\"; // empty string to allow any local path\n    const cpuTimeSoftLimitMs = 1000;\n    const cpuTimeHardLimitMs = 2000;\n\n    // NOTE(Nyannyacha): Decorator type has been set to tc39 by Lakshan's request,\n    // but in my opinion, we should probably expose this to customers at some\n    // point, as their migration process will not be easy.\n    const decoratorType = \"tc39\";\n\n    const absEntrypoint = posix.join(Deno.cwd(), functionsConfig[functionName].entrypointPath);\n    const maybeEntrypoint = posix.toFileUrl(absEntrypoint).href;\n\n    const staticPatterns = functionsConfig[functionName].staticFiles;\n\n    try {\n      const worker = await EdgeRuntime.userWorkers.create({\n        servicePath,\n        memoryLimitMb,\n        workerTimeoutMs,\n        noModuleCache,\n        importMapPath: functionsConfig[functionName].importMapPath,\n        envVars,\n        forceCreate,\n        customModuleRoot,\n        cpuTimeSoftLimitMs,\n        cpuTimeHardLimitMs,\n        decoratorType,\n        maybeEntrypoint,\n        context: {\n          useReadSyncFileAPI: true,\n        },\n        staticPatterns,\n      });\n\n      return await worker.fetch(req);\n    } catch (e) {\n      console.error(e);\n\n      for (const [denoError, sbCode] of DENO_SB_ERROR_MAP.entries()) {\n        if (denoError !== void 0 && e instanceof denoError) {\n          return getResponse(\n            {\n              code: SB_SPECIFIC_ERROR_TEXT[sbCode],\n              message: SB_SPECIFIC_ERROR_REASON[sbCode],\n            },\n            sbCode\n          );\n        }\n      }\n\n      return getResponse(\n        {\n          code: STATUS_TEXT[STATUS_CODE.InternalServerError],\n          message: \"Request failed due to an internal server error\",\n          trace: JSON.stringify(e.stack)\n        },\n        STATUS_CODE.InternalServerError,\n      );\n    }\n  },\n\n  onListen: () => {\n    try {\n      const functionsConfigString = Deno.env.get(\n        \"SUPABASE_INTERNAL_FUNCTIONS_CONFIG\"\n      );\n      if (functionsConfigString) {\n        const MAX_FUNCTIONS_URL_EXAMPLES = 5\n        const functionsConfig = JSON.parse(functionsConfigString) as Record<\n          string,\n          unknown\n        >;\n        const functionNames = Object.keys(functionsConfig);\n        const exampleFunctions = functionNames.slice(0, MAX_FUNCTIONS_URL_EXAMPLES);\n        const functionsUrls = exampleFunctions.map(\n          (fname) => ` - http://127.0.0.1:${HOST_PORT}/functions/v1/${fname}`\n        );\n        const functionsExamplesMessages = functionNames.length > 0\n          // Show some functions urls examples\n          ? `\\n${functionsUrls.join(`\\n`)}${functionNames.length > MAX_FUNCTIONS_URL_EXAMPLES\n            // If we have more than 10 functions to serve, then show examples for first 10\n            // and a count for the remaining ones\n            ? `\\n... and ${functionNames.length - MAX_FUNCTIONS_URL_EXAMPLES} more functions`\n            : ''}`\n          : ''\n        console.log(`${GENERIC_FUNCTION_SERVE_MESSAGE}${functionsExamplesMessages}\\nUsing ${Deno.version.deno}`);\n      }\n    } catch (e) {\n      console.log(\n        `${GENERIC_FUNCTION_SERVE_MESSAGE}\\nUsing ${Deno.version.deno}`\n      );\n    }\n  },\n\n  onError: e => {\n    return getResponse(\n      {\n        code: STATUS_TEXT[STATUS_CODE.InternalServerError],\n        message: \"Request failed due to an internal server error\",\n        trace: JSON.stringify(e.stack)\n      },\n      STATUS_CODE.InternalServerError\n    )\n  }\n});\n\nEOF\n"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3698357,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:03:11.90452114Z",
+            "FinishedAt": "2025-10-06T07:03:00.085490891Z"
+        },
+        "Image": "sha256:1655db0a6e3cc72251b8e2d2e658ab9465dd9b230c9e04651952cf857e91756a",
+        "ResolvConfPath": "/var/lib/docker/containers/751469dfce74ffdf1679ef8819145dc71fc2dc16d41e39ddcfd7271c95cea24f/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/751469dfce74ffdf1679ef8819145dc71fc2dc16d41e39ddcfd7271c95cea24f/hostname",
+        "HostsPath": "/var/lib/docker/containers/751469dfce74ffdf1679ef8819145dc71fc2dc16d41e39ddcfd7271c95cea24f/hosts",
+        "LogPath": "/var/lib/docker/containers/751469dfce74ffdf1679ef8819145dc71fc2dc16d41e39ddcfd7271c95cea24f/751469dfce74ffdf1679ef8819145dc71fc2dc16d41e39ddcfd7271c95cea24f-json.log",
+        "Name": "/supabase_edge_runtime_anwalts-frontend-new",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_anwalts-frontend-new",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [
+                "host.docker.internal:host-gateway"
+            ],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/fcc3b9f3cb95e1dbabd797e18f93bfe3c4f731907accbd5be3572db583092788-init/diff:/var/lib/docker/overlay2/30a7c56015e775fbec2d8e0ebcbea050041a2a8002986524ccb9319e9c3b6758/diff:/var/lib/docker/overlay2/257fe7b94b63de248904a6ec04b4e0d3b4c8806c2d4003e78ac1d13514fae1c6/diff:/var/lib/docker/overlay2/aaf285dc9dcc9624f9f725ffda7bfb7ad92e0648106c96aa2ce28413184b3b0b/diff:/var/lib/docker/overlay2/eb1c56e4dd15d9c892373275e61945373b6b487fd521251ba243d8de9e559eac/diff:/var/lib/docker/overlay2/bb9f7d0df5474e00599a5fcc1bd5773c83a229ce3e42a81645b80e32ba5029f0/diff:/var/lib/docker/overlay2/7972781313cd6f38a65faf77fdb9f0bd6b45e284cc818bd4e8bb54b3c9e6e2e9/diff",
+                "MergedDir": "/var/lib/docker/overlay2/fcc3b9f3cb95e1dbabd797e18f93bfe3c4f731907accbd5be3572db583092788/merged",
+                "UpperDir": "/var/lib/docker/overlay2/fcc3b9f3cb95e1dbabd797e18f93bfe3c4f731907accbd5be3572db583092788/diff",
+                "WorkDir": "/var/lib/docker/overlay2/fcc3b9f3cb95e1dbabd797e18f93bfe3c4f731907accbd5be3572db583092788/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "751469dfce74",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "8081/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "SUPABASE_URL=http://kong:8000",
+                "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0",
+                "SUPABASE_SERVICE_ROLE_KEY=<REDACTED_SUPABASE_SERVICE_ROLE_KEY>",
+                "SUPABASE_DB_URL=postgresql://postgres:postgres@supabase_db_anwalts-frontend-new:5432/postgres",
+                "SUPABASE_INTERNAL_JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long",
+                "SUPABASE_INTERNAL_HOST_PORT=54321",
+                "SUPABASE_INTERNAL_FUNCTIONS_CONFIG={}",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "Cmd": null,
+            "Image": "public.ecr.aws/supabase/edge-runtime:v1.69.12",
+            "Volumes": null,
+            "WorkingDir": "/root/anwalts-frontend-new",
+            "Entrypoint": [
+                "sh",
+                "-c",
+                "cat <<'EOF' > /root/index.ts && edge-runtime start --main-service=/root --port=8081 --policy=per_worker\nimport { STATUS_CODE, STATUS_TEXT } from \"https://deno.land/std/http/status.ts\";\nimport * as posix from \"https://deno.land/std/path/posix/mod.ts\";\n\nimport * as jose from \"https://deno.land/x/jose@v4.13.1/index.ts\";\n\nconst SB_SPECIFIC_ERROR_CODE = {\n  BootError:\n    STATUS_CODE.ServiceUnavailable, /** Service Unavailable (RFC 7231, 6.6.4) */\n  InvalidWorkerResponse:\n    STATUS_CODE.InternalServerError, /** Internal Server Error (RFC 7231, 6.6.1) */\n  WorkerLimit: 546, /** Extended */\n};\n\nconst SB_SPECIFIC_ERROR_TEXT = {\n  [SB_SPECIFIC_ERROR_CODE.BootError]: \"BOOT_ERROR\",\n  [SB_SPECIFIC_ERROR_CODE.InvalidWorkerResponse]: \"WORKER_ERROR\",\n  [SB_SPECIFIC_ERROR_CODE.WorkerLimit]: \"WORKER_LIMIT\",\n};\n\nconst SB_SPECIFIC_ERROR_REASON = {\n  [SB_SPECIFIC_ERROR_CODE.BootError]:\n    \"Worker failed to boot (please check logs)\",\n  [SB_SPECIFIC_ERROR_CODE.InvalidWorkerResponse]:\n    \"Function exited due to an error (please check logs)\",\n  [SB_SPECIFIC_ERROR_CODE.WorkerLimit]:\n    \"Worker failed to respond due to a resource limit (please check logs)\",\n};\n\n// OS stuff - we don't want to expose these to the functions.\nconst EXCLUDED_ENVS = [\"HOME\", \"HOSTNAME\", \"PATH\", \"PWD\"];\n\nconst JWT_SECRET = Deno.env.get(\"SUPABASE_INTERNAL_JWT_SECRET\")!;\nconst HOST_PORT = Deno.env.get(\"SUPABASE_INTERNAL_HOST_PORT\")!;\nconst DEBUG = Deno.env.get(\"SUPABASE_INTERNAL_DEBUG\") === \"true\";\nconst FUNCTIONS_CONFIG_STRING = Deno.env.get(\n  \"SUPABASE_INTERNAL_FUNCTIONS_CONFIG\",\n)!;\n\nconst WALLCLOCK_LIMIT_SEC = parseInt(\n  Deno.env.get(\"SUPABASE_INTERNAL_WALLCLOCK_LIMIT_SEC\"),\n);\n\nconst DENO_SB_ERROR_MAP = new Map([\n  [Deno.errors.InvalidWorkerCreation, SB_SPECIFIC_ERROR_CODE.BootError],\n  [Deno.errors.InvalidWorkerResponse, SB_SPECIFIC_ERROR_CODE.InvalidWorkerResponse],\n  [\n    Deno.errors.WorkerRequestCancelled,\n    SB_SPECIFIC_ERROR_CODE.WorkerLimit,\n  ],\n]);\nconst GENERIC_FUNCTION_SERVE_MESSAGE = `Serving functions on http://127.0.0.1:${HOST_PORT}/functions/v1/<function-name>`\n\ninterface FunctionConfig {\n  entrypointPath: string;\n  importMapPath: string;\n  verifyJWT: boolean;\n}\n\nfunction getResponse(payload: any, status: number, customHeaders = {}) {\n  const headers = { ...customHeaders };\n  let body: string | null = null;\n\n  if (payload) {\n    if (typeof payload === \"object\") {\n      headers[\"Content-Type\"] = \"application/json\";\n      body = JSON.stringify(payload);\n    } else if (typeof payload === \"string\") {\n      headers[\"Content-Type\"] = \"text/plain\";\n      body = payload;\n    } else {\n      body = null;\n    }\n  }\n\n  return new Response(body, { status, headers });\n}\n\nconst functionsConfig: Record<string, FunctionConfig> = (() => {\n  try {\n    const functionsConfig = JSON.parse(FUNCTIONS_CONFIG_STRING);\n\n    if (DEBUG) {\n      console.log(\n        \"Functions config:\",\n        JSON.stringify(functionsConfig, null, 2),\n      );\n    }\n\n    return functionsConfig;\n  } catch (cause) {\n    throw new Error(\"Failed to parse functions config\", { cause });\n  }\n})();\n\nfunction getAuthToken(req: Request) {\n  const authHeader = req.headers.get(\"authorization\");\n  if (!authHeader) {\n    throw new Error(\"Missing authorization header\");\n  }\n  const [bearer, token] = authHeader.split(\" \");\n  if (bearer !== \"Bearer\") {\n    throw new Error(`Auth header is not 'Bearer {token}'`);\n  }\n  return token;\n}\n\nasync function verifyJWT(jwt: string): Promise<boolean> {\n  const encoder = new TextEncoder();\n  const secretKey = encoder.encode(JWT_SECRET);\n  try {\n    await jose.jwtVerify(jwt, secretKey);\n  } catch (e) {\n    console.error(e);\n    return false;\n  }\n  return true;\n}\n\nDeno.serve({\n  handler: async (req: Request) => {\n    const url = new URL(req.url);\n    const { pathname } = url;\n\n    // handle health checks\n    if (pathname === \"/_internal/health\") {\n      return getResponse({ message: \"ok\" }, STATUS_CODE.OK);\n    }\n\n    // handle metrics\n    if (pathname === '/_internal/metric') {\n      const metric = await EdgeRuntime.getRuntimeMetrics();\n      return Response.json(metric);\n    }\n\n    const pathParts = pathname.split(\"/\");\n    const functionName = pathParts[1];\n\n    if (!functionName || !(functionName in functionsConfig)) {\n      return getResponse(\"Function not found\", STATUS_CODE.NotFound);\n    }\n\n    if (req.method !== \"OPTIONS\" && functionsConfig[functionName].verifyJWT) {\n      try {\n        const token = getAuthToken(req);\n        const isValidJWT = await verifyJWT(token);\n\n        if (!isValidJWT) {\n          return getResponse({ msg: \"Invalid JWT\" }, STATUS_CODE.Unauthorized);\n        }\n      } catch (e) {\n        console.error(e);\n        return getResponse({ msg: e.toString() }, STATUS_CODE.Unauthorized);\n      }\n    }\n\n    const servicePath = posix.dirname(functionsConfig[functionName].entrypointPath);\n    console.error(`serving the request with ${servicePath}`);\n\n    // Ref: https://supabase.com/docs/guides/functions/limits\n    const memoryLimitMb = 256;\n    const workerTimeoutMs = isFinite(WALLCLOCK_LIMIT_SEC) ? WALLCLOCK_LIMIT_SEC * 1000 : 400 * 1000;\n    const noModuleCache = false;\n    const envVarsObj = Deno.env.toObject();\n    const envVars = Object.entries(envVarsObj)\n      .filter(([name, _]) =>\n        !EXCLUDED_ENVS.includes(name) && !name.startsWith(\"SUPABASE_INTERNAL_\")\n      );\n\n    const forceCreate = false;\n    const customModuleRoot = \"\"; // empty string to allow any local path\n    const cpuTimeSoftLimitMs = 1000;\n    const cpuTimeHardLimitMs = 2000;\n\n    // NOTE(Nyannyacha): Decorator type has been set to tc39 by Lakshan's request,\n    // but in my opinion, we should probably expose this to customers at some\n    // point, as their migration process will not be easy.\n    const decoratorType = \"tc39\";\n\n    const absEntrypoint = posix.join(Deno.cwd(), functionsConfig[functionName].entrypointPath);\n    const maybeEntrypoint = posix.toFileUrl(absEntrypoint).href;\n\n    const staticPatterns = functionsConfig[functionName].staticFiles;\n\n    try {\n      const worker = await EdgeRuntime.userWorkers.create({\n        servicePath,\n        memoryLimitMb,\n        workerTimeoutMs,\n        noModuleCache,\n        importMapPath: functionsConfig[functionName].importMapPath,\n        envVars,\n        forceCreate,\n        customModuleRoot,\n        cpuTimeSoftLimitMs,\n        cpuTimeHardLimitMs,\n        decoratorType,\n        maybeEntrypoint,\n        context: {\n          useReadSyncFileAPI: true,\n        },\n        staticPatterns,\n      });\n\n      return await worker.fetch(req);\n    } catch (e) {\n      console.error(e);\n\n      for (const [denoError, sbCode] of DENO_SB_ERROR_MAP.entries()) {\n        if (denoError !== void 0 && e instanceof denoError) {\n          return getResponse(\n            {\n              code: SB_SPECIFIC_ERROR_TEXT[sbCode],\n              message: SB_SPECIFIC_ERROR_REASON[sbCode],\n            },\n            sbCode\n          );\n        }\n      }\n\n      return getResponse(\n        {\n          code: STATUS_TEXT[STATUS_CODE.InternalServerError],\n          message: \"Request failed due to an internal server error\",\n          trace: JSON.stringify(e.stack)\n        },\n        STATUS_CODE.InternalServerError,\n      );\n    }\n  },\n\n  onListen: () => {\n    try {\n      const functionsConfigString = Deno.env.get(\n        \"SUPABASE_INTERNAL_FUNCTIONS_CONFIG\"\n      );\n      if (functionsConfigString) {\n        const MAX_FUNCTIONS_URL_EXAMPLES = 5\n        const functionsConfig = JSON.parse(functionsConfigString) as Record<\n          string,\n          unknown\n        >;\n        const functionNames = Object.keys(functionsConfig);\n        const exampleFunctions = functionNames.slice(0, MAX_FUNCTIONS_URL_EXAMPLES);\n        const functionsUrls = exampleFunctions.map(\n          (fname) => ` - http://127.0.0.1:${HOST_PORT}/functions/v1/${fname}`\n        );\n        const functionsExamplesMessages = functionNames.length > 0\n          // Show some functions urls examples\n          ? `\\n${functionsUrls.join(`\\n`)}${functionNames.length > MAX_FUNCTIONS_URL_EXAMPLES\n            // If we have more than 10 functions to serve, then show examples for first 10\n            // and a count for the remaining ones\n            ? `\\n... and ${functionNames.length - MAX_FUNCTIONS_URL_EXAMPLES} more functions`\n            : ''}`\n          : ''\n        console.log(`${GENERIC_FUNCTION_SERVE_MESSAGE}${functionsExamplesMessages}\\nUsing ${Deno.version.deno}`);\n      }\n    } catch (e) {\n      console.log(\n        `${GENERIC_FUNCTION_SERVE_MESSAGE}\\nUsing ${Deno.version.deno}`\n      );\n    }\n  },\n\n  onError: e => {\n    return getResponse(\n      {\n        code: STATUS_TEXT[STATUS_CODE.InternalServerError],\n        message: \"Request failed due to an internal server error\",\n        trace: JSON.stringify(e.stack)\n      },\n      STATUS_CODE.InternalServerError\n    )\n  }\n});\n\nEOF\n"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.project": "anwalts-frontend-new",
+                "com.supabase.cli.project": "anwalts-frontend-new"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "5731b881243dfe621c14fcb6d62d51b598da41b95c5aec826ddd23b861b4edf3",
+            "SandboxKey": "/var/run/docker/netns/5731b881243d",
+            "Ports": {
+                "8081/tcp": null
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "supabase_network_anwalts-frontend-new": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "edge_runtime"
+                    ],
+                    "MacAddress": "02:42:ac:12:00:0b",
+                    "DriverOpts": null,
+                    "NetworkID": "ef674fa3fc1547fce8cbcaedeba261580a20cc48cefb63a0ed28a32e29d584a4",
+                    "EndpointID": "9957494e685a36fe3f4ca57abc37e7e9c7c369b02f4855270e2ae6bb920f1243",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.11",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_edge_runtime_anwalts-frontend-new",
+                        "edge_runtime",
+                        "751469dfce74"
+                    ]
+                }
+            }
+        }
+    }
+]
