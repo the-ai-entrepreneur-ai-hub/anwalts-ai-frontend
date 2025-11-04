@@ -1,38 +1,28 @@
 """
 Utility helpers for exporting generated documents to DOCX and PDF.
 
-This module is imported lazily by the FastAPI export endpoint.  We keep the
-dependencies lightweight and rely only on packages that already ship with the
-backend stack (python-docx, Pillow, pypdf).
+The PDF pipeline now uses WeasyPrint to render semantic HTML into
+print-quality PDFs that meet European typography and accessibility
+expectations.
 """
 
 from __future__ import annotations
 
 import io
 import re
-import textwrap
 from dataclasses import dataclass
-from html import unescape
-from typing import Iterable, List, Tuple
+from html import escape, unescape
+from typing import List, Tuple
 
+import bleach  # type: ignore
 from docx import Document  # type: ignore
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT  # type: ignore
 from docx.shared import Pt  # type: ignore
-from PIL import Image, ImageDraw, ImageFont  # type: ignore
-
+from weasyprint import HTML  # type: ignore
 
 __all__ = [
     "export_document",
 ]
-
-
-DEFAULT_DPI = 300
-A4_WIDTH_PX = int(round(8.27 * DEFAULT_DPI))   # ≈ 210mm
-A4_HEIGHT_PX = int(round(11.69 * DEFAULT_DPI))  # ≈ 297mm
-PAGE_MARGIN_PX = int(round(0.7 * DEFAULT_DPI))  # ≈ 18mm
-DEFAULT_FONT = "DejaVuSans.ttf"
-DEFAULT_FONT_POINT_SIZE = 11
-DEFAULT_FONT_SIZE = max(24, int(round(DEFAULT_FONT_POINT_SIZE * DEFAULT_DPI / 72)))
 
 
 @dataclass
@@ -42,38 +32,123 @@ class ExportResult:
     media_type: str
 
 
-def export_document(*, format: str, title: str, content: str) -> Tuple[bytes, str, str]:
-    """
-    Export a document in the requested format.
+ALLOWED_HTML_TAGS = [
+    "p",
+    "br",
+    "strong",
+    "em",
+    "u",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "hr",
+    "span",
+]
 
-    :param format: Requested export format ("pdf" | "docx").
-    :param title: Document title used for heading and filename.
-    :param content: HTML content of the generated document.
-    :return: (bytes, filename, media_type)
-    """
+ALLOWED_HTML_ATTRS = {
+    "th": ["colspan", "rowspan", "scope"],
+    "td": ["colspan", "rowspan"],
+    "table": ["class"],
+    "span": ["class"],
+}
+
+PDF_BASE_STYLES = """
+@page {
+  size: A4;
+  margin: 25mm 20mm 25mm 20mm;
+}
+body {
+  font-family: "Noto Serif", "Times New Roman", serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1f2933;
+}
+h1 {
+  font-size: 18pt;
+  margin: 0 0 14pt;
+  text-align: center;
+  font-weight: 600;
+  color: #0f172a;
+}
+h2 {
+  font-size: 15pt;
+  margin: 18pt 0 8pt;
+  color: #0f172a;
+}
+h3 {
+  font-size: 13pt;
+  margin: 16pt 0 8pt;
+  color: #334155;
+}
+p {
+  margin: 0 0 8pt;
+}
+ul, ol {
+  margin: 0 0 8pt 18pt;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10pt 0 14pt;
+}
+thead {
+  background: #eef2ff;
+}
+th, td {
+  border: 0.6pt solid #cbd5f5;
+  padding: 6pt 8pt;
+  vertical-align: top;
+  font-size: 10.5pt;
+}
+blockquote {
+  border-left: 3pt solid #c7d2fe;
+  padding-left: 10pt;
+  margin: 10pt 0;
+  color: #475569;
+  font-style: italic;
+}
+hr {
+  border: none;
+  border-top: 0.8pt solid #e2e8f0;
+  margin: 18pt 0;
+}
+"""
+
+
+def export_document(*, format: str, title: str, content: str) -> Tuple[bytes, str, str]:
+    """Export a document in the requested format."""
     normalized_format = (format or "docx").lower()
-    title = title.strip() or "Rechtsdokument"
-    sanitized_content = sanitize_html(content)
+    safe_title = title.strip() or "Rechtsdokument"
+    plain_text = normalise_plain_text(content)
 
     if normalized_format == "pdf":
-        result = export_pdf(title=title, text=sanitized_content)
+        sanitized_html = sanitize_html_for_pdf(content)
+        result = export_pdf(title=safe_title, html=sanitized_html)
     elif normalized_format == "docx":
-        result = export_docx(title=title, text=sanitized_content)
+        result = export_docx(title=safe_title, text=plain_text)
     else:
         raise ValueError(f"Unsupported export format: {format}")
 
     return result.data, result.filename, result.media_type
 
 
-def sanitize_html(html: str | None) -> str:
-    """
-    Reduce HTML from the editor into plain text while keeping a readable layout.
-    """
+def normalise_plain_text(html: str | None) -> str:
+    """Convert HTML from the editor into plain text paragraphs."""
     if not html:
         return ""
 
     text = html
-    # Normalize line breaks for block-level elements.
     replacements = {
         r"(?i)<\s*/\s*p\s*>": "\n\n",
         r"(?i)<\s*br\s*/?\s*>": "\n",
@@ -84,30 +159,28 @@ def sanitize_html(html: str | None) -> str:
     for pattern, value in replacements.items():
         text = re.sub(pattern, value, text)
 
-    # Replace list items with bullets.
     text = re.sub(r"(?is)<\s*li[^>]*>", "• ", text)
-
-    # Strip all remaining tags.
     text = re.sub(r"<[^>]+>", "", text)
-
-    # Decode HTML entities and collapse whitespace.
     text = unescape(text)
     text = re.sub(r"\r\n?", "\n", text)
-    text = re.sub(r"\u00a0", " ", text)  # non-breaking space
+    text = re.sub(r"\u00a0", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
-    text = text.strip()
-
-    return text
+    return text.strip()
 
 
-def slugify(value: str, fallback: str = "dokument") -> str:
-    """
-    Create a filename-friendly slug from the given string.
-    """
-    value = value.lower()
-    value = re.sub(r"[^a-z0-9\s-]", "", value)
-    value = re.sub(r"[\s_-]+", "-", value).strip("-")
-    return value or fallback
+def sanitize_html_for_pdf(html: str | None) -> str:
+    if not html:
+        return "<p>(kein Inhalt)</p>"
+
+    cleaned = bleach.clean(
+        html,
+        tags=ALLOWED_HTML_TAGS,
+        attributes=ALLOWED_HTML_ATTRS,
+        strip=True
+    )
+    cleaned = re.sub(r"\s+\n", "\n", cleaned)
+    cleaned = cleaned.strip()
+    return cleaned or "<p>(kein Inhalt)</p>"
 
 
 def export_docx(*, title: str, text: str) -> ExportResult:
@@ -116,7 +189,6 @@ def export_docx(*, title: str, text: str) -> ExportResult:
     normal_style.font.name = "Arial"
     normal_style.font.size = Pt(11)
 
-    # Title heading
     heading = document.add_heading(title, level=1)
     heading.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
@@ -135,18 +207,29 @@ def export_docx(*, title: str, text: str) -> ExportResult:
     )
 
 
-def export_pdf(*, title: str, text: str) -> ExportResult:
-    font = load_font(DEFAULT_FONT_SIZE)
-    pages = render_text_to_pages(title=title, text=text, font=font)
+def export_pdf(*, title: str, html: str) -> ExportResult:
+    document_html = f"""
+    <!DOCTYPE html>
+    <html lang="de">
+      <head>
+        <meta charset="utf-8" />
+        <title>{escape(title)}</title>
+        <style>
+          {PDF_BASE_STYLES}
+        </style>
+      </head>
+      <body>
+        <header style="text-align:center;border-bottom:1px solid #e2e8f0;padding-bottom:12pt;margin-bottom:18pt">
+          <h1>{escape(title)}</h1>
+        </header>
+        {html}
+      </body>
+    </html>
+    """
 
-    if not pages:
-        pages = [Image.new("RGB", (A4_WIDTH_PX, A4_HEIGHT_PX), "white")]
-
-    buffer = io.BytesIO()
-    first, *rest = pages
-    first.save(buffer, format="PDF", save_all=bool(rest), append_images=rest)
+    pdf_bytes = HTML(string=document_html).write_pdf()
     filename = f"{slugify(title)}.pdf"
-    return ExportResult(data=buffer.getvalue(), filename=filename, media_type="application/pdf")
+    return ExportResult(data=pdf_bytes, filename=filename, media_type="application/pdf")
 
 
 def split_paragraphs(text: str) -> List[str]:
@@ -155,121 +238,8 @@ def split_paragraphs(text: str) -> List[str]:
     return [segment.strip() for segment in text.split("\n\n") if segment.strip()]
 
 
-def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """
-    Load a truetype font if available, otherwise fall back to the default bitmap font.
-    """
-    try:
-        return ImageFont.truetype(DEFAULT_FONT, size=size)
-    except Exception:
-        try:
-            return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size=size)
-        except Exception:
-            return ImageFont.load_default()
-
-
-def render_text_to_pages(*, title: str, text: str, font: ImageFont.ImageFont) -> List[Image.Image]:
-    wrapped_lines = wrap_text_for_pdf(title=title, text=text, font=font)
-    line_height = max(int(_line_height(font)), int(DEFAULT_FONT_SIZE * 1.2))
-
-    max_lines_per_page = (A4_HEIGHT_PX - 2 * PAGE_MARGIN_PX) // line_height
-    pages: List[Image.Image] = []
-
-    for page_index in range(0, len(wrapped_lines), max_lines_per_page):
-        chunk = wrapped_lines[page_index : page_index + max_lines_per_page]
-        img = Image.new("RGB", (A4_WIDTH_PX, A4_HEIGHT_PX), "white")
-        draw = ImageDraw.Draw(img)
-        y = PAGE_MARGIN_PX
-        for line in chunk:
-            draw.text((PAGE_MARGIN_PX, y), line, fill="black", font=font)
-            y += line_height
-        pages.append(img)
-
-    return pages
-
-
-def wrap_text_for_pdf(*, title: str, text: str, font: ImageFont.ImageFont) -> List[str]:
-    content_lines: List[str] = []
-    available_width = A4_WIDTH_PX - 2 * PAGE_MARGIN_PX
-
-    def _wrap_line(line: str) -> Iterable[str]:
-        if not line:
-            return [""]
-        # Use binary search with textwrap for predictable wrapping.
-        wrapped: List[str] = []
-        for raw in line.split("\n"):
-            if not raw.strip():
-                wrapped.append("")
-                continue
-            words = raw.split()
-            current = []
-            for word in words:
-                test_line = " ".join(current + [word])
-                if _text_length(font, test_line) <= available_width:
-                    current.append(word)
-                else:
-                    if not current:
-                        # In case of a single very long word, fall back to textwrap.
-                        for segment in textwrap.wrap(word, width=40):
-                            wrapped.append(segment)
-                        current = []
-                    else:
-                        wrapped.append(" ".join(current))
-                        current = [word]
-            if current:
-                wrapped.append(" ".join(current))
-        return wrapped or [""]
-
-    # Title as first line with extra spacing.
-    if title:
-        content_lines.extend(_wrap_line(title))
-        content_lines.append("")
-
-    for paragraph in split_paragraphs(text):
-        content_lines.extend(_wrap_line(paragraph))
-        content_lines.append("")
-
-    # Remove trailing blank lines.
-    while content_lines and not content_lines[-1].strip():
-        content_lines.pop()
-
-    return content_lines or [title]
-
-
-def _text_length(font: ImageFont.ImageFont, text: str) -> float:
-    if hasattr(font, "getlength"):
-        try:
-            return font.getlength(text)
-        except Exception:
-            pass
-    if hasattr(font, "getbbox"):
-        try:
-            bbox = font.getbbox(text)
-            return max(bbox[2] - bbox[0], 0)
-        except Exception:
-            pass
-    try:
-        size = font.getsize(text)
-        return max(size[0], 0)
-    except Exception:
-        return float(len(text) * DEFAULT_FONT_SIZE)
-
-
-def _line_height(font: ImageFont.ImageFont) -> float:
-    if hasattr(font, "getmetrics"):
-        try:
-            ascent, descent = font.getmetrics()
-            return ascent + descent + 6
-        except Exception:
-            pass
-    if hasattr(font, "getbbox"):
-        try:
-            bbox = font.getbbox("Ag")
-            return bbox[3] - bbox[1]
-        except Exception:
-            pass
-    try:
-        size = font.getsize("Ag")
-        return size[1]
-    except Exception:
-        return DEFAULT_FONT_SIZE * 1.2
+def slugify(value: str, fallback: str = "dokument") -> str:
+    value = value.lower()
+    value = re.sub(r"[^a-z0-9\s-]", "", value)
+    value = re.sub(r"[\s_-]+", "-", value).strip("-")
+    return value or fallback
