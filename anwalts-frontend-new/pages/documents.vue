@@ -16,7 +16,7 @@
 
 
     <main class="bg-slate-50 pb-16">
-      <div class="mx-auto max-w-7xl space-y-8 px-6 pt-6 lg:px-10">
+      <div class="mx-auto max-w-7xl space-y-8 px-4 pt-6 sm:px-6 lg:px-8">
         <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
           <div class="space-y-6">
             <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
