@@ -2,58 +2,44 @@
   <PortalShell>
     <template #header>
       <header class="bg-white border-b border-slate-200">
-        <div class="mx-auto flex max-w-7xl flex-wrap items-start justify-between gap-1.5 px-6 py-3 lg:px-10">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Dokumente</p>
-            <h1 class="mt-1 text-lg font-semibold text-slate-900">Rechtsdokument‑Assistent</h1>
-            <p class="mt-1.5 max-w-2xl text-[13px] text-slate-600">
-              Erstellen und verfeinern Sie juristische Dokumente mit einem Klick.
-            </p>
-            <p class="mt-2 text-[12px] text-slate-600">
-              <span class="font-semibold text-slate-900">1. Sammeln</span> – Sachverhalt beschreiben oder Dateien hochladen ·
-              <span class="font-semibold text-slate-900">2. Prüfen</span> – Klauseln ergänzen, Vorlagen kombinieren, Feedback geben ·
-              <span class="font-semibold text-slate-900">3. Export</span> – PDF/DOCX herunterladen oder übergeben
-            </p>
+        <div class="mx-auto max-w-7xl px-6 py-5 lg:px-10">
+          <div class="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
+            Dokumente
           </div>
+          <h1 class="mt-3 text-2xl font-semibold text-slate-900">Rechtsdokument-Assistent</h1>
+          <p class="mt-2 max-w-2xl text-sm text-slate-600">
+            Erstellen und verfeinern Sie juristische Dokumente mit einem Klick.
+          </p>
         </div>
       </header>
     </template>
 
+
     <main class="bg-slate-50 pb-16">
-      <div class="mx-auto max-w-7xl space-y-5 px-6 pt-4 lg:px-10">
-        <section class="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <aside class="space-y-6">
-            <section class="sticky top-20 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 class="text-sm font-semibold text-slate-900">Aktionen</h2>
-              <p class="mt-1 text-xs text-slate-500">Starten oder analysieren Sie den aktuellen Entwurf.</p>
-              <div class="mt-3 flex flex-col gap-2">
-                <button
-                  type="button"
-                  class="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-indigo-300"
-                  :disabled="!canGenerate || isGenerating"
-                  @click="generateDocument"
+      <div class="mx-auto max-w-7xl space-y-8 px-6 pt-6 lg:px-10">
+        <section class="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+          <div class="space-y-6">
+            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Ablauf</h2>
+              <div class="mt-4 grid gap-3 sm:grid-cols-3">
+                <div
+                  v-for="step in workflowSteps"
+                  :key="step.number"
+                  class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:border-indigo-200 hover:bg-white"
                 >
-                  <span v-if="isGenerating" class="h-4 w-4 animate-spin rounded-full border-2 border-white/70 border-t-transparent"></span>
-                  {{ isGenerating ? 'Generierung läuft…' : 'Dokument generieren' }}
-                </button>
-                <button
-                  type="button"
-                  class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:text-slate-400"
-                  :disabled="isGenerating || !previewHtml"
-                  @click="runAnalysis"
-                >
-                  KI-Analyse starten
-                </button>
+                  <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-sm font-semibold text-indigo-700">
+                    {{ step.number }}
+                  </div>
+                  <div class="space-y-1">
+                    <p class="text-sm font-semibold text-slate-900">{{ step.title }}</p>
+                    <p class="text-xs text-slate-600">{{ step.description }}</p>
+                  </div>
+                </div>
               </div>
-              <p class="mt-3 text-[11px] text-slate-500">
-                <kbd class="rounded bg-slate-100 px-1">Strg</kbd> + <kbd class="rounded bg-slate-100 px-1">Enter</kbd> für eine schnelle Neu-Generierung.
-              </p>
             </section>
 
-            <!-- Workflow card removed to reduce congestion (steps remain in header line) -->
-
-            <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <header class="mb-4 flex items-center justify-between">
+            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <header class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 class="text-sm font-semibold text-slate-900">Dokument-Basisdaten</h2>
                   <p class="text-xs text-slate-500">Titel, Tonalität und Ausgangsinformationen</p>
@@ -67,7 +53,7 @@
                 </button>
               </header>
 
-              <div class="space-y-4">
+              <div class="mt-4 space-y-4">
                 <label class="block text-sm font-medium text-slate-700">
                   Dokumenttyp
                   <input
@@ -111,30 +97,14 @@
                     </button>
                   </div>
                 </div>
-
-                <label class="block">
-                  <span class="text-sm font-medium text-slate-700">Sachverhalt &amp; Vorgaben</span>
-                  <textarea
-                    v-model="form.requirements"
-                    placeholder="Beschreiben Sie den Sachverhalt, gewünschte Klauseln oder Besonderheiten..."
-                    rows="6"
-                    class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-                  ></textarea>
-                  <div class="mt-1 flex justify-between text-xs text-slate-500">
-                    <span>{{ form.requirements.length }} Zeichen</span>
-                    <button type="button" class="font-medium text-indigo-600 hover:text-indigo-500" @click="insertChecklist">
-                      Beispiel-Checkliste einfügen
-                    </button>
-                  </div>
-                </label>
               </div>
             </section>
 
-            <section class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
+            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <header class="mb-4 flex items-center justify-between">
                 <div>
-                  <h2 class="text-sm font-semibold text-slate-900">Anhänge</h2>
-                  <p class="text-xs text-slate-500">Optional – wird vertraulich verarbeitet</p>
+                  <h2 class="text-sm font-semibold text-slate-900">Uploads</h2>
+                  <p class="text-xs text-slate-500">Dateien hinzufügen – vertraulich verarbeitet</p>
                 </div>
                 <button
                   v-if="uploadState.id"
@@ -169,7 +139,7 @@
                     <p class="text-sm font-medium text-slate-900">
                       <span class="text-indigo-600">Datei hier ablegen</span> oder klicken
                     </p>
-                    <p class="text-xs text-slate-500">PDF, DOC, DOCX oder TXT &middot; max. 10 MB</p>
+                    <p class="text-xs text-slate-500">PDF, DOC, DOCX oder TXT · max. 10 MB</p>
                   </div>
                 </label>
                 <p v-if="uploadState.fileName" class="mt-3 flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
@@ -179,36 +149,122 @@
                 <p v-if="uploadState.error" class="mt-2 text-xs text-red-600">{{ uploadState.error }}</p>
               </div>
             </section>
-            <section class="space-y-4 rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
-              <header class="flex items-center justify-between">
+
+            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div class="flex flex-col gap-6">
                 <div>
-                  <h2 class="text-sm font-semibold text-slate-900">Klauselbausteine</h2>
-                  <p class="text-xs text-slate-500">Relevante Kategorien auswählen</p>
+                  <header class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 class="text-sm font-semibold text-slate-900">Klauselbausteine</h2>
+                      <p class="text-xs text-slate-500">Relevante Kategorien auswählen</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="text-xs font-medium text-indigo-600 hover:text-indigo-500"
+                      @click="refreshClauses"
+                    >
+                      Aktualisieren
+                    </button>
+                  </header>
+                  <p v-if="clauseMessage" class="mt-3 text-xs text-slate-500">{{ clauseMessage }}</p>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <button
+                      v-for="clause in clauses"
+                      :key="clause.id"
+                      type="button"
+                      @click="toggleClause(clause.title)"
+                      :class="clauseChipClass(clause.title)"
+                    >
+                      {{ clause.title }}
+                    </button>
+                  </div>
+                  <div
+                    v-if="featuredTemplates.length"
+                    class="mt-4 rounded-xl border border-slate-100 bg-slate-50/80 p-3"
+                  >
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Empfohlene Vorlagen</p>
+                      <span class="text-[11px] font-medium text-slate-400">
+                        {{ templates.length }} verfügbar
+                      </span>
+                    </div>
+                    <p v-if="templateMessage" :class="templateMessageTone" class="mt-1">
+                      {{ templateMessage }}
+                    </p>
+                    <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                      <button
+                        v-for="template in featuredTemplates"
+                        :key="template.id"
+                        type="button"
+                        class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50"
+                        @click="goToTemplates(template)"
+                      >
+                        <span class="truncate">{{ template.title }}</span>
+                        <span class="text-xs font-semibold text-indigo-500">Öffnen →</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  class="text-xs font-medium text-indigo-600 hover:text-indigo-500"
-                  @click="refreshClauses"
-                >
-                  Aktualisieren
-                </button>
-              </header>
-              <p v-if="clauseMessage" class="text-xs text-slate-500">{{ clauseMessage }}</p>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="clause in clauses"
-                  :key="clause.id"
-                  type="button"
-                  @click="toggleClause(clause.title)"
-                  :class="clauseChipClass(clause.title)"
-                >
-                  {{ clause.title }}
-                </button>
+
+                <div class="border-t border-slate-100 pt-5">
+                  <header class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 class="text-sm font-semibold text-slate-900">Sachverhalt &amp; Vorgaben</h3>
+                      <p class="text-xs text-slate-500">Beschreiben Sie Ziele, Klauseln oder Besonderheiten</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="text-xs font-medium text-indigo-600 hover:text-indigo-500"
+                      @click="insertChecklist"
+                    >
+                      Checkliste einfügen
+                    </button>
+                  </header>
+                  <label class="mt-4 block">
+                    <span class="sr-only">Sachverhalt &amp; Vorgaben</span>
+                    <textarea
+                      v-model="form.requirements"
+                      placeholder="Beschreiben Sie den Sachverhalt, gewünschte Klauseln oder Besonderheiten..."
+                      rows="6"
+                      class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                    ></textarea>
+                    <div class="mt-2 text-right text-xs text-slate-500">
+                      {{ form.requirements.length }} Zeichen
+                    </div>
+                  </label>
+                </div>
               </div>
             </section>
-          </aside>
 
-          <section class="space-y-6">
+            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 class="text-sm font-semibold text-slate-900">Erstellung</h2>
+              <p class="mt-1 text-xs text-slate-500">Dokument generieren oder KI-Analyse starten</p>
+              <div class="mt-4 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                  :disabled="!canGenerate || isGenerating"
+                  @click="generateDocument"
+                >
+                  <span v-if="isGenerating" class="h-4 w-4 animate-spin rounded-full border-2 border-white/70 border-t-transparent"></span>
+                  {{ isGenerating ? 'Generierung läuft…' : 'Dokument generieren' }}
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:text-slate-400"
+                  :disabled="isGenerating || !previewHtml"
+                  @click="runAnalysis"
+                >
+                  KI-Analyse starten
+                </button>
+              </div>
+              <p class="mt-3 text-[11px] text-slate-500">
+                <kbd class="rounded bg-slate-100 px-1">Strg</kbd> + <kbd class="rounded bg-slate-100 px-1">Enter</kbd> für eine schnelle Neu-Generierung.
+              </p>
+            </section>
+          </div>
+
+          <div class="space-y-6 xl:col-span-1 xl:sticky xl:top-20">
             <div
               v-if="processingState !== 'idle'"
               class="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 px-5 py-4 text-sm text-indigo-900 shadow-sm"
@@ -222,7 +278,7 @@
               </div>
             </div>
 
-            <div class="rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+            <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
               <header class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
                 <div>
                   <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Vorschau</p>
@@ -347,7 +403,7 @@
                   </button>
                 </div>
               </div>
-            </div>
+            </section>
 
             <div v-if="analysisSnapshot" class="rounded-2xl border border-emerald-100 bg-emerald-50 p-6 shadow-sm">
               <header class="mb-3 flex items-center justify-between">
@@ -375,40 +431,6 @@
                 </ul>
               </div>
             </div>
-          </section>
-        </section>
-
-        <section class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm">
-          <header class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-semibold text-slate-900">Vorlagen &amp; Quick Start</h2>
-              <p class="text-xs text-slate-500">Passende Vorlagen übernehmen oder verfeinern</p>
-            </div>
-            <button
-              type="button"
-              class="text-xs font-semibold text-indigo-600 transition hover:text-indigo-500"
-              @click="openTemplates"
-            >
-              Alle Vorlagen anzeigen
-            </button>
-          </header>
-          <p v-if="templateMessage" :class="templateMessageTone" class="mt-3 text-xs">{{ templateMessage }}</p>
-          <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <button
-              v-for="template in templates"
-              :key="template.id"
-              type="button"
-              @click="applyTemplate(template)"
-              class="flex w-full flex-col items-start gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-left shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-            >
-              <p class="text-sm font-semibold text-slate-900">{{ template.title }}</p>
-              <p class="line-clamp-3 text-xs text-slate-500">{{ template.prompt }}</p>
-              <div class="flex items-center gap-2 text-[11px] font-medium text-indigo-600">
-                <span class="rounded-full bg-indigo-100 px-2 py-0.5">{{ template.category }}</span>
-                <span class="text-slate-400">&middot;</span>
-                <span>{{ template.docType }}</span>
-              </div>
-            </button>
           </div>
         </section>
       </div>
@@ -444,6 +466,24 @@ const router = useRouter()
 const route = useRoute()
 const { user: portalUser, loadUser } = usePortalUser()
 
+const workflowSteps = [
+  {
+    number: '1',
+    title: 'Sammeln',
+    description: 'Sachverhalt beschreiben oder Dateien hochladen'
+  },
+  {
+    number: '2',
+    title: 'Prüfen',
+    description: 'Klauseln ergänzen, Vorlagen kombinieren, Feedback geben'
+  },
+  {
+    number: '3',
+    title: 'Exportieren',
+    description: 'PDF oder DOCX herunterladen und weitergeben'
+  }
+]
+
 const form = reactive({
   docType: '',
   requirements: '',
@@ -460,8 +500,9 @@ const uploadState = reactive({
 
 const selectedTemplate = ref<TemplateSummary | null>(null)
 const templates = ref<TemplateSummary[]>([])
-const templateMessage = ref('Noch keine Vorlagen geladen. Wir zeigen Beispielvorlagen an.')
+const templateMessage = ref('Beispielvorlagen werden angezeigt.')
 const templateTone = ref<'info' | 'success' | 'danger'>('info')
+const featuredTemplates = computed(() => templates.value.slice(0, 3))
 
 const clauses = ref<ClauseSummary[]>([])
 const clauseMessage = ref('')
@@ -766,8 +807,8 @@ async function loadTemplates() {
       templates.value = getSampleTemplates()
       templateTone.value = 'info'
       templateMessage.value = portalUser.value
-        ? 'Keine eigenen Vorlagen gefunden. Beispielvorlagen stehen zur Verfügung.'
-        : 'Melden Sie sich an, um eigene Vorlagen zu synchronisieren – wir zeigen Beispiele.'
+        ? 'Keine eigenen Vorlagen gefunden, wir zeigen Beispiele.'
+        : 'Bitte anmelden, um eigene Vorlagen zu laden. Wir zeigen Beispiele.'
       return
     }
     templates.value = data.map(normalizeTemplate)
@@ -877,6 +918,14 @@ function toggleClause(title: string) {
 
 function openTemplates() {
   router.push({ path: '/templates', query: { origin: 'documents' } })
+}
+
+function goToTemplates(template: TemplateSummary) {
+  if (!template?.id) {
+    openTemplates()
+    return
+  }
+  router.push({ path: '/templates', query: { origin: 'documents', templateId: template.id } })
 }
 
 function syncPreviewFromDom() {
