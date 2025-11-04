@@ -1,59 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const wizardSteps = document.querySelectorAll('.wizard-step');
-    const formSections = [
-        document.getElementById('step-1-content'),
-        document.getElementById('step-2-content'),
-        document.getElementById('step-3-content')
-    ];
-    const nextButton = document.getElementById('next-btn');
-    const prevButton = document.getElementById('prev-btn');
-    const submitButton = document.getElementById('submit-btn');
-    const cancelButton = document.querySelector('.btn-secondary');
-
-    let currentStep = 0;
-
-    const updateWizard = () => {
-        wizardSteps.forEach((step, index) => {
-            if (index === currentStep) {
-                step.classList.add('active');
-            } else {
-                step.classList.remove('active');
-            }
-        });
-
-        formSections.forEach((section, index) => {
-            if (index === currentStep) {
-                section.style.display = 'block';
-            } else {
-                section.style.display = 'none';
-            }
-        });
-
-        prevButton.style.display = currentStep === 0 ? 'none' : 'inline-block';
-        nextButton.style.display = currentStep === formSections.length - 1 ? 'none' : 'inline-block';
-        submitButton.style.display = currentStep === formSections.length - 1 ? 'inline-block' : 'none';
-    };
-
-    nextButton.addEventListener('click', () => {
-        if (currentStep < formSections.length - 1) {
-            currentStep++;
-            updateWizard();
-        }
-    });
-
-    prevButton.addEventListener('click', () => {
-        if (currentStep > 0) {
-            currentStep--;
-            updateWizard();
-        }
-    });
-
-    cancelButton.addEventListener('click', () => {
-        document.querySelector('form').reset();
-        currentStep = 0;
-        updateWizard();
-    });
-
     // File Upload Logic
     const uploadArea = document.getElementById('file-upload');
     const uploadText = uploadArea.querySelector('p');
@@ -80,5 +25,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    updateWizard(); // Initial setup
+    // Clear Button Logic
+    const clearButton = document.querySelector('.btn-secondary');
+    const form = document.querySelector('form');
+    clearButton.addEventListener('click', () => {
+        form.reset();
+        // Reset language toggle to default
+        langButtons.forEach((btn, index) => {
+            if (index === 0) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+        uploadText.textContent = 'Datei hier ablegen oder zum Suchen klicken';
+    });
 });
