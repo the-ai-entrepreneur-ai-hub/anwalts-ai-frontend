@@ -3,326 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Korrigiertes Dokumenten-Tool</title>
-    <style>
-        /* --- General Body & Font Styles --- */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f8f9fe;
-            margin: 0;
-            padding: 2rem;
-            color: #333;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-        }
-
-        /* --- Main App Container --- */
-        .app-container {
-            display: flex;
-            gap: 2rem;
-            width: 100%;
-            max-width: 1200px;
-        }
-
-        /* --- Panel Styling (Both Left & Right) --- */
-        .panel {
-            background-color: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-            border: 1px solid #eef2f9;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            height: calc(100vh - 4rem); /* Full height minus body padding */
-        }
-
-        .panel-content {
-            padding: 1.5rem;
-            overflow-y: auto; /* Allows content to scroll */
-            flex-grow: 1;
-        }
-        
-        /* --- Left Panel: Input Area --- */
-        .input-section {
-            margin-bottom: 2rem;
-        }
-        
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        
-        .section-header h2 {
-            font-size: 1.1rem;
-            color: #2d3748;
-            margin: 0;
-        }
-
-        .reset-button {
-            font-size: 0.875rem;
-            color: #6b7280;
-            background: none;
-            border: none;
-            cursor: pointer;
-        }
-        
-        /* File Upload Area */
-        .upload-box {
-            border: 2px dashed #d1d5db;
-            border-radius: 12px;
-            padding: 2rem;
-            text-align: center;
-            background-color: #f9fafb;
-        }
-        
-        .upload-box svg {
-            color: #4f46e5;
-            margin-bottom: 1rem;
-        }
-        
-        .upload-box p {
-            margin: 0;
-            font-weight: 500;
-            color: #4f46e5;
-        }
-        
-        .upload-box span {
-            font-size: 0.8rem;
-            color: #6b7280;
-        }
-
-        /* Form Elements */
-        label {
-            display: block;
-            font-weight: 500;
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-            color: #4a5568;
-        }
-
-        .input-field, .textarea-field {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 1rem;
-            box-sizing: border-box; /* Important for padding */
-        }
-        
-        .textarea-field {
-            min-height: 120px;
-            resize: vertical;
-        }
-
-        /* Segmented Control for Language Choice (CORRECTION) */
-        .segmented-control {
-            display: flex;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .segmented-control button {
-            flex: 1;
-            padding: 0.75rem 1rem;
-            border: none;
-            background-color: #ffffff;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: background-color 0.2s;
-        }
-        
-        .segmented-control button.active {
-            background-color: #eef2ff;
-            color: #4f46e5;
-            font-weight: 600;
-        }
-        
-        .segmented-control button:not(:last-child) {
-            border-right: 1px solid #d1d5db;
-        }
-
-        /* --- Right Panel: Preview Area --- */
-        .preview-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid #eef2f9;
-        }
-        
-        .preview-header h2 {
-            font-size: 1.1rem;
-            margin: 0;
-            color: #2d3748;
-        }
-        
-        .word-count {
-            font-size: 0.9rem;
-            color: #6b7280;
-            background-color: #f3f4f6;
-            padding: 0.25rem 0.5rem;
-            border-radius: 6px;
-        }
-        
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            text-align: center;
-            color: #9ca3af;
-        }
-
-        .empty-state svg {
-            margin-bottom: 1rem;
-        }
-        
-        .empty-state h3 {
-            font-size: 1.2rem;
-            color: #4a5568;
-            marginin: 0 0 0.5rem 0;
-        }
-        
-        .empty-state p {
-            margin: 0;
-            max-width: 250px;
-        }
-
-
-        /* --- Panel Footers (CORRECTION) --- */
-        .panel-footer {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid #eef2f9;
-            background-color: #ffffff;
-            margin-top: auto; /* Pushes footer to the bottom */
-            border-bottom-left-radius: 16px;
-            border-bottom-right-radius: 16px;
-        }
-
-        .footer-left {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-        
-        .footer-right {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 0.8rem;
-            color: #6b7280;
-        }
-        
-        .footer-right kbd {
-            background-color: #f3f4f6;
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            border: 1px solid #e5e7eb;
-            font-family: monospace;
-            margin: 0 0.25rem;
-        }
-        
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-
-        .btn-secondary {
-            background-color: #f3f4f6;
-            color: #374151;
-        }
-        
-        .btn-primary {
-            background-color: #4f46e5;
-            color: #ffffff;
-            flex-grow: 1; /* Makes the primary button take up more space */
-        }
-        
-        .btn-primary svg {
-            margin-right: 0.5rem;
-            vertical-align: middle;
-        }
-    </style>
+    <title>Dokumenten-Assistent | Anwalts AI</title>
+    <link rel="stylesheet" href="docs_page_redesign.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <div class="app-container">
-        <!-- Left Panel: Inputs & Controls -->
-        <div class="panel">
-            <div class="panel-content">
-                <!-- Section 1: Document Upload -->
-                <div class="input-section">
-                    <div class="section-header">
-                        <h2>1. Dokument hochladen (Optional)</h2>
-                        <button class="reset-button">Zurücksetzen</button>
-                    </div>
-                    <div class="upload-box">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 256 256"><path d="M208,88H152V32a8,8,0,0,0-16,0V88H80a8,8,0,0,0-7.16,4.42,8,8,0,0,0,1,8.5l64,80a8,8,0,0,0,12.32,0l64-80a8,8,0,0,0,1-8.5A8,8,0,0,0,208,88Zm-83.16,84.42L96,140H120a8,8,0,0,0,8-8V88h24v44a8,8,0,0,0,8,8h24Z"></path><path d="M216,144a8,8,0,0,1-8,8,64.07,64.07,0,0,0-64,64,8,8,0,0,1-16,0,80.1,80.1,0,0,1,80-80A8,8,0,0,1,216,144Z"></path></svg>
-                        <p>Datei hier ablegen oder zum Durchsuchen klicken</p>
-                        <span>PDF, DOC, DOCX, TXT · Maximal 10 MB</span>
-                    </div>
-                </div>
+    <header class="header">
+        <div class="logo">Anwalts AI</div>
+        <nav class="header-nav">
+            <a href="#">Dashboard</a>
+            <a href="#">Vorlagen</a>
+            <a href="#">Hilfe</a>
+        </nav>
+    </header>
 
-                <!-- Section 2: Specifications -->
-                <div class="input-section">
-                    <div class="section-header">
-                        <h2>2. Angaben & Vorgaben</h2>
-                    </div>
-                    
-                    <label>Sprache</label>
-                    <div class="segmented-control">
-                        <button class="active">Juristische Sprache</button>
-                        <button>Leichte Sprache</button>
-                    </div>
-                    
-                    <div style="height: 1.5rem;"></div> <!-- Spacer -->
+    <main class="main-container">
+        <h1 class="page-title">Dokumenten-Assistent</h1>
+        <p class="page-subtitle">Erstellen Sie präzise juristische Dokumente mit KI-Unterstützung. Folgen Sie den Schritten, um Ihr Dokument zu generieren.</p>
 
-                    <label for="document-type">Dokumenttyp</label>
-                    <input type="text" id="document-type" class="input-field" placeholder="z. B. Mietvertrag, Abmahnung, Vergleich, NDA">
-                    
-                    <div style="height: 1.5rem;"></div> <!-- Spacer -->
-
-                    <label for="context">Sachverhalt & Anforderungen</label>
-                    <textarea id="context" class="textarea-field" placeholder="Beschreiben Sie kurz den Fall. Nennen Sie Parteien, Ziele und besondere Bedingungen."></textarea>
-                </div>
+        <div class="wizard">
+            <div class="wizard-step active">
+                <span class="step-number">1</span>
+                <span>Grundlagen & Upload</span>
             </div>
-            <div class="panel-footer footer-left">
-                <button class="btn btn-secondary">Leeren</button>
-                <button class="btn btn-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" style="display: inline-block;"><path d="M226.53,92.23,163.77,29.47a12,12,0,0,0-8.48-3.51H56A20,20,0,0,0,36,45.95V210.05A20,20,0,0,0,56,230H200a20,20,0,0,0,20-20V100.71A12,12,0,0,0,226.53,92.23ZM160,51.31,194.69,86H160ZM200,214H56a4,4,0,0,1-4-4V45.95a4,4,0,0,1,4-4h91.29V98a12,12,0,0,0,12,12h50.71V210A4,4,0,0,1,200,214Z"></path></svg>
-                    Dokument erzeugen
-                </button>
+            <div class="wizard-step">
+                <span class="step-number">2</span>
+                <span>Inhalt & Kontext</span>
+            </div>
+            <div class="wizard-step">
+                <span class="step-number">3</span>
+                <span>Generierung & Prüfung</span>
             </div>
         </div>
 
-        <!-- Right Panel: Preview -->
-        <div class="panel">
-            <div class="preview-header">
-                <h2>Vorschau & Feinschliff</h2>
-                <span class="word-count">0 Wörter</span>
-            </div>
-            <div class="panel-content">
-                <div class="empty-state">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 256 256"><path d="M216,40H56a20,20,0,0,0-20,20V216a20,20,0,0,0,20,20H200a12,12,0,0,0,8.49-3.51l24-24A12,12,0,0,0,236,200V56A16,16,0,0,0,220,40Zm0,16V194.06L194.06,216H56a4,4,0,0,1-4-4V60a4,4,0,0,1,4-4H216ZM168,112a12,12,0,0,1-12,12H100a12,12,0,0,1,0-24h56A12,12,0,0,1,168,112Zm-12,32H100a12,12,0,0,0,0,24h56a12,12,0,0,0,0-24Z"></path></svg>
-                    <h3>Noch kein Dokument erstellt</h3>
-                    <p>Fügen Sie Angaben hinzu oder laden Sie ein Dokument hoch, um zu beginnen.</p>
+        <form>
+            <div class="content-section">
+                <div class="input-area">
+                    <div id="step-1-content">
+                        <h2 class="section-title">Schritt 1: Dokumentenbasis</h2>
+                        <div class="form-group">
+                            <label for="document-type">Dokumenttyp</label>
+                            <input type="text" id="document-type" class="input-field" placeholder="z.B. Mietvertrag, Abmahnung, NDA">
+                        </div>
+                        <div class="form-group">
+                            <label for="file-upload">Ausgangsdokument hochladen (Optional)</label>
+                            <div class="file-upload-area" id="file-upload">
+                                <p>Datei hier ablegen oder zum Suchen klicken</p>
+                                <span>PDF, DOCX, TXT · Max. 10MB</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="step-2-content" style="display: none;">
+                        <h2 class="section-title">Schritt 2: Inhaltliche Vorgaben</h2>
+                         <div class="form-group">
+                            <label>Sprache</label>
+                            <div class="segmented-control">
+                                <button type="button" class="active">Juristische Sprache</button>
+                                <button type="button">Leichte Sprache</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="context">Sachverhalt & Anforderungen</label>
+                            <textarea id="context" class="textarea-field" placeholder="Beschreiben Sie den Fall, beteiligte Parteien, Ziele und besondere Klauseln. Je detaillierter, desto besser das Ergebnis."></textarea>
+                        </div>
+                    </div>
+                     <div id="step-3-content" style="display: none;">
+                        <h2 class="section-title">Schritt 3: Generierung & Prüfung</h2>
+                        <p>Überprüfen Sie die generierten Inhalte und nehmen Sie bei Bedarf Anpassungen vor.</p>
+                    </div>
+                </div>
+
+                <div class="preview-area">
+                    <h2 class="section-title">Vorschau</h2>
+                    <div class="preview-placeholder">
+                        <p>Die Dokumentenvorschau erscheint hier.</p>
+                    </div>
                 </div>
             </div>
-            <div class="panel-footer footer-right">
-                <span><kbd>Strg</kbd>+<kbd>Enter</kbd> generiert neu</span> • <span><kbd>Alt</kbd>+<kbd>C</kbd> kopiert</span>
-            </div>
-        </div>
-    </div>
 
+            <div class="actions-footer">
+                <button type="button" class="btn btn-secondary">Leeren</button>
+                <button type="button" class="btn btn-secondary" id="prev-btn" style="display: none;">Zurück</button>
+                <button type="button" class="btn btn-primary" id="next-btn">Weiter</button>
+                <button type="submit" class="btn btn-primary" id="submit-btn" style="display: none;">Dokument generieren</button>
+            </div>
+        </form>
+
+    </main>
+
+    <script src="docs_page.js"></script>
 </body>
 </html>
