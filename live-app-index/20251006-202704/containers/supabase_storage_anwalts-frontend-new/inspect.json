@@ -1,0 +1,304 @@
+[
+    {
+        "Id": "993df1d143e0fd7bc4bdec6cc96b90d4785882651b4bd2b9cfbb435f75e01161",
+        "Created": "2025-10-06T06:09:25.95237581Z",
+        "Path": "docker-entrypoint.sh",
+        "Args": [
+            "node",
+            "dist/start/server.js"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3698828,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:03:25.212684043Z",
+            "FinishedAt": "2025-10-06T07:03:13.322114684Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:26:24.994736222+02:00",
+                        "End": "2025-10-06T20:26:25.078126322+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:5000 (127.0.0.1:5000)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:35.079257013+02:00",
+                        "End": "2025-10-06T20:26:35.160010891+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:5000 (127.0.0.1:5000)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:45.161105419+02:00",
+                        "End": "2025-10-06T20:26:45.230273513+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:5000 (127.0.0.1:5000)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:55.23046628+02:00",
+                        "End": "2025-10-06T20:26:55.297233526+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:5000 (127.0.0.1:5000)\nremote file exists\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:27:05.298364255+02:00",
+                        "End": "2025-10-06T20:27:05.319937262+02:00",
+                        "ExitCode": 0,
+                        "Output": "Connecting to 127.0.0.1:5000 (127.0.0.1:5000)\nremote file exists\n"
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:191d4ede1fb879c5b396796ac2a6922fa65cc32154bd1eb5a3371563112cf395",
+        "ResolvConfPath": "/var/lib/docker/containers/993df1d143e0fd7bc4bdec6cc96b90d4785882651b4bd2b9cfbb435f75e01161/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/993df1d143e0fd7bc4bdec6cc96b90d4785882651b4bd2b9cfbb435f75e01161/hostname",
+        "HostsPath": "/var/lib/docker/containers/993df1d143e0fd7bc4bdec6cc96b90d4785882651b4bd2b9cfbb435f75e01161/hosts",
+        "LogPath": "/var/lib/docker/containers/993df1d143e0fd7bc4bdec6cc96b90d4785882651b4bd2b9cfbb435f75e01161/993df1d143e0fd7bc4bdec6cc96b90d4785882651b4bd2b9cfbb435f75e01161-json.log",
+        "Name": "/supabase_storage_anwalts-frontend-new",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "supabase_storage_anwalts-frontend-new:/mnt"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_anwalts-frontend-new",
+            "PortBindings": null,
+            "RestartPolicy": {
+                "Name": "always",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [
+                "host.docker.internal:host-gateway"
+            ],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/93168c196c558fcefa8fc3c7556616454c05aa7d14961038e0988a251a9a36dc-init/diff:/var/lib/docker/overlay2/7e2c639db494676670b97df00affc25da9f9a75c3bb096bad1e830f0724db62b/diff:/var/lib/docker/overlay2/234c112a3ec384f064387681a2fe510135326ba35404ccbc607c02490a06b557/diff:/var/lib/docker/overlay2/a8e3214710914885cee5e4d0c158669dcae2510d5883fec80f07cc86518551b4/diff:/var/lib/docker/overlay2/82b6b617076a22ca157b03305c9930aeb5ea69d2fa8bcda43e22895c016575a2/diff:/var/lib/docker/overlay2/3d207cb2b5ae4e8f91d0ee4d2920a7015e47648232e359102a5389666888798c/diff:/var/lib/docker/overlay2/631818c28e3557794434f6f74b37a53b7219c21449a02ac7cd13951e30eeeb4c/diff:/var/lib/docker/overlay2/55168524f31368669d989def7ea14b673f837d7c1176d572880c79ea286bd3e7/diff:/var/lib/docker/overlay2/8745bd833d5e35ccf1b62f2e48fa0e97c9a2fdb12ad43c0c539d4c0384c73c06/diff:/var/lib/docker/overlay2/d4858993f73e66dfe41a4cf6d9192b262ffeff76a65e238cd53db9f85db8237c/diff:/var/lib/docker/overlay2/6ba4ef3a83b852d03afb42e2ab99cb0161df7b112c822a6201ef9c604b30dcf8/diff",
+                "MergedDir": "/var/lib/docker/overlay2/93168c196c558fcefa8fc3c7556616454c05aa7d14961038e0988a251a9a36dc/merged",
+                "UpperDir": "/var/lib/docker/overlay2/93168c196c558fcefa8fc3c7556616454c05aa7d14961038e0988a251a9a36dc/diff",
+                "WorkDir": "/var/lib/docker/overlay2/93168c196c558fcefa8fc3c7556616454c05aa7d14961038e0988a251a9a36dc/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "supabase_storage_anwalts-frontend-new",
+                "Source": "/var/lib/docker/volumes/supabase_storage_anwalts-frontend-new/_data",
+                "Destination": "/mnt",
+                "Driver": "local",
+                "Mode": "z",
+                "RW": true,
+                "Propagation": ""
+            }
+        ],
+        "Config": {
+            "Hostname": "993df1d143e0",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "5000/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "DB_MIGRATIONS_FREEZE_AT=",
+                "ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0",
+                "SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU",
+                "AUTH_JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long",
+                "JWT_JWKS={\"keys\":[{\"kty\":\"oct\",\"k\":\"c3VwZXItc2VjcmV0LWp3dC10b2tlbi13aXRoLWF0LWxlYXN0LTMyLWNoYXJhY3RlcnMtbG9uZw\"}]}",
+                "DATABASE_URL=postgresql://supabase_storage_admin:postgres@supabase_db_anwalts-frontend-new:5432/postgres",
+                "FILE_SIZE_LIMIT=52428800",
+                "STORAGE_BACKEND=file",
+                "FILE_STORAGE_BACKEND_PATH=/mnt",
+                "TENANT_ID=stub",
+                "STORAGE_S3_REGION=local",
+                "GLOBAL_S3_BUCKET=stub",
+                "ENABLE_IMAGE_TRANSFORMATION=false",
+                "IMGPROXY_URL=http://supabase_imgproxy_anwalts-frontend-new:5001",
+                "TUS_URL_PATH=/storage/v1/upload/resumable",
+                "S3_PROTOCOL_ACCESS_KEY_ID=625729a08b95bf1b7ff351a663f3a23c",
+                "S3_PROTOCOL_ACCESS_KEY_SECRET=850181e4652dd023b7a98c58ae0d2d34bd487ee0cc3254aed6eda37307425907",
+                "S3_PROTOCOL_PREFIX=/storage/v1",
+                "UPLOAD_FILE_SIZE_LIMIT=52428800000",
+                "UPLOAD_FILE_SIZE_LIMIT_STANDARD=5242880000",
+                "SIGNED_UPLOAD_URL_EXPIRATION_TIME=7200",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NODE_VERSION=22.20.0",
+                "YARN_VERSION=1.22.22",
+                "VERSION=1.28.0"
+            ],
+            "Cmd": [
+                "node",
+                "dist/start/server.js"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "wget",
+                    "--no-verbose",
+                    "--tries=1",
+                    "--spider",
+                    "http://127.0.0.1:5000/status"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/storage-api:v1.28.0",
+            "Volumes": null,
+            "WorkingDir": "/app",
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.project": "anwalts-frontend-new",
+                "com.supabase.cli.project": "anwalts-frontend-new"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "935e6d1f8816492dbbd1b680ce6ca2fb56e44123ef253bd2763710d5f24f7682",
+            "SandboxKey": "/var/run/docker/netns/935e6d1f8816",
+            "Ports": {
+                "5000/tcp": null
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "supabase_network_anwalts-frontend-new": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "storage"
+                    ],
+                    "MacAddress": "02:42:ac:12:00:0a",
+                    "DriverOpts": null,
+                    "NetworkID": "ef674fa3fc1547fce8cbcaedeba261580a20cc48cefb63a0ed28a32e29d584a4",
+                    "EndpointID": "f8668a297a44e78b16a24da5fd77995a53e05fd113e2edb4426a1e37e6346a35",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.10",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_storage_anwalts-frontend-new",
+                        "storage",
+                        "993df1d143e0"
+                    ]
+                }
+            }
+        }
+    }
+]

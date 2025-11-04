@@ -1,0 +1,10 @@
+app/apps/studio/.env
+app/apps/studio/package.json
+app/apps/studio/server.js
+app/package.json
+app/packages/common/package.json
+app/packages/pg-meta/package.json
+app/packages/shared-data/extensions.json
+app/packages/shared-data/package.json
+app/packages/ui-patterns/package.json
+app/packages/ui/package.json

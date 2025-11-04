@@ -1,0 +1,1 @@
+public.ecr.aws/supabase/gotrue:v2.180.0

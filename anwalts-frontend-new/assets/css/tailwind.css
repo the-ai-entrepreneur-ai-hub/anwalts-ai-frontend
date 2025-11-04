@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 uses CSS variables for spacing - define the base unit */
+@theme {
+  --spacing: 0.25rem;
+}

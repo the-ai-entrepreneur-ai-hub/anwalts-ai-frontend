@@ -1,0 +1,1 @@
+public.ecr.aws/supabase/mailpit:v1.22.3

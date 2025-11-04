@@ -1,0 +1,218 @@
+[
+    {
+        "Id": "ac881e0b3bf23ffa3458dc4702b0acff48e7f791ad483c993e530782f176d786",
+        "Created": "2025-10-06T06:09:25.804695265Z",
+        "Path": "/bin/postgrest",
+        "Args": [],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3699239,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:03:37.828616039Z",
+            "FinishedAt": "2025-10-06T07:03:25.993453927Z"
+        },
+        "Image": "sha256:5c5eb0045fa5c2f83e977647f4aaf6222f75b8538642ed6ec682f56721b1708d",
+        "ResolvConfPath": "/var/lib/docker/containers/ac881e0b3bf23ffa3458dc4702b0acff48e7f791ad483c993e530782f176d786/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/ac881e0b3bf23ffa3458dc4702b0acff48e7f791ad483c993e530782f176d786/hostname",
+        "HostsPath": "/var/lib/docker/containers/ac881e0b3bf23ffa3458dc4702b0acff48e7f791ad483c993e530782f176d786/hosts",
+        "LogPath": "/var/lib/docker/containers/ac881e0b3bf23ffa3458dc4702b0acff48e7f791ad483c993e530782f176d786/ac881e0b3bf23ffa3458dc4702b0acff48e7f791ad483c993e530782f176d786-json.log",
+        "Name": "/supabase_rest_anwalts-frontend-new",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_anwalts-frontend-new",
+            "PortBindings": null,
+            "RestartPolicy": {
+                "Name": "always",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [
+                "host.docker.internal:host-gateway"
+            ],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/1567e9da864037d6ea9d1a2756932882550be9b9919e215f0b78098c42318184-init/diff:/var/lib/docker/overlay2/3100ec2a36e77913ebb06f3a2441757240b4f923de1e23c06c39e436b8113545/diff",
+                "MergedDir": "/var/lib/docker/overlay2/1567e9da864037d6ea9d1a2756932882550be9b9919e215f0b78098c42318184/merged",
+                "UpperDir": "/var/lib/docker/overlay2/1567e9da864037d6ea9d1a2756932882550be9b9919e215f0b78098c42318184/diff",
+                "WorkDir": "/var/lib/docker/overlay2/1567e9da864037d6ea9d1a2756932882550be9b9919e215f0b78098c42318184/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "ac881e0b3bf2",
+            "Domainname": "",
+            "User": "1000",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "3000/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PGRST_DB_URI=postgresql://authenticator:postgres@supabase_db_anwalts-frontend-new:5432/postgres",
+                "PGRST_DB_SCHEMAS=public,graphql_public",
+                "PGRST_DB_EXTRA_SEARCH_PATH=public,extensions",
+                "PGRST_DB_MAX_ROWS=1000",
+                "PGRST_DB_ANON_ROLE=anon",
+                "PGRST_JWT_SECRET={\"keys\":[{\"kty\":\"oct\",\"k\":\"c3VwZXItc2VjcmV0LWp3dC10b2tlbi13aXRoLWF0LWxlYXN0LTMyLWNoYXJhY3RlcnMtbG9uZw\"}]}",
+                "PGRST_ADMIN_SERVER_PORT=3001"
+            ],
+            "Cmd": [
+                "/bin/postgrest"
+            ],
+            "Image": "public.ecr.aws/supabase/postgrest:v13.0.7",
+            "Volumes": null,
+            "WorkingDir": "",
+            "Entrypoint": null,
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.project": "anwalts-frontend-new",
+                "com.supabase.cli.project": "anwalts-frontend-new"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "1fedf5ce0ab54ac31da184ac6bc9ead7776c497ef6c0ac1725c3b7cb7b2ef30e",
+            "SandboxKey": "/var/run/docker/netns/1fedf5ce0ab5",
+            "Ports": {
+                "3000/tcp": null
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "supabase_network_anwalts-frontend-new": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "rest"
+                    ],
+                    "MacAddress": "02:42:ac:12:00:09",
+                    "DriverOpts": null,
+                    "NetworkID": "ef674fa3fc1547fce8cbcaedeba261580a20cc48cefb63a0ed28a32e29d584a4",
+                    "EndpointID": "8e2e5eb68c9ce0965f857c9a5e849172a0fe47a07028f939ec353c0523d990fd",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.9",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_rest_anwalts-frontend-new",
+                        "rest",
+                        "ac881e0b3bf2"
+                    ]
+                }
+            }
+        }
+    }
+]

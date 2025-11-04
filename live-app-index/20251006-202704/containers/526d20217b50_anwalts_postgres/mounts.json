@@ -1,0 +1,1 @@
+[{"Type":"volume","Name":"root_postgres_data","Source":"/var/lib/docker/volumes/root_postgres_data/_data","Destination":"/var/lib/postgresql/data","Driver":"local","Mode":"rw","RW":true,"Propagation":""},{"Type":"bind","Source":"/root/scripts/init-db.sql","Destination":"/docker-entrypoint-initdb.d/init-db.sql","Mode":"rw","RW":true,"Propagation":"rprivate"}]

@@ -1,0 +1,303 @@
+[
+    {
+        "Id": "6d2be97a1aaa41f9d1f605c889cbb61b6a3d43d8423d28d8dcb5694ba6836f94",
+        "Created": "2025-10-06T06:09:25.657369539Z",
+        "Path": "/usr/bin/tini",
+        "Args": [
+            "-s",
+            "-g",
+            "--",
+            "/app/run.sh",
+            "/app/bin/server"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3706159,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:06:07.683321448Z",
+            "FinishedAt": "2025-10-06T07:05:56.2327792Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:26:22.3164142+02:00",
+                        "End": "2025-10-06T20:26:22.375182224+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:32.375554168+02:00",
+                        "End": "2025-10-06T20:26:32.421509149+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:42.422482829+02:00",
+                        "End": "2025-10-06T20:26:42.475752616+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:52.47594915+02:00",
+                        "End": "2025-10-06T20:26:52.535956204+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:27:02.536965254+02:00",
+                        "End": "2025-10-06T20:27:02.577607767+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:c5474b5cbe2723f061c438cac11f22706624e016c332da9e5f40ed45328587c5",
+        "ResolvConfPath": "/var/lib/docker/containers/6d2be97a1aaa41f9d1f605c889cbb61b6a3d43d8423d28d8dcb5694ba6836f94/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/6d2be97a1aaa41f9d1f605c889cbb61b6a3d43d8423d28d8dcb5694ba6836f94/hostname",
+        "HostsPath": "/var/lib/docker/containers/6d2be97a1aaa41f9d1f605c889cbb61b6a3d43d8423d28d8dcb5694ba6836f94/hosts",
+        "LogPath": "/var/lib/docker/containers/6d2be97a1aaa41f9d1f605c889cbb61b6a3d43d8423d28d8dcb5694ba6836f94/6d2be97a1aaa41f9d1f605c889cbb61b6a3d43d8423d28d8dcb5694ba6836f94-json.log",
+        "Name": "/supabase_realtime_anwalts-frontend-new",
+        "RestartCount": 1,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_anwalts-frontend-new",
+            "PortBindings": null,
+            "RestartPolicy": {
+                "Name": "always",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [
+                "host.docker.internal:host-gateway"
+            ],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/4e2a35d309a14f69e0c4d0d29f4a6e9b13191bebb199eecc409665b59a5558bc-init/diff:/var/lib/docker/overlay2/8604ccb763851ecfd08ae319946c7dece85236d7779682a51954be3845e4ec3d/diff:/var/lib/docker/overlay2/1f34a6ebd4104804c8c16ef71e6556be3e7321bd926a4eed3f6483b950b98cfa/diff:/var/lib/docker/overlay2/669e56d192a5044acb34ec21dba824fd43441a4a0d6b7b2426564748a7f5c14e/diff:/var/lib/docker/overlay2/359beb308ee00234e32842251f66dc143003521902923f5d0cbf4a2f7c2b356b/diff:/var/lib/docker/overlay2/40be6ddb6ff0d1c143be439e10c8aca0a5b52f3f05d7b72f4e54e061230bad6c/diff:/var/lib/docker/overlay2/d56e91e2f8916e8e34cc1d22ab66d8e6ed17398142b1fc3534a5aef1642893e6/diff:/var/lib/docker/overlay2/11f6aae5792e2206f702c096bce41daad79130adab0e3578d0e9d29ebdbb411c/diff:/var/lib/docker/overlay2/4e2ccf04fd3c0f4439fd4d668cc27cc3ce426a6cbff50f4319b9bde5adc27a74/diff",
+                "MergedDir": "/var/lib/docker/overlay2/4e2a35d309a14f69e0c4d0d29f4a6e9b13191bebb199eecc409665b59a5558bc/merged",
+                "UpperDir": "/var/lib/docker/overlay2/4e2a35d309a14f69e0c4d0d29f4a6e9b13191bebb199eecc409665b59a5558bc/diff",
+                "WorkDir": "/var/lib/docker/overlay2/4e2a35d309a14f69e0c4d0d29f4a6e9b13191bebb199eecc409665b59a5558bc/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "6d2be97a1aaa",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "4000/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PORT=4000",
+                "DB_HOST=supabase_db_anwalts-frontend-new",
+                "DB_PORT=5432",
+                "DB_USER=supabase_admin",
+                "DB_PASSWORD=postgres",
+                "DB_NAME=postgres",
+                "DB_AFTER_CONNECT_QUERY=SET search_path TO _realtime",
+                "DB_ENC_KEY=supabaserealtime",
+                "API_JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long",
+                "API_JWT_JWKS={\"keys\":[{\"kty\":\"oct\",\"k\":\"c3VwZXItc2VjcmV0LWp3dC10b2tlbi13aXRoLWF0LWxlYXN0LTMyLWNoYXJhY3RlcnMtbG9uZw\"}]}",
+                "METRICS_JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long",
+                "APP_NAME=realtime",
+                "SECRET_KEY_BASE=EAx3IQ/wRG1v47ZD4NE4/9RzBI8Jmil3x0yhcW4V2NHBP6c2iPIzwjofi2Ep4HIG",
+                "ERL_AFLAGS=-proto_dist inet_tcp",
+                "DNS_NODES=''",
+                "RLIMIT_NOFILE=",
+                "SEED_SELF_HOST=true",
+                "RUN_JANITOR=true",
+                "MAX_HEADER_LENGTH=4096",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "SLOT_NAME_SUFFIX=",
+                "LANG=en_US.UTF-8",
+                "LANGUAGE=en_US:en",
+                "LC_ALL=en_US.UTF-8",
+                "MIX_ENV=prod",
+                "ECTO_IPV6=true"
+            ],
+            "Cmd": [
+                "/app/bin/server"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "curl",
+                    "-sSfL",
+                    "--head",
+                    "-o",
+                    "/dev/null",
+                    "-H",
+                    "Host:realtime-dev",
+                    "http://127.0.0.1:4000/api/ping"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/realtime:v2.51.11",
+            "Volumes": null,
+            "WorkingDir": "/app",
+            "Entrypoint": [
+                "/usr/bin/tini",
+                "-s",
+                "-g",
+                "--",
+                "/app/run.sh"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.project": "anwalts-frontend-new",
+                "com.supabase.cli.project": "anwalts-frontend-new"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "a4bcf956cbb6491b3023a6f4c8a439cd1d58a0f8c241668166311fcb811d617a",
+            "SandboxKey": "/var/run/docker/netns/a4bcf956cbb6",
+            "Ports": {
+                "4000/tcp": null
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "supabase_network_anwalts-frontend-new": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "realtime",
+                        "realtime-dev"
+                    ],
+                    "MacAddress": "02:42:ac:12:00:08",
+                    "DriverOpts": null,
+                    "NetworkID": "ef674fa3fc1547fce8cbcaedeba261580a20cc48cefb63a0ed28a32e29d584a4",
+                    "EndpointID": "5b4a0b2e4988b3285eef599f45b1f7987bdc2182dd579c4da914a9bf03825528",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.8",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_realtime_anwalts-frontend-new",
+                        "realtime",
+                        "realtime-dev",
+                        "6d2be97a1aaa"
+                    ]
+                }
+            }
+        }
+    }
+]

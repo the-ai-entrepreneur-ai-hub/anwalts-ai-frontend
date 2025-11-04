@@ -1,0 +1,320 @@
+[
+    {
+        "Id": "526d20217b50e278e102cbce8771c0542bfbd4fdf537ea964117193df43e0b67",
+        "Created": "2025-10-06T07:42:55.489764656Z",
+        "Path": "docker-entrypoint.sh",
+        "Args": [
+            "postgres"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3812917,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T08:09:27.285380605Z",
+            "FinishedAt": "2025-10-06T08:04:00.429569734Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:24:59.472787325+02:00",
+                        "End": "2025-10-06T20:24:59.570924624+02:00",
+                        "ExitCode": 0,
+                        "Output": "/var/run/postgresql:5432 - accepting connections\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:25:29.572098568+02:00",
+                        "End": "2025-10-06T20:25:29.652215892+02:00",
+                        "ExitCode": 0,
+                        "Output": "/var/run/postgresql:5432 - accepting connections\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:25:59.652804878+02:00",
+                        "End": "2025-10-06T20:25:59.740373622+02:00",
+                        "ExitCode": 0,
+                        "Output": "/var/run/postgresql:5432 - accepting connections\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:29.740801802+02:00",
+                        "End": "2025-10-06T20:26:29.845513115+02:00",
+                        "ExitCode": 0,
+                        "Output": "/var/run/postgresql:5432 - accepting connections\n"
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:59.845819223+02:00",
+                        "End": "2025-10-06T20:26:59.954931666+02:00",
+                        "ExitCode": 0,
+                        "Output": "/var/run/postgresql:5432 - accepting connections\n"
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:4cf9bb06bbc9e32fd55179e3dba641170ce4404a1a984e85a4ff24dacb83bd9a",
+        "ResolvConfPath": "/var/lib/docker/containers/526d20217b50e278e102cbce8771c0542bfbd4fdf537ea964117193df43e0b67/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/526d20217b50e278e102cbce8771c0542bfbd4fdf537ea964117193df43e0b67/hostname",
+        "HostsPath": "/var/lib/docker/containers/526d20217b50e278e102cbce8771c0542bfbd4fdf537ea964117193df43e0b67/hosts",
+        "LogPath": "/var/lib/docker/containers/526d20217b50e278e102cbce8771c0542bfbd4fdf537ea964117193df43e0b67/526d20217b50e278e102cbce8771c0542bfbd4fdf537ea964117193df43e0b67-json.log",
+        "Name": "/526d20217b50_anwalts_postgres",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "root_postgres_data:/var/lib/postgresql/data:rw",
+                "/root/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:rw"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "root_default",
+            "PortBindings": {
+                "5432/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "5432"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/c3c5f075eb8553c5c7b0353f3f5905b0022f8da86ad51aa88655a965a2ca8c10-init/diff:/var/lib/docker/overlay2/0bc829f191fd7d45d606c50652ab41440e16adf1774dbc35c75f05dbd2c4381e/diff:/var/lib/docker/overlay2/cac90db0c00fa50234173c43e68fa0c4f1a84991b23b05bd0c947ef5b2c31a5b/diff:/var/lib/docker/overlay2/794102a718db7efe8519981a812c1ccccff5784362cc5756b91d416e96970fe8/diff:/var/lib/docker/overlay2/050fae94388fb52ff3f35ae6197875a065389209b462c37447b6ac42495b5506/diff:/var/lib/docker/overlay2/5c21a78dffd1039705f5e897989ca86d3ce6e60f70853b64c42f6cce67a6a4e9/diff:/var/lib/docker/overlay2/f328e9345515306dbe88237882383c1239b0a38339e8a4411041cbc5e7cac1a5/diff:/var/lib/docker/overlay2/c4a7a842c5859303ac69dfbd7dc67322b8ab4214be6bd16a14e9530299138426/diff:/var/lib/docker/overlay2/d8f10737c0a9c26039a8c4f19d6d6d221b188e871a90c6d79e245dc53529b90b/diff:/var/lib/docker/overlay2/b8a71227b16d3850a87b105ebd15d98807ec5b6f015bf325258216612cd4d91a/diff:/var/lib/docker/overlay2/9dbe8250538452c9fa58b216dab2bf4f55aa00afb69b48de0514132fd6e7499f/diff:/var/lib/docker/overlay2/17cec9e32f451383414b90eda6f22486b01aa3c095279bb53e0f09198b6df045/diff:/var/lib/docker/overlay2/dd3d9578ccf10db7d3ae3d07707c12924f81df0901cd88abcb333434501dda23/diff:/var/lib/docker/overlay2/47481b1195c0e2da2b9b278f2ea46a5ce8f60923d0d68989ea57371aebe06c08/diff:/var/lib/docker/overlay2/2baebbb68f918c96bcc1872f51ae6f17408b4043ad5163528a48b9111e1fae3d/diff:/var/lib/docker/overlay2/83c75b1f3aa2c27f8636368773ffcde810553385238ae1f7c9355a3dd70dfeb6/diff:/var/lib/docker/overlay2/2bd57dd3b179bea2c5cff24a0a73cd0339122b9737c3d11d7fcf8eeeda615602/diff",
+                "MergedDir": "/var/lib/docker/overlay2/c3c5f075eb8553c5c7b0353f3f5905b0022f8da86ad51aa88655a965a2ca8c10/merged",
+                "UpperDir": "/var/lib/docker/overlay2/c3c5f075eb8553c5c7b0353f3f5905b0022f8da86ad51aa88655a965a2ca8c10/diff",
+                "WorkDir": "/var/lib/docker/overlay2/c3c5f075eb8553c5c7b0353f3f5905b0022f8da86ad51aa88655a965a2ca8c10/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "root_postgres_data",
+                "Source": "/var/lib/docker/volumes/root_postgres_data/_data",
+                "Destination": "/var/lib/postgresql/data",
+                "Driver": "local",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": ""
+            },
+            {
+                "Type": "bind",
+                "Source": "/root/scripts/init-db.sql",
+                "Destination": "/docker-entrypoint-initdb.d/init-db.sql",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "526d20217b50",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "ExposedPorts": {
+                "5432/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "POSTGRES_PASSWORD=<REDACTED_DB_PASSWORD>",
+                "POSTGRES_INITDB_ARGS=--encoding=UTF-8",
+                "POSTGRES_DB=anwalts_ai",
+                "POSTGRES_USER=anwalts_user",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/15/bin",
+                "GOSU_VERSION=1.17",
+                "LANG=en_US.utf8",
+                "PG_MAJOR=15",
+                "PG_VERSION=15.14-1.pgdg12+1",
+                "PGDATA=/var/lib/postgresql/data"
+            ],
+            "Cmd": [
+                "postgres"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD-SHELL",
+                    "pg_isready -U anwalts_user -d anwalts_ai"
+                ],
+                "Interval": 30000000000,
+                "Timeout": 10000000000,
+                "Retries": 3
+            },
+            "Image": "pgvector/pgvector:pg15",
+            "Volumes": {
+                "/var/lib/postgresql/data": {}
+            },
+            "WorkingDir": "",
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.config-hash": "71809c736efadef7f80e47820356d509410ccae48e4e8c25e273bd5da0123222",
+                "com.docker.compose.container-number": "1",
+                "com.docker.compose.depends_on": "",
+                "com.docker.compose.image": "sha256:4cf9bb06bbc9e32fd55179e3dba641170ce4404a1a984e85a4ff24dacb83bd9a",
+                "com.docker.compose.oneoff": "False",
+                "com.docker.compose.project": "root",
+                "com.docker.compose.project.config_files": "/root/docker-compose.yml",
+                "com.docker.compose.project.working_dir": "/root",
+                "com.docker.compose.replace": "anwalts_postgres",
+                "com.docker.compose.service": "postgres",
+                "com.docker.compose.version": "2.39.4"
+            },
+            "StopSignal": "SIGINT"
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "68f9fc26af8fb9005095ffb74d49c28fdb9ce5e471a523128c0c5a7d2551dc30",
+            "SandboxKey": "/var/run/docker/netns/68f9fc26af8f",
+            "Ports": {
+                "5432/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "5432"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "5432"
+                    }
+                ]
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "root_default": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "anwalts_postgres",
+                        "postgres"
+                    ],
+                    "MacAddress": "02:42:ac:13:00:02",
+                    "DriverOpts": null,
+                    "NetworkID": "bb614e66b61326b67a8bb1daf2a6d6a0e8fbdfc8b57d398f9e24e6feeb6e6719",
+                    "EndpointID": "cb314393e340527d6f1144878e896eab2b1c05e5e6d752a0e1bd1098733694fd",
+                    "Gateway": "172.19.0.1",
+                    "IPAddress": "172.19.0.2",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "526d20217b50_anwalts_postgres",
+                        "anwalts_postgres",
+                        "postgres",
+                        "526d20217b50"
+                    ]
+                }
+            }
+        }
+    }
+]

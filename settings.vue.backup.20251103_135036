@@ -1,0 +1,1767 @@
+<template>
+  <PortalShell>
+    <template #header>
+      <!-- Header -->
+      <header class="bg-white border-b border-gray-200">
+        <div class="px-8 py-4">
+          <div class="responsive-stack">
+            <div class="flex items-center gap-4">
+              <NuxtLink to="/dashboard" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+              </NuxtLink>
+              <div>
+                <h1 class="text-2xl font-semibold text-gray-900">Systemeinstellungen</h1>
+                <p class="text-sm text-gray-500">Verwaltung und Konfiguration der Plattform</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 self-start md:self-auto">
+              <span
+                v-if="lastUpdate && sectionsReady.overview"
+                class="text-sm text-gray-500 hidden sm:inline"
+              >
+                Zuletzt aktualisiert: {{ lastUpdate }}
+              </span>
+              <button
+                @click="refreshData"
+                class="btn-secondary"
+                :class="{ 'opacity-60 cursor-not-allowed': refreshing }"
+                :disabled="refreshing"
+                :aria-busy="refreshing"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span>{{ refreshing ? 'Aktualisieren…' : 'Aktualisieren' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="border-t border-gray-200">
+          <div class="px-8">
+            <nav class="flex space-x-4 sm:space-x-8 overflow-x-auto" aria-label="Tabs">
+              <button
+                v-for="tab in tabs"
+                :key="tab.id"
+                @click="activeTab = tab.id"
+                :class="[
+                  'py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors',
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ]"
+              >
+                <span class="flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.iconPath"/>
+                  </svg>
+                  {{ tab.name }}
+                  <span v-if="tab.badge" class="ml-2 px-2 py-0.5 text-xs rounded-full"
+                    :class="tab.badgeClass">{{ tab.badge }}</span>
+                </span>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </header>
+    </template>
+
+    <div class="bg-gray-50 w-full">
+    <!-- Main Content -->
+    <main class="w-full px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Analytics & Metrics Tab -->
+      <div v-if="activeTab === 'analytics'" class="settings-section">
+        <SettingsSkeleton v-if="!sectionsReady.overview" />
+        <div v-else class="analytics-content">
+          <p v-if="hydration.errors.overview" class="text-sm text-red-600 mb-6">
+            {{ hydration.errors.overview }}
+          </p>
+
+          <!-- KPI Cards -->
+          <div class="kpi-grid">
+            <div v-for="kpi in kpis" :key="kpi.label" class="card card--padded">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-gray-600">{{ kpi.label }}</p>
+                  <p class="text-2xl font-semibold text-gray-900">{{ kpi.value }}</p>
+                  <p class="text-sm text-gray-500">
+                    <span>{{ kpi.change > 0 ? '↑' : '↓' }} {{ Math.abs(kpi.change) }}%</span>
+                    <span class="ml-1">vs. letzte Woche</span>
+                  </p>
+                </div>
+                <div class="p-3 rounded-lg bg-gray-100">
+                  <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="kpi.iconPath"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="overviewMeta" class="analytics-meta-grid">
+            <div class="meta-card">
+              <p class="meta-label">Vorlagen insgesamt</p>
+              <p class="meta-value">{{ formatNumber(overviewMeta.templates_total || 0) }}</p>
+            </div>
+            <div class="meta-card">
+              <p class="meta-label">Aktive Webhooks</p>
+              <p class="meta-value">{{ formatNumber(overviewMeta.webhooks_total || 0) }}</p>
+            </div>
+            <div v-if="apiSummary" class="meta-card">
+              <p class="meta-label">API-Erfolgsquote</p>
+              <p class="meta-value">{{ apiSummary.successRate ? apiSummary.successRate + '%' : '–' }}</p>
+              <p class="meta-sub" v-if="apiSummary.avgLatency">Ø {{ apiSummary.avgLatency }} ms</p>
+            </div>
+          </div>
+
+          <!-- System Health -->
+          <div class="card card--padded">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Systemstatus</h3>
+            <div class="status-grid">
+              <div v-for="service in systemHealth" :key="service.name"
+                class="status-row p-5 rounded-lg border"
+                :class="service.status === 'Betriebsbereit' ? 'border-green-200 bg-green-50' : 'border-red-400 bg-red-100'">
+                <div>
+                  <p class="font-medium text-gray-900">{{ service.name }}</p>
+                  <p class="text-sm text-gray-600">
+                    {{ service.uptime != null ? service.uptime + '%' : '–' }} Verfügbarkeit
+                  </p>
+                  <p v-if="service.latency_ms" class="text-sm text-gray-500">Latenz: {{ service.latency_ms }} ms</p>
+                </div>
+                <span class="px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap self-start md:self-center"
+                  :class="service.status === 'Betriebsbereit' ? 'bg-green-100 text-green-800' : 'bg-red-600 text-white'">
+                  {{ service.status }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="charts-grid">
+            <div class="card card--padded">
+              <h3 class="text-lg font-medium text-gray-900 mb-4">Benutzerwachstum</h3>
+              <div class="chart-shell">
+                <svg
+                  v-if="userGrowthSeries.length"
+                  class="w-full h-full"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                >
+                  <defs>
+                    <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(0,255,65,0.08)" stroke-width="0.3"/>
+                    </pattern>
+                  </defs>
+                  <rect width="100" height="100" fill="url(#grid)" />
+                  <polyline
+                    :points="userGrowthPath"
+                    fill="none"
+                    stroke="#00ff41"
+                    stroke-width="0.6"
+                    stroke-linecap="square"
+                    stroke-linejoin="miter"
+                  />
+                </svg>
+                <span v-else class="text-green-400 font-mono text-sm">Keine Daten verfügbar</span>
+              </div>
+            </div>
+            <div class="card card--padded">
+              <h3 class="text-lg font-medium text-gray-900 mb-4">API-Nutzung</h3>
+              <div class="chart-shell">
+                <svg
+                  v-if="apiUsageSeries.length"
+                  class="w-full h-full"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                >
+                  <defs>
+                    <pattern id="grid2" width="10" height="10" patternUnits="userSpaceOnUse">
+                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(0,255,65,0.08)" stroke-width="0.3"/>
+                    </pattern>
+                  </defs>
+                  <rect width="100" height="100" fill="url(#grid2)" />
+                  <polyline
+                    :points="apiUsagePath"
+                    fill="none"
+                    stroke="#00ff41"
+                    stroke-width="0.6"
+                    stroke-linecap="square"
+                    stroke-linejoin="miter"
+                  />
+                </svg>
+                <span v-else class="text-green-400 font-mono text-sm">Keine Daten verfügbar</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Management Tab -->
+      <div v-if="activeTab === 'api'" class="settings-section">
+        <p v-if="hydration.errors.apiKeys || hydration.errors.endpoints" class="text-sm text-red-600">
+          {{ hydration.errors.apiKeys || hydration.errors.endpoints }}
+        </p>
+
+        <!-- API Keys -->
+        <div class="card data-section" :class="{ 'data-section--loading': !sectionsReady.api }">
+          <div class="p-6 border-b border-gray-200">
+            <div class="responsive-stack card-header-content">
+              <h3 class="text-lg font-medium text-gray-900">API-Schlüssel</h3>
+              <button
+                @click="generateApiKey"
+                class="btn-primary"
+                :disabled="!sectionsReady.api"
+                :class="{ 'opacity-60 cursor-not-allowed': !sectionsReady.api }"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Neuer API-Schlüssel
+              </button>
+            </div>
+          </div>
+          <div class="p-6">
+            <div v-if="apiKeys.length" class="space-y-4">
+              <div
+                v-for="key in apiKeys"
+                :key="key.id"
+                class="responsive-stack api-key-row"
+              >
+                <div class="flex-1">
+                  <div class="flex items-center gap-3">
+                    <code class="text-sm font-mono bg-gray-100 px-2 py-1 rounded">{{ key.display }}</code>
+                    <button
+                      @click="copyKey(key)"
+                      class="text-gray-400 hover:text-gray-600 disabled:opacity-40"
+                      :disabled="!sectionsReady.api"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
+                    <span>Erstellt: {{ key.created }}</span>
+                    <span>Zuletzt verwendet: {{ key.lastUsed }}</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                      :class="key.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'">
+                      {{ key.active ? 'Aktiv' : 'Inaktiv' }}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  @click="revokeKey(key.id)"
+                  class="text-red-600 hover:text-red-800 md:self-center disabled:opacity-40"
+                  :disabled="!sectionsReady.api"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <p v-else class="text-sm text-gray-500">
+              Noch keine API-Schlüssel vorhanden.
+            </p>
+          </div>
+        </div>
+
+        <!-- API Endpoints -->
+        <div class="card data-section" :class="{ 'data-section--loading': !sectionsReady.api }">
+          <div class="p-6 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">API Endpunkte</h3>
+            <p v-if="apiSummary" class="mt-1 text-sm text-gray-500">
+              {{ apiSummary.total }} Aufrufe in 7 Tagen • {{ apiSummary.errors }} Fehler gesamt
+            </p>
+          </div>
+          <div class="divide-y divide-gray-200" v-if="apiEndpoints.length">
+            <div v-for="endpoint in apiEndpoints" :key="`${endpoint.method}-${endpoint.path}`" class="p-6">
+              <div class="responsive-stack-start endpoint-row">
+                <div class="flex-1">
+                  <div class="flex items-center gap-3">
+                    <span class="px-2 py-1 text-xs font-medium rounded"
+                      :class="endpoint.method === 'GET' ? 'bg-blue-100 text-blue-800' : 
+                              endpoint.method === 'POST' ? 'bg-green-100 text-green-800' : 
+                              'bg-yellow-100 text-yellow-800'">
+                      {{ endpoint.method }}
+                    </span>
+                    <code class="text-sm font-mono">{{ endpoint.path }}</code>
+                  </div>
+                  <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
+                    <span>Aufrufe (7 Tage): {{ endpoint.call_count ?? 0 }}</span>
+                    <span>Ø Latenz: {{ endpoint.avg_latency_ms ?? 0 }} ms</span>
+                    <span>Peak pro Minute: {{ endpoint.peak_per_minute ?? 0 }}</span>
+                  </div>
+                </div>
+                <button
+                  class="text-blue-600 hover:text-blue-800 text-sm md:self-center disabled:opacity-40"
+                  :disabled="!sectionsReady.api"
+                >
+                  Testen
+                </button>
+              </div>
+            </div>
+          </div>
+          <p v-else class="p-6 text-sm text-gray-500">
+            Es liegen noch keine Messwerte für API-Endpunkte vor.
+          </p>
+        </div>
+      </div>
+
+      <!-- Webhooks Tab -->
+      <div v-if="activeTab === 'webhooks'" class="settings-section">
+        <div class="card data-section" :class="{ 'data-section--loading': !sectionsReady.webhooks }">
+          <div class="p-6 border-b border-gray-200">
+            <div class="responsive-stack card-header-content">
+              <h3 class="text-lg font-medium text-gray-900">Webhook-Konfiguration</h3>
+              <button
+                @click="openWebhookModal('create')"
+                class="btn-primary"
+                :disabled="!sectionsReady.webhooks"
+                :class="{ 'opacity-60 cursor-not-allowed': !sectionsReady.webhooks }"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Webhook erstellen
+              </button>
+            </div>
+          </div>
+          <div class="p-6">
+            <p v-if="hydration.errors.webhooks" class="text-sm text-red-600 mb-4">
+              {{ hydration.errors.webhooks }}
+            </p>
+            <div v-if="webhooks.length" class="space-y-4">
+              <div v-for="webhook in webhooks" :key="webhook.id" class="webhook-card">
+                <div class="p-4">
+                  <div class="responsive-stack-start webhook-row">
+                    <div class="flex-1">
+                      <div class="flex items-center gap-3">
+                        <h4 class="font-medium text-gray-900">{{ webhook.name }}</h4>
+                        <span class="px-2 py-0.5 text-xs font-medium rounded-full"
+                          :class="webhook.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'">
+                          {{ webhook.isActive ? 'Aktiv' : 'Pausiert' }}
+                        </span>
+                        <span v-if="webhook.hasSecret" class="text-xs text-gray-500">Signatur aktiv</span>
+                      </div>
+                      <code class="mt-2 text-sm text-gray-600 block">{{ webhook.url }}</code>
+                      <div class="mt-3 flex flex-wrap gap-2">
+                        <span v-for="event in webhook.events" :key="event" 
+                          class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                          {{ event }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2 md:self-start">
+                      <button
+                        @click="testWebhook(webhook.id)"
+                        class="text-blue-600 hover:text-blue-800 disabled:opacity-40"
+                        :disabled="!sectionsReady.webhooks"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                      </button>
+                      <button
+                        @click="openWebhookModal('edit', webhook)"
+                        class="text-gray-600 hover:text-gray-800 disabled:opacity-40"
+                        :disabled="!sectionsReady.webhooks"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                      </button>
+                      <button
+                        @click="deleteWebhook(webhook.id)"
+                        class="text-red-600 hover:text-red-800 disabled:opacity-40"
+                        :disabled="!sectionsReady.webhooks"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Webhook Logs -->
+                  <div class="mt-4 pt-4 border-t border-gray-200">
+                    <div class="responsive-stack log-header mb-2">
+                      <span class="text-sm font-medium text-gray-700">Letzte Aufrufe</span>
+                      <button class="text-sm text-blue-600 hover:text-blue-800">Alle anzeigen</button>
+                    </div>
+                    <div class="space-y-1">
+                      <div v-for="log in webhook.recentLogs" :key="log.id" 
+                        class="responsive-stack log-row text-sm">
+                        <span class="text-gray-600">{{ formatTime(log.timestamp) }}</span>
+                        <span class="px-2 py-0.5 rounded text-xs font-medium"
+                          :class="log.status === 200 ? 'bg-green-100 text-green-800' : 'bg-red-600 text-white'">
+                          {{ log.status }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p v-else class="text-sm text-gray-500">
+              Noch keine Webhooks angelegt.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users Tab -->
+      <div v-if="activeTab === 'users'" class="settings-section">
+        <!-- User Controls -->
+        <div class="responsive-stack user-toolbar">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div class="relative">
+              <input
+                v-model="userSearch"
+                type="text"
+                placeholder="Benutzer suchen..."
+                class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60"
+                :disabled="!sectionsReady.users"
+              >
+              <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+            </div>
+            <select
+              v-model="userFilter"
+              class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+              :disabled="!sectionsReady.users"
+            >
+              <option value="all">Alle Rollen</option>
+              <option value="admin">Administratoren</option>
+              <option value="staff">Mitarbeiter</option>
+              <option value="viewer">Betrachter</option>
+            </select>
+          </div>
+          <button
+            @click="showAddUserModal = true"
+            class="btn-primary self-start md:self-auto"
+            :disabled="!sectionsReady.users"
+            :class="{ 'opacity-60 cursor-not-allowed': !sectionsReady.users }"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+            </svg>
+            Benutzer hinzufügen
+          </button>
+        </div>
+
+        <p v-if="hydration.errors.users" class="text-sm text-red-600">
+          {{ hydration.errors.users }}
+        </p>
+
+        <!-- User Table -->
+        <div class="card overflow-hidden data-section" :class="{ 'data-section--loading': !sectionsReady.users }">
+          <div class="overflow-x-auto">
+            <table class="min-w-[680px] w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Benutzer
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Rolle
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Letzte Anmeldung
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Aktionen
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="user in filteredUsers" :key="user.id">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                      <div class="flex-shrink-0 h-10 w-10">
+                        <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                          <span class="text-sm font-medium text-gray-700">{{ user.initials }}</span>
+                        </div>
+                      </div>
+                      <div class="ml-4">
+                        <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
+                        <div class="text-sm text-gray-500">{{ user.email }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                      :class="user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
+                              user.role === 'staff' ? 'bg-blue-100 text-blue-800' : 
+                              'bg-gray-100 text-gray-800'">
+                      {{ user.role }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                      :class="user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-600 text-white'">
+                      {{ user.isActive ? 'Aktiv' : 'Gesperrt' }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ user.lastLogin }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex flex-wrap gap-2">
+                      <button
+                        v-if="user.role !== 'admin'"
+                        @click="promoteToAdmin(user.id)"
+                        :class="['text-purple-600 hover:text-purple-900', 'disabled:opacity-40']"
+                        :disabled="!sectionsReady.users"
+                      >
+                        Befördern
+                      </button>
+                      <button
+                        v-else-if="user.id !== currentUserId"
+                        @click="demoteFromAdmin(user.id)"
+                        :class="['text-orange-600 hover:text-orange-900', 'disabled:opacity-40']"
+                        :disabled="!sectionsReady.users"
+                      >
+                        Herabstufen
+                      </button>
+                      <button
+                        @click="editUser(user.id)"
+                        :class="['text-indigo-600 hover:text-indigo-900', 'disabled:opacity-40']"
+                        :disabled="!sectionsReady.users"
+                      >
+                        Bearbeiten
+                      </button>
+                      <button
+                        @click="toggleUserStatus(user.id)"
+                        :class="['disabled:opacity-40', user.isActive ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900']"
+                        :disabled="!sectionsReady.users"
+                      >
+                        {{ user.isActive ? 'Sperren' : 'Aktivieren' }}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="!filteredUsers.length">
+                  <td colspan="5" class="px-6 py-6 text-sm text-gray-500">
+                    Keine Benutzer gefunden.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- General Settings Tab -->
+      <div v-if="activeTab === 'general'" class="settings-section">
+        <p v-if="hydration.errors.preferences" class="text-sm text-red-600">
+          {{ hydration.errors.preferences }}
+        </p>
+        <!-- Platform Configuration -->
+        <div class="card p-6 data-section" :class="{ 'data-section--loading': !sectionsReady.preferences }">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Plattform-Konfiguration</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Sprache</label>
+              <select v-model="preferences.language" @change="onPreferenceChange" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-60" :disabled="!sectionsReady.preferences || preferencesLoading || preferencesSaving">
+                <option value="de">Deutsch</option>
+                <option value="en">Englisch</option>
+                <option value="fr">Französisch</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Zeitzone</label>
+              <select v-model="preferences.timezone" @change="onPreferenceChange" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-60" :disabled="!sectionsReady.preferences || preferencesLoading || preferencesSaving">
+                <option value="Europe/Berlin">Europe/Berlin (UTC+1)</option>
+                <option value="Europe/London">Europe/London (UTC+0)</option>
+                <option value="America/New_York">America/New_York (UTC-5)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security Settings -->
+        <div class="card p-6 data-section" :class="{ 'data-section--loading': !sectionsReady.preferences }">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Sicherheitseinstellungen</h3>
+          <div class="space-y-4">
+            <div class="responsive-stack setting-row">
+              <div>
+                <h4 class="text-sm font-medium text-gray-900">Zwei-Faktor-Authentifizierung</h4>
+                <p class="text-sm text-gray-500">Erfordert zusätzliche Verifizierung bei der Anmeldung</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" v-model="preferences.require_two_factor" @change="onPreferenceChange" class="sr-only peer" :disabled="!sectionsReady.preferences || preferencesLoading || preferencesSaving">
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            <div class="responsive-stack setting-row">
+              <div>
+                <h4 class="text-sm font-medium text-gray-900">SSO-Integration</h4>
+                <p class="text-sm text-gray-500">Anmeldung über Unternehmens-Identitätsanbieter</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" v-model="preferences.enable_sso" @change="onPreferenceChange" class="sr-only peer" :disabled="!sectionsReady.preferences || preferencesLoading || preferencesSaving">
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-gray-900 mb-2">Passwort-Richtlinien</h4>
+              <div class="space-y-2">
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="preferences.password_min_length" @change="onPreferenceChange" class="mr-2" :disabled="!sectionsReady.preferences || preferencesLoading || preferencesSaving">
+                  <span class="text-sm text-gray-700">Mindestens 12 Zeichen</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="preferences.password_require_special" @change="onPreferenceChange" class="mr-2" :disabled="!sectionsReady.preferences || preferencesLoading || preferencesSaving">
+                  <span class="text-sm text-gray-700">Sonderzeichen erforderlich</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="preferences.password_require_numbers" @change="onPreferenceChange" class="mr-2" :disabled="!sectionsReady.preferences || preferencesLoading || preferencesSaving">
+                  <span class="text-sm text-gray-700">Zahlen erforderlich</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Export -->
+        <div class="card p-6 data-section" :class="{ 'data-section--loading': !sectionsReady.preferences }">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Datenexport</h3>
+          <div class="responsive-stack data-export-row">
+            <div>
+              <p class="text-sm text-gray-600">Exportieren Sie alle Plattformdaten für Audits oder Backups</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button @click="exportCsv" class="btn-secondary" :disabled="!sectionsReady.preferences" :class="{ 'opacity-60 cursor-not-allowed': !sectionsReady.preferences }">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                CSV-Export
+              </button>
+              <button @click="exportJson" class="btn-secondary" :disabled="!sectionsReady.preferences" :class="{ 'opacity-60 cursor-not-allowed': !sectionsReady.preferences }">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                JSON-Export
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Webhook Modal -->
+    <div v-if="showWebhookModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center px-4">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="text-lg font-medium text-gray-900">
+            {{ webhookModalMode === 'edit' ? 'Webhook bearbeiten' : 'Webhook erstellen' }}
+          </h3>
+          <button class="text-gray-400 hover:text-gray-600" @click="showWebhookModal = false">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <form @submit.prevent="submitWebhook" class="p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input v-model="webhookForm.name" type="text" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="z.B. Slack-Benachrichtigungen"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">URL</label>
+            <input v-model="webhookForm.url" type="url" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Events</label>
+            <textarea v-model="webhookForm.eventsText" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="document.created document.updated"></textarea>
+            <p class="text-xs text-gray-500 mt-1">Mehrere Events durch Leerzeichen oder Komma trennen.</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Geheimes Token (optional)</label>
+            <input v-model="webhookForm.secret" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Wird zur Signierung verwendet"/>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" v-model="webhookForm.isActive" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+              <span class="text-sm text-gray-700">Aktiv</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" class="btn-secondary" @click="showWebhookModal = false">Abbrechen</button>
+              <button type="submit" class="btn-primary" :disabled="webhookSubmitting">
+                {{ webhookSubmitting ? 'Speichern…' : 'Speichern' }}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div v-if="showConfirmModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+          <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100">
+            <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4">{{ confirmModal.title }}</h3>
+          <div class="mt-2 px-7 py-3">
+            <p class="text-sm text-gray-500">{{ confirmModal.message }}</p>
+          </div>
+          <div class="items-center px-4 py-3">
+            <button @click="confirmAction" class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+              Bestätigen
+            </button>
+            <button @click="showConfirmModal = false" class="mt-3 px-4 py-2 bg-white text-gray-800 text-base font-medium rounded-md w-full shadow-sm border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </PortalShell>
+</template>
+
+<script setup>
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import PortalShell from '~/components/PortalShell.vue'
+import { useSettingsHydration } from '~/composables/useSettingsData'
+
+definePageMeta({ layout: false })
+
+// Auth helpers
+const getAuthToken = () => {
+  const storageKeys = ['auth_token', 'anwalts_auth_token', 'access_token', 'token', 'sat']
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  const readFromCookies = () => {
+    try {
+      if (typeof document === 'undefined' || !document.cookie) {
+        return ''
+      }
+      const entries = document.cookie.split(';').map(entry => entry.trim()).filter(Boolean)
+      for (const entry of entries) {
+        const [name, ...rest] = entry.split('=')
+        if (storageKeys.includes(name)) {
+          return decodeURIComponent(rest.join('=') || '')
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to retrieve auth token from cookies', err)
+    }
+    return ''
+  }
+
+  const readFromLocalStorage = () => {
+    try {
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+        return ''
+      }
+      for (const key of storageKeys) {
+        const value = localStorage.getItem(key)
+        if (value) {
+          return value
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to retrieve auth token from localStorage', err)
+    }
+    return ''
+  }
+
+  const token = readFromLocalStorage() || readFromCookies()
+  return token || ''
+}
+
+const getAuthHeaders = () => {
+  const token = getAuthToken()
+  if (!token) return {}
+  const bearer = token.startsWith('Bearer ') ? token : `Bearer ${token}`
+  return {
+    'Authorization': bearer,
+    'X-Portal-Auth': bearer
+  }
+}
+
+// Tab management
+const activeTab = ref('analytics')
+const tabs = ref([
+  { 
+    id: 'analytics', 
+    name: 'Analytics & Metriken', 
+    iconPath: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+    badge: 'Live', 
+    badgeClass: 'bg-green-100 text-green-800' 
+  },
+  { 
+    id: 'api', 
+    name: 'API-Verwaltung', 
+    iconPath: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4'
+  },
+  { 
+    id: 'webhooks', 
+    name: 'Webhooks', 
+    iconPath: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
+    badge: null, 
+    badgeClass: 'bg-blue-100 text-blue-800' 
+  },
+  { 
+    id: 'users', 
+    name: 'Benutzer & Rollen', 
+    iconPath: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'
+  },
+  { 
+    id: 'general', 
+    name: 'Allgemeine Einstellungen', 
+    iconPath: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'
+  }
+])
+
+// Analytics & overview state
+const lastUpdate = ref('')
+const overviewLoading = ref(false)
+const kpis = ref([])
+const systemHealth = ref([])
+const userGrowthSeries = ref([])
+const apiUsageSeries = ref([])
+const overviewMeta = ref(null)
+
+// Charts helpers
+const buildSparkline = (series) => {
+  if (!series || !series.length) return ''
+  const values = series.map((point) => Number(point.value) || 0)
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+  const range = max - min || 1
+  const denominator = series.length > 1 ? series.length - 1 : 1
+  return series
+    .map((point, index) => {
+      const x = (index / denominator) * 100
+      const y = 100 - (((Number(point.value) || 0) - min) / range) * 100
+      return `${x.toFixed(2)},${y.toFixed(2)}`
+    })
+    .join(' ')
+}
+
+const userGrowthPath = computed(() => buildSparkline(userGrowthSeries.value))
+const apiUsagePath = computed(() => buildSparkline(apiUsageSeries.value))
+
+// API management state
+const apiKeys = ref([])
+const apiKeysLoading = ref(false)
+const recentTokenSecret = ref(null)
+
+const apiEndpoints = ref([])
+const apiEndpointsLoading = ref(false)
+
+// Webhook state
+const webhooks = ref([])
+const webhooksLoading = ref(false)
+const showWebhookModal = ref(false)
+const webhookModalMode = ref('create')
+const webhookSubmitting = ref(false)
+const webhookForm = reactive({
+  id: null,
+  name: '',
+  url: '',
+  eventsText: '',
+  isActive: true,
+  secret: ''
+})
+
+// User management state
+const currentUserId = ref(null)
+const userSearch = ref('')
+const userFilter = ref('all')
+const users = ref([])
+const usersLoading = ref(false)
+const usersPagination = reactive({ page: 1, pageSize: 25, total: 0 })
+let searchDebounce = null
+
+const filteredUsers = computed(() => users.value)
+
+// Preferences state
+const preferences = reactive({
+  language: 'de',
+  timezone: 'Europe/Berlin',
+  require_two_factor: false,
+  enable_sso: false,
+  password_min_length: true,
+  password_require_special: true,
+  password_require_numbers: true,
+  email_notifications: true,
+  browser_notifications: false,
+  ai_updates: true,
+  ai_model: 'qwen_legal_q4_k_m',
+  ai_creativity: 70,
+  auto_save: true
+})
+const preferencesLoading = ref(false)
+const preferencesSaving = ref(false)
+
+// Modals
+const showConfirmModal = ref(false)
+const confirmModal = ref({
+  title: '',
+  message: '',
+  action: null
+})
+const showAddUserModal = ref(false)
+
+const formatNumber = (value) => {
+  const numeric = Number(value) || 0
+  return numeric.toLocaleString('de-DE')
+}
+
+const formatDate = (iso) => {
+  if (!iso) return '–'
+  return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+const formatTime = (iso) => {
+  if (!iso) return '–'
+  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+}
+
+const relativeTime = (iso) => {
+  if (!iso) return 'Noch nie'
+  const date = new Date(iso)
+  const diff = Date.now() - date.getTime()
+  const rtf = new Intl.RelativeTimeFormat('de', { style: 'long' })
+  const minutes = Math.round(diff / 60000)
+  if (Math.abs(minutes) < 60) return rtf.format(-minutes, 'minute')
+  const hours = Math.round(minutes / 60)
+  if (Math.abs(hours) < 24) return rtf.format(-hours, 'hour')
+  const days = Math.round(hours / 24)
+  if (Math.abs(days) < 30) return rtf.format(-days, 'day')
+  const months = Math.round(days / 30)
+  return rtf.format(-months, 'month')
+}
+
+const initialsFor = (name) => {
+  if (!name) return '??'
+  const parts = name.split(' ').filter(Boolean)
+  if (!parts.length) return name.slice(0, 2).toUpperCase()
+  const letters = parts.slice(0, 2).map((part) => part[0])
+  return letters.join('').toUpperCase()
+}
+
+const hydration = useSettingsHydration()
+
+const sectionsReady = computed(() => ({
+  overview: hydration.pending.overview === false,
+  api: hydration.pending.apiKeys === false && hydration.pending.endpoints === false,
+  webhooks: hydration.pending.webhooks === false,
+  users: hydration.pending.users === false,
+  preferences: hydration.pending.preferences === false
+}))
+
+const refreshing = computed(() => hydration.busySegments.value > 0)
+
+const apiSummary = computed(() => {
+  const meta = overviewMeta.value
+  if (!meta?.api) return null
+  const successRate = typeof meta.api.success_rate === 'number' ? meta.api.success_rate.toFixed(1) : null
+  const avgLatency = typeof meta.api.avg_latency_ms === 'number' ? Math.round(meta.api.avg_latency_ms) : null
+  return {
+    successRate,
+    avgLatency,
+    total: meta.api.total_current ?? 0,
+    errors: meta.api.error_calls ?? 0,
+    lastSeen: meta.api.last_seen ?? null
+  }
+})
+
+const loadOverview = async () => {
+  hydration.start('overview')
+  overviewLoading.value = true
+  try {
+    const data = await $fetch('/api/settings/overview', {
+      headers: getAuthHeaders()
+    })
+    kpis.value = (data?.kpis || []).map((item) => ({
+      ...item,
+      value: item.value ?? formatNumber(0),
+      change: Number(item.change ?? 0)
+    }))
+    systemHealth.value = data?.systemHealth || []
+    overviewMeta.value = data?.meta || null
+    userGrowthSeries.value = data?.userGrowth || []
+    apiUsageSeries.value = data?.apiUsage || []
+    lastUpdate.value = data?.generatedAt
+      ? new Date(data.generatedAt).toLocaleString('de-DE')
+      : new Date().toLocaleString('de-DE')
+  } catch (error) {
+    console.error('Fehler beim Laden der Übersicht', error)
+    overviewMeta.value = null
+    hydration.fail('overview', 'Übersicht konnte nicht geladen werden')
+  } finally {
+    overviewLoading.value = false
+    hydration.finish('overview')
+  }
+}
+
+const loadApiTokens = async () => {
+  hydration.start('apiKeys')
+  apiKeysLoading.value = true
+  try {
+    const response = await $fetch('/api/settings/api/tokens', {
+      headers: getAuthHeaders()
+    })
+    apiKeys.value = (response?.tokens || []).map((token) => ({
+      id: token.id,
+      display: `anw_••••${token.last4 || '0000'}`,
+      created: token.created_at ? formatDate(token.created_at) : '–',
+      lastUsed: token.last_used_at ? relativeTime(token.last_used_at) : 'Noch nie',
+      active: token.active !== false,
+      secret: null,
+      last4: token.last4
+    }))
+  } catch (error) {
+    console.error('API-Schlüssel konnten nicht geladen werden', error)
+    hydration.fail('apiKeys', 'API-Schlüssel konnten nicht geladen werden')
+  } finally {
+    apiKeysLoading.value = false
+    hydration.finish('apiKeys')
+  }
+}
+
+const loadApiEndpoints = async () => {
+  hydration.start('endpoints')
+  apiEndpointsLoading.value = true
+  try {
+    const response = await $fetch('/api/settings/api/endpoints', {
+      headers: getAuthHeaders()
+    })
+    apiEndpoints.value = response?.metrics || []
+  } catch (error) {
+    console.error('API-Endpunkte konnten nicht geladen werden', error)
+    hydration.fail('endpoints', 'API-Endpunkte konnten nicht geladen werden')
+  } finally {
+    apiEndpointsLoading.value = false
+    hydration.finish('endpoints')
+  }
+}
+
+const loadWebhooks = async () => {
+  hydration.start('webhooks')
+  webhooksLoading.value = true
+  try {
+    const response = await $fetch('/api/settings/webhooks', {
+      headers: getAuthHeaders()
+    })
+    webhooks.value = (response?.webhooks || []).map((webhook) => ({
+      id: webhook.id,
+      name: webhook.name,
+      url: webhook.url,
+      events: webhook.events || [],
+      isActive: webhook.is_active !== false,
+      hasSecret: webhook.has_secret || false,
+      createdAt: webhook.created_at,
+      recentLogs: (webhook.recent_logs || webhook.recentLogs || []).map((log) => ({
+        id: log.id,
+        status: log.status ?? log.status_code,
+        latency: log.latency_ms,
+        response: log.response,
+        timestamp: log.timestamp || log.created_at
+      }))
+    }))
+    const webhookTab = tabs.value.find((tab) => tab.id === 'webhooks')
+    if (webhookTab) webhookTab.badge = String(webhooks.value.length)
+  } catch (error) {
+    console.error('Webhooks konnten nicht geladen werden', error)
+    hydration.fail('webhooks', 'Webhooks konnten nicht geladen werden')
+  } finally {
+    webhooksLoading.value = false
+    hydration.finish('webhooks')
+  }
+}
+
+const loadUsers = async (page = usersPagination.page) => {
+  hydration.start('users')
+  usersLoading.value = true
+  try {
+    const response = await $fetch('/api/settings/users', {
+      headers: getAuthHeaders(),
+      query: {
+        search: userSearch.value || undefined,
+        role: userFilter.value || undefined,
+        page,
+        page_size: usersPagination.pageSize
+      }
+    })
+    usersPagination.page = response?.page || page
+    usersPagination.total = response?.total || 0
+    users.value = (response?.users || []).map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isActive: user.is_active !== false,
+      lastLogin: user.last_activity ? relativeTime(user.last_activity) : 'Noch nie',
+      initials: initialsFor(user.name)
+    }))
+  } catch (error) {
+    console.error('Benutzer konnten nicht geladen werden', error)
+    hydration.fail('users', 'Benutzer konnten nicht geladen werden')
+  } finally {
+    usersLoading.value = false
+    hydration.finish('users')
+  }
+}
+
+const loadPreferences = async () => {
+  hydration.start('preferences')
+  preferencesLoading.value = true
+  try {
+    const response = await $fetch('/api/settings/preferences', {
+      headers: getAuthHeaders()
+    })
+    Object.assign(preferences, response?.preferences || {})
+  } catch (error) {
+    console.error('Einstellungen konnten nicht geladen werden', error)
+    hydration.fail('preferences', 'Einstellungen konnten nicht geladen werden')
+  } finally {
+    preferencesLoading.value = false
+    hydration.finish('preferences')
+  }
+}
+
+const refreshData = async () => {
+  hydration.reset()
+  await Promise.all([
+    loadOverview(),
+    loadApiTokens(),
+    loadApiEndpoints(),
+    loadWebhooks(),
+    loadUsers(1),
+    loadPreferences()
+  ])
+}
+
+const generateApiKey = async () => {
+  if (!sectionsReady.value.api) return
+  try {
+    const response = await $fetch('/api/settings/api/tokens', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: { expires_in_days: 365 }
+    })
+    const secret = response?.token
+    recentTokenSecret.value = secret
+    apiKeys.value.unshift({
+      id: response?.metadata?.id,
+      display: `anw_••••${response?.metadata?.last4 || '0000'}`,
+      created: formatDate(response?.metadata?.created_at),
+      lastUsed: 'Noch nie',
+      active: true,
+      secret,
+      last4: response?.metadata?.last4
+    })
+    if (secret && typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        window.alert(`Neuer API-Schlüssel:
+
+${secret}
+
+Bitte sicher speichern. Nach dem Schließen ist er nicht mehr einsehbar.`)
+      })
+    }
+  } catch (error) {
+    console.error('API-Schlüssel konnte nicht erstellt werden', error)
+  }
+}
+
+const copyKey = async (entry) => {
+  if (!entry.secret) {
+    if (typeof window !== 'undefined') {
+      window.alert('Der vollständige Schlüssel ist nach dem Erstellen nicht mehr abrufbar.')
+    }
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(entry.secret)
+  } catch (error) {
+    console.error('Kopieren fehlgeschlagen', error)
+  }
+}
+
+const revokeKey = (id) => {
+  confirmModal.value = {
+    title: 'API-Schlüssel widerrufen',
+    message: 'Sind Sie sicher, dass Sie diesen API-Schlüssel widerrufen möchten?',
+    action: async () => {
+      try {
+        await $fetch(`/api/settings/api/tokens/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        })
+        await loadApiTokens()
+      } catch (error) {
+        console.error('Schlüssel konnte nicht widerrufen werden', error)
+      }
+    }
+  }
+  showConfirmModal.value = true
+}
+
+const submitWebhook = async () => {
+  webhookSubmitting.value = true
+  try {
+    const payload = {
+      name: webhookForm.name,
+      url: webhookForm.url,
+      events: webhookForm.eventsText
+        .split(/[\s,]+/)
+        .map((event) => event.trim())
+        .filter(Boolean),
+      is_active: webhookForm.isActive,
+      secret: webhookForm.secret || undefined
+    }
+    if (webhookModalMode.value === 'edit' && webhookForm.id) {
+      await $fetch(`/api/settings/webhooks/${webhookForm.id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: payload
+      })
+    } else {
+      await $fetch('/api/settings/webhooks', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: payload
+      })
+    }
+    await loadWebhooks()
+    showWebhookModal.value = false
+  } catch (error) {
+    console.error('Webhook konnte nicht gespeichert werden', error)
+  } finally {
+    webhookSubmitting.value = false
+  }
+}
+
+const openWebhookModal = (mode = 'create', webhook = null) => {
+  webhookModalMode.value = mode
+  if (webhook) {
+    webhookForm.id = webhook.id
+    webhookForm.name = webhook.name
+    webhookForm.url = webhook.url
+    webhookForm.eventsText = webhook.events.join(', ')
+    webhookForm.isActive = webhook.isActive
+    webhookForm.secret = ''
+  } else {
+    webhookForm.id = null
+    webhookForm.name = ''
+    webhookForm.url = ''
+    webhookForm.eventsText = ''
+    webhookForm.isActive = true
+    webhookForm.secret = ''
+  }
+  showWebhookModal.value = true
+}
+
+const deleteWebhook = (id) => {
+  confirmModal.value = {
+    title: 'Webhook löschen',
+    message: 'Möchten Sie diesen Webhook wirklich entfernen?',
+    action: async () => {
+      try {
+        await $fetch(`/api/settings/webhooks/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        })
+        await loadWebhooks()
+      } catch (error) {
+        console.error('Webhook konnte nicht gelöscht werden', error)
+      }
+    }
+  }
+  showConfirmModal.value = true
+}
+
+const testWebhook = async (id) => {
+  try {
+    const result = await $fetch(`/api/settings/webhooks/${id}/test`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    })
+    if (typeof window !== 'undefined') {
+      window.alert(`Webhook-Test abgeschlossen:
+Status: ${result.status ?? 'n/a'}
+Antwortzeit: ${result.latency_ms ?? 'n/a'} ms`)
+    }
+    await loadWebhooks()
+  } catch (error) {
+    console.error('Webhook-Test fehlgeschlagen', error)
+  }
+}
+
+const promoteToAdmin = (id) => {
+  confirmModal.value = {
+    title: 'Benutzer befördern',
+    message: 'Soll dieser Benutzer Administratorrechte erhalten?',
+    action: () => updateUserRole(id, 'admin')
+  }
+  showConfirmModal.value = true
+}
+
+const demoteFromAdmin = (id) => {
+  confirmModal.value = {
+    title: 'Administratorrechte entziehen',
+    message: 'Administratorrechte wirklich entziehen?',
+    action: () => updateUserRole(id, 'staff')
+  }
+  showConfirmModal.value = true
+}
+
+const updateUserRole = async (id, role) => {
+  try {
+    await $fetch(`/api/settings/users/${id}/role`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: { role }
+    })
+    await loadUsers(usersPagination.page)
+  } catch (error) {
+    console.error('Rolle konnte nicht aktualisiert werden', error)
+  }
+}
+
+const editUser = (id) => {
+  console.info('Benutzerbearbeitung folgt', id)
+}
+
+const toggleUserStatus = (id) => {
+  const user = users.value.find((entry) => entry.id === id)
+  if (!user) return
+  confirmModal.value = {
+    title: user.isActive ? 'Benutzer sperren' : 'Benutzer aktivieren',
+    message: user.isActive
+      ? 'Der Benutzer kann sich danach nicht mehr anmelden.'
+      : 'Der Benutzer kann sich danach wieder anmelden.',
+    action: async () => {
+      try {
+        await $fetch(`/api/settings/users/${id}/toggle`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: { active: !user.isActive }
+        })
+        await loadUsers(usersPagination.page)
+      } catch (error) {
+        console.error('Benutzerstatus konnte nicht angepasst werden', error)
+      }
+    }
+  }
+  showConfirmModal.value = true
+}
+
+const confirmAction = async () => {
+  if (confirmModal.value.action) {
+    await confirmModal.value.action()
+  }
+  showConfirmModal.value = false
+}
+
+const savePreferences = async () => {
+  if (preferencesLoading.value || !sectionsReady.value.preferences) return
+  preferencesSaving.value = true
+  try {
+    await $fetch('/api/settings/preferences', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: preferences
+    })
+  } catch (error) {
+    console.error('Einstellungen konnten nicht gespeichert werden', error)
+  } finally {
+    preferencesSaving.value = false
+  }
+}
+
+const onPreferenceChange = () => {
+  savePreferences()
+}
+
+const exportCsv = async () => {
+  if (!sectionsReady.value.preferences) return
+  if (typeof window === 'undefined') return
+  try {
+    const response = await fetch('/api/settings/export.csv', {
+      credentials: 'include',
+      headers: getAuthHeaders()
+    })
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'anwalts-settings-export.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('CSV-Export fehlgeschlagen', error)
+  }
+}
+
+const exportJson = async () => {
+  if (!sectionsReady.value.preferences) return
+  if (typeof window === 'undefined') return
+  try {
+    const response = await fetch('/api/settings/export.json', {
+      credentials: 'include',
+      headers: getAuthHeaders()
+    })
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'anwalts-settings-export.json'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('JSON-Export fehlgeschlagen', error)
+  }
+}
+
+watch([userFilter, userSearch], () => {
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => loadUsers(1), 300)
+})
+
+onMounted(async () => {
+  await refreshData()
+})
+
+</script>
+
+<style scoped>
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.analytics-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+/* Fallback for older browsers that don't support gap in flexbox */
+.analytics-content > * {
+  margin-bottom: 2.5rem;
+}
+
+.analytics-content > *:last-child {
+  margin-bottom: 0;
+}
+
+.responsive-stack,
+.responsive-stack-start {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .responsive-stack {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .responsive-stack-start {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.75rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2.25rem;
+  }
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .charts-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+  }
+}
+
+.analytics-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.75rem;
+}
+
+@media (min-width: 640px) {
+  .analytics-meta-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2.25rem;
+  }
+}
+
+.meta-card {
+  background: #ffffff;
+  border: 1px solid rgba(229, 231, 235, 1);
+  border-radius: 0.75rem;
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .meta-card {
+    padding: 1.25rem 1.5rem;
+  }
+}
+
+.meta-label {
+  font-size: 0.8125rem;
+  color: #4b5563;
+  margin-bottom: 0.25rem;
+}
+
+.meta-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.meta-sub {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.125rem;
+}
+
+.chart-shell {
+  height: 20rem;
+  background: #0f1419;
+  border-radius: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier New', monospace;
+}
+
+@media (max-width: 640px) {
+  .chart-shell {
+    height: 16rem;
+  }
+}
+
+.card-header-content {
+  gap: 1rem;
+}
+
+.status-row {
+  padding: 1.25rem;
+  gap: 1rem;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (min-width: 768px) {
+  .status-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.status-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .status-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .status-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .status-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2rem;
+  }
+}
+
+.api-key-row {
+  border: 1px solid rgba(229, 231, 235, 1);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  background: #f9fafb;
+}
+
+.api-key-row > button {
+  flex-shrink: 0;
+}
+
+.endpoint-row {
+  gap: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .endpoint-row {
+    align-items: center;
+  }
+}
+
+.data-section {
+  transition: opacity 0.2s ease;
+}
+
+.data-section--loading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.webhook-card {
+  border: 1px solid rgba(229, 231, 235, 1);
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.webhook-row {
+  gap: 1.25rem;
+}
+
+.log-header,
+.log-row {
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .log-row {
+    align-items: center;
+  }
+}
+
+.user-toolbar {
+  gap: 1.5rem;
+}
+
+.setting-row {
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(226, 232, 240, 1);
+  background: #f8fafc;
+}
+
+.data-export-row {
+  gap: 1.25rem;
+}
+
+.card {
+  background: white;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(226, 232, 240, 0.7);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.card--padded {
+  padding: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .card--padded {
+    padding: 1.25rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .card--padded {
+    padding: 1.75rem;
+  }
+}
+
+.btn-primary {
+  background-color: #3b82f6;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: #2563eb;
+}
+
+.btn-secondary {
+  background-color: #f3f4f6;
+  color: #374151;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #e5e7eb;
+}
+
+/* Override to match Overview page */
+.sidebar-link.active {
+  background-color: #eff6ff !important;
+  color: #2563eb !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+</style>

@@ -1,0 +1,132 @@
+/**
+ * Express Server
+ * Main application entry point
+ */
+
+require('dotenv').config();
+const express = require('express');
+const path = require('path');
+const passport = require('./config/passport');
+const sessionMiddleware = require('./middleware/session');
+const { securityHeaders, forceHttps, additionalSecurityHeaders } = require('./middleware/security');
+const { errorHandler, notFoundHandler } = require('./middleware/error-handler');
+const { requireAuth, requireVerifiedEmail } = require('./middleware/auth');
+
+// Import routes
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/user');
+
+const app = express();
+
+// Trust proxy (for proper IP detection behind reverse proxy)
+app.set('trust proxy', 1);
+
+// Security middleware (MUST be first)
+app.use(forceHttps);
+app.use(securityHeaders);
+app.use(additionalSecurityHeaders);
+
+// Body parsing middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Session middleware
+app.use(sessionMiddleware());
+
+// Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Serve static files from dashboard (before auth check for login/register pages)
+app.use(express.static(path.join(__dirname, '../../dashboard')));
+
+// Health check endpoint (for Docker healthcheck)
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    service: 'auth-backend'
+  });
+});
+
+// Friendly landing page redirect for root access
+app.get('/', (req, res) => {
+  const redirectTarget = req.query.redirect;
+  if (redirectTarget) {
+    return res.redirect(302, `/auth/login?redirect=${encodeURIComponent(redirectTarget)}`);
+  }
+  return res.redirect(302, '/auth/login');
+});
+
+// Mount API routes
+app.use('/auth', authRoutes);
+app.use('/api', userRoutes);
+
+// Protect all /dashboard/* routes
+app.use('/dashboard', requireAuth, requireVerifiedEmail);
+
+// Serve dashboard HTML files (after auth middleware)
+app.get('/dashboard', (req, res) => {
+  res.sendFile('pages/index.html', { root: path.join(__dirname, '../../dashboard') });
+});
+
+app.get('/dashboard/:page', (req, res) => {
+  const page = req.params.page;
+  const allowedPages = ['documents', 'templates'];
+  
+  if (!allowedPages.includes(page)) {
+    return res.status(404).sendFile('404.html', { 
+      root: path.join(__dirname, '../../dashboard/pages') 
+    }, (err) => {
+      if (err) {
+        res.status(404).send('Page not found');
+      }
+    });
+  }
+
+  res.sendFile(`pages/${page}.html`, { root: path.join(__dirname, '../../dashboard') });
+});
+
+// Serve verification required page (no auth required)
+app.get('/auth/verify-required', (req, res) => {
+  res.sendFile('pages/verify-required.html', {
+    root: path.join(__dirname, '../../dashboard'),
+  }, (err) => {
+    if (err) {
+      res.status(200).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Email Verification Required</title></head>
+        <body>
+          <h1>Email Verification Required</h1>
+          <p>Please verify your email to access the dashboard.</p>
+          <button onclick="fetch('/auth/resend-verification', {method: 'POST'}).then(() => alert('Email sent!'))">
+            Resend Verification Email
+          </button>
+          <p><a href="/auth/logout">Logout</a></p>
+        </body>
+        </html>
+      `);
+    }
+  });
+});
+
+// 404 handler for API routes
+app.use('/api/*', notFoundHandler);
+app.use('/auth/*', notFoundHandler);
+
+// Global error handler (MUST be last)
+app.use(errorHandler);
+
+// Start server
+const PORT = process.env.PORT || 3000;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Database: ${process.env.DATABASE_URL || 'sqlite:./dev.db'}`);
+  });
+}
+
+module.exports = app;

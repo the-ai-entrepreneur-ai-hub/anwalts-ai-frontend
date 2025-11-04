@@ -1,0 +1,255 @@
+[
+    {
+        "Id": "688d541f3681b00226864cab03abfc9c5668740925e07a8b2e3c4b5d030c9d1b",
+        "Created": "2025-10-03T22:34:05.173171806Z",
+        "Path": "MailHog",
+        "Args": [],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3707946,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:06:44.95200877Z",
+            "FinishedAt": "2025-10-06T07:06:33.293085848Z"
+        },
+        "Image": "sha256:4de68494cd0dbcbc141beb755eedce4d328ab10b2d1061d74c2489e0af5f28a9",
+        "ResolvConfPath": "/var/lib/docker/containers/688d541f3681b00226864cab03abfc9c5668740925e07a8b2e3c4b5d030c9d1b/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/688d541f3681b00226864cab03abfc9c5668740925e07a8b2e3c4b5d030c9d1b/hostname",
+        "HostsPath": "/var/lib/docker/containers/688d541f3681b00226864cab03abfc9c5668740925e07a8b2e3c4b5d030c9d1b/hosts",
+        "LogPath": "/var/lib/docker/containers/688d541f3681b00226864cab03abfc9c5668740925e07a8b2e3c4b5d030c9d1b/688d541f3681b00226864cab03abfc9c5668740925e07a8b2e3c4b5d030c9d1b-json.log",
+        "Name": "/688d541f3681_anwalts_mailhog",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "root_default",
+            "PortBindings": {
+                "1025/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "1025"
+                    }
+                ],
+                "8025/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "8025"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": [],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/c148233f0459c49883f8b4cd713e8d8d2c725e006ae60483f98834ebb2843b6d-init/diff:/var/lib/docker/overlay2/1be5f5c53f46a5342a36ca0d3b6e200ef2f1227bc101d4992a50db1a0e9c551b/diff:/var/lib/docker/overlay2/98babd89d740891ad0b69c7aebd0c8f84d4329b9c4c5a4f72d679f59c72fcd67/diff:/var/lib/docker/overlay2/8f44ffe68f4c1c43724c2bcf91708bf3eabba578867c0bc4d3c21c773c6bc048/diff:/var/lib/docker/overlay2/45c4e26a40a80761f62f9b5f23913a0b1b6d001fc63e0c35c60f662f29ca1036/diff:/var/lib/docker/overlay2/8934359ceefb116d7d0d7cf4741202e1298896842f927c7c0ff4bdb979153f5a/diff:/var/lib/docker/overlay2/092c1665bad105718e8b99d8644f590f551c4cb258b56a3886da347b4b188bc6/diff:/var/lib/docker/overlay2/01b49bb4dc5f31a3e8d608815894ac438e33f3ee025c02e417ae0d21f31f1319/diff",
+                "MergedDir": "/var/lib/docker/overlay2/c148233f0459c49883f8b4cd713e8d8d2c725e006ae60483f98834ebb2843b6d/merged",
+                "UpperDir": "/var/lib/docker/overlay2/c148233f0459c49883f8b4cd713e8d8d2c725e006ae60483f98834ebb2843b6d/diff",
+                "WorkDir": "/var/lib/docker/overlay2/c148233f0459c49883f8b4cd713e8d8d2c725e006ae60483f98834ebb2843b6d/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "688d541f3681",
+            "Domainname": "",
+            "User": "mailhog",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "ExposedPorts": {
+                "1025/tcp": {},
+                "8025/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PATH=/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "GOLANG_VERSION=1.14.7",
+                "GOPATH=/go"
+            ],
+            "Cmd": null,
+            "Image": "mailhog/mailhog:v1.0.1",
+            "Volumes": null,
+            "WorkingDir": "/home/mailhog",
+            "Entrypoint": [
+                "MailHog"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.config-hash": "168dd630e748c8a053f218e8c4debd5e8c3b4bcbc7e83cc8b1ff4be0e48a56f0",
+                "com.docker.compose.container-number": "1",
+                "com.docker.compose.depends_on": "",
+                "com.docker.compose.image": "sha256:4de68494cd0dbcbc141beb755eedce4d328ab10b2d1061d74c2489e0af5f28a9",
+                "com.docker.compose.oneoff": "False",
+                "com.docker.compose.project": "root",
+                "com.docker.compose.project.config_files": "/root/docker-compose.yml",
+                "com.docker.compose.project.working_dir": "/root",
+                "com.docker.compose.service": "mailhog",
+                "com.docker.compose.version": "2.39.4"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "e8fafcc6614fedbb9ca0d6bd1bd7658bf6e7bc5ca001de3415f106c3adb7094b",
+            "SandboxKey": "/var/run/docker/netns/e8fafcc6614f",
+            "Ports": {
+                "1025/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "1025"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "1025"
+                    }
+                ],
+                "8025/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "8025"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "8025"
+                    }
+                ]
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "root_default": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "anwalts_mailhog",
+                        "mailhog"
+                    ],
+                    "MacAddress": "02:42:ac:13:00:04",
+                    "DriverOpts": null,
+                    "NetworkID": "bb614e66b61326b67a8bb1daf2a6d6a0e8fbdfc8b57d398f9e24e6feeb6e6719",
+                    "EndpointID": "92061818c76452b3eef5889f3fc2f470789a53eba7f487fa1f84deb6edf96f77",
+                    "Gateway": "172.19.0.1",
+                    "IPAddress": "172.19.0.4",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "688d541f3681_anwalts_mailhog",
+                        "anwalts_mailhog",
+                        "mailhog",
+                        "688d541f3681"
+                    ]
+                }
+            }
+        }
+    }
+]

@@ -1,0 +1,200 @@
+.page-header {
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 2rem;
+}
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.global-search {
+  position: relative;
+  max-width: 28rem;
+}
+.search-input {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-input);
+  color: var(--text-strong);
+  height: 2.75rem;
+}
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary-strong);
+  box-shadow: 0 0 0 2px var(--primary-focus-ring);
+}
+.quick-filters {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+.filter-chip {
+  padding: 0.25rem 0.75rem;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-strong);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.filter-chip:hover {
+  background-color: var(--surface-hover);
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.icon-button {
+  padding: 0.5rem;
+  border-radius: var(--radius-lg);
+  color: var(--text-strong);
+}
+.icon-button:hover {
+  background-color: var(--surface-hover);
+}
+.main-content {
+  padding: 2rem;
+}
+.continue-bar {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.continue-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-sm);
+  color: var(--text-strong);
+}
+.continue-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.page-title {
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+@media (min-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.stat-card {
+  background-color: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+.stat-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  background-color: var(--primary-100);
+  color: var(--primary-600);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.content-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 1.5rem;
+}
+@media (min-width: 1024px) {
+  .content-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.main-column {
+  grid-column: span 1 / span 1;
+}
+@media (min-width: 1024px) {
+  .main-column {
+    grid-column: span 2 / span 2;
+  }
+}
+.section-card {
+  background-color: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.skeleton-item {
+  padding: 1rem;
+  background-color: var(--surface-muted);
+  border-radius: var(--radius-lg);
+  height: 4rem;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.document-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background-color: var(--surface-muted);
+  border-radius: var(--radius-lg);
+}
+.document-details {
+  display: none;
+  padding: 1rem;
+  padding-top: 0;
+  font-size: var(--text-sm);
+  color: var(--text-strong);
+}
+.deadlines-list-item {
+  border-left-width: 4px;
+  padding-left: 1rem;
+}
+.template-card {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background-color: var(--surface-muted);
+}
+.activity-table {
+  width: 100%;
+}
+.activity-table th, .activity-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+.activity-table th {
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-strong);
+}
+.activity-table tbody tr {
+  border-bottom: 1px solid var(--border-muted);
+}

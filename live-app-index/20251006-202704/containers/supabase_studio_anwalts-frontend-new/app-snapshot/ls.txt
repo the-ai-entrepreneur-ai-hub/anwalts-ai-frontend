@@ -1,0 +1,7 @@
+total 24
+drwxr-xr-x 1 root root 4096 Oct  1 16:08 .
+drwxr-xr-x 1 root root 4096 Oct  6 06:09 ..
+drwxr-xr-x 1 root root 4096 Oct  1 16:08 apps
+drwxr-xr-x 3 root root 4096 Oct  1 16:08 node_modules
+-rw-r--r-- 1 root root 3675 Oct  1 16:08 package.json
+drwxr-xr-x 7 root root 4096 Oct  1 16:08 packages

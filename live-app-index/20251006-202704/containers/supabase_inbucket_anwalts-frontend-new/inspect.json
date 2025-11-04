@@ -1,0 +1,286 @@
+[
+    {
+        "Id": "27454101cb9d0f37c2a4d6b82a79582f08a17b4e6e935eb0cbc372132d4d2b94",
+        "Created": "2025-10-06T06:09:25.50804413Z",
+        "Path": "/mailpit",
+        "Args": [],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3700585,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-10-06T07:04:04.08928995Z",
+            "FinishedAt": "2025-10-06T07:03:52.327448592Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2025-10-06T20:26:19.404049132+02:00",
+                        "End": "2025-10-06T20:26:19.47858009+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:29.479330077+02:00",
+                        "End": "2025-10-06T20:26:29.544509957+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:39.544699113+02:00",
+                        "End": "2025-10-06T20:26:39.598488607+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:49.599272488+02:00",
+                        "End": "2025-10-06T20:26:49.645644864+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2025-10-06T20:26:59.646847659+02:00",
+                        "End": "2025-10-06T20:26:59.701251018+02:00",
+                        "ExitCode": 0,
+                        "Output": ""
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:3f56e44ddc1a5655b8f288a2aa812db567b2f5f0b8bc18ef3da63b94a95608d5",
+        "ResolvConfPath": "/var/lib/docker/containers/27454101cb9d0f37c2a4d6b82a79582f08a17b4e6e935eb0cbc372132d4d2b94/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/27454101cb9d0f37c2a4d6b82a79582f08a17b4e6e935eb0cbc372132d4d2b94/hostname",
+        "HostsPath": "/var/lib/docker/containers/27454101cb9d0f37c2a4d6b82a79582f08a17b4e6e935eb0cbc372132d4d2b94/hosts",
+        "LogPath": "/var/lib/docker/containers/27454101cb9d0f37c2a4d6b82a79582f08a17b4e6e935eb0cbc372132d4d2b94/27454101cb9d0f37c2a4d6b82a79582f08a17b4e6e935eb0cbc372132d4d2b94-json.log",
+        "Name": "/supabase_inbucket_anwalts-frontend-new",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_anwalts-frontend-new",
+            "PortBindings": {
+                "8025/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "54324"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "always",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [
+                "host.docker.internal:host-gateway"
+            ],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/923f627637046fe1cb3da8f8c7bc2328efbeabb08c82320b21b88ead6e2f1cdd-init/diff:/var/lib/docker/overlay2/6c1bc3a5e6565b8c8ef6a1fa8a2363b96d2e2186974b99463826b9e1fa798bdb/diff:/var/lib/docker/overlay2/4fe1c0d6602d787d003114525f703a9afd56dc5b8adb0e45259f16f69ef0e60e/diff:/var/lib/docker/overlay2/ebeb715fdaba8cd0d7257a249a8d1f02b65593e9b5e68096d7af0addbd88b818/diff",
+                "MergedDir": "/var/lib/docker/overlay2/923f627637046fe1cb3da8f8c7bc2328efbeabb08c82320b21b88ead6e2f1cdd/merged",
+                "UpperDir": "/var/lib/docker/overlay2/923f627637046fe1cb3da8f8c7bc2328efbeabb08c82320b21b88ead6e2f1cdd/diff",
+                "WorkDir": "/var/lib/docker/overlay2/923f627637046fe1cb3da8f8c7bc2328efbeabb08c82320b21b88ead6e2f1cdd/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "27454101cb9d",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "1025/tcp": {},
+                "1110/tcp": {},
+                "8025/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "Cmd": null,
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "/mailpit",
+                    "readyz"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "StartPeriod": 10000000000,
+                "StartInterval": 1000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/mailpit:v1.22.3",
+            "Volumes": null,
+            "WorkingDir": "/",
+            "Entrypoint": [
+                "/mailpit"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.project": "anwalts-frontend-new",
+                "com.supabase.cli.project": "anwalts-frontend-new",
+                "org.opencontainers.image.description": "An email and SMTP testing tool with API for developers",
+                "org.opencontainers.image.documentation": "https://mailpit.axllent.org/docs/",
+                "org.opencontainers.image.licenses": "MIT",
+                "org.opencontainers.image.source": "https://github.com/axllent/mailpit",
+                "org.opencontainers.image.title": "Mailpit",
+                "org.opencontainers.image.url": "https://mailpit.axllent.org"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "cee0a28d5b4e1522284633c132793af2d02193c09779274c39ec45bba38a75d0",
+            "SandboxKey": "/var/run/docker/netns/cee0a28d5b4e",
+            "Ports": {
+                "1025/tcp": null,
+                "1110/tcp": null,
+                "8025/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "54324"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "54324"
+                    }
+                ]
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "supabase_network_anwalts-frontend-new": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "inbucket"
+                    ],
+                    "MacAddress": "02:42:ac:12:00:07",
+                    "DriverOpts": null,
+                    "NetworkID": "ef674fa3fc1547fce8cbcaedeba261580a20cc48cefb63a0ed28a32e29d584a4",
+                    "EndpointID": "15d9be744917e17d33bf42a924bc3c1fe826a2e4796610407adbfcbf6940ddd9",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.7",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_inbucket_anwalts-frontend-new",
+                        "inbucket",
+                        "27454101cb9d"
+                    ]
+                }
+            }
+        }
+    }
+]

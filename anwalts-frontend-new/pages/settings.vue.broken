@@ -1,0 +1,392 @@
+<template>
+  <PortalShell>
+    <template #header>
+      <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex justify-between h-16">
+            <div class="flex items-center">
+              <NuxtLink to="/dashboard" class="text-blue-600 hover:text-blue-700 mr-4">
+                ← Back
+              </NuxtLink>
+              <h1 class="text-xl font-bold text-blue-600">Admin Settings</h1>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span v-if="isAdmin" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                Admin
+              </span>
+            </div>
+          </div>
+        </div>
+      </header>
+    </template>
+
+    <div class="max-w-7xl mx-auto p-6 space-y-6">
+      <!-- Access Denied for Non-Admins -->
+      <div v-if="!isAdmin" class="bg-red-50 border border-red-200 rounded-lg p-6">
+        <h2 class="text-xl font-bold text-red-800 mb-2">Access Denied</h2>
+        <p class="text-red-700">You do not have permission to access this page.</p>
+      </div>
+
+      <!-- Admin Dashboard -->
+      <div v-else-if="loading" class="text-center py-12">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p class="mt-4 text-gray-600">Loading settings...</p>
+      </div>
+
+      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-red-800 mb-2">Error Loading Settings</h3>
+        <p class="text-red-700 mb-4">{{ error }}</p>
+        <details v-if="errorDebug" class="text-sm text-red-600">
+          <summary class="cursor-pointer font-medium">Debug Information</summary>
+          <pre class="mt-2 p-3 bg-red-100 rounded overflow-x-auto">{{ JSON.stringify(errorDebug, null, 2) }}</pre>
+        </details>
+        <button @click="retryLoad" class="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+          Retry Loading
+        </button>
+      </div>
+
+      <div v-else class="space-y-6">
+        <!-- System Statistics -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-sm font-medium text-gray-500 mb-2">Active Users</h3>
+            <p class="text-3xl font-bold text-blue-600">{{ stats?.active_users || 0 }}</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-sm font-medium text-gray-500 mb-2">Connected Emails</h3>
+            <p class="text-3xl font-bold text-green-600">{{ stats?.connected_emails || 0 }}</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-sm font-medium text-gray-500 mb-2">Total Documents</h3>
+            <p class="text-3xl font-bold text-purple-600">{{ stats?.total_documents || 0 }}</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-sm font-medium text-gray-500 mb-2">Templates</h3>
+            <p class="text-3xl font-bold text-orange-600">{{ stats?.total_templates || 0 }}</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-sm font-medium text-gray-500 mb-2">API Tokens</h3>
+            <p class="text-3xl font-bold text-indigo-600">{{ stats?.active_tokens || 0 }}</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-sm font-medium text-gray-500 mb-2">Webhooks</h3>
+            <p class="text-3xl font-bold text-pink-600">{{ stats?.active_webhooks || 0 }}</p>
+          </div>
+        </div>
+
+        <!-- Organization Settings -->
+        <div class="bg-white rounded-lg shadow">
+          <div class="px-6 py-4 border-b">
+            <h2 class="text-lg font-semibold text-gray-900">Organization Settings</h2>
+          </div>
+          <div class="p-6 space-y-6">
+            <!-- General Settings -->
+            <div>
+              <h3 class="text-md font-medium text-gray-700 mb-4">General</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                  <select v-model="orgSettings.language" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <option value="de">German</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Timezone</label>
+                  <select v-model="orgSettings.timezone" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <option value="Europe/Berlin">Europe/Berlin</option>
+                    <option value="Europe/Vienna">Europe/Vienna</option>
+                    <option value="Europe/Zurich">Europe/Zurich</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Security Settings -->
+            <div>
+              <h3 class="text-md font-medium text-gray-700 mb-4">Security</h3>
+              <div class="space-y-3">
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="orgSettings.require_two_factor" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span class="ml-2 text-sm text-gray-700">Require Two-Factor Authentication</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="orgSettings.enable_sso" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span class="ml-2 text-sm text-gray-700">Enable Single Sign-On (SSO)</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="orgSettings.password_require_special" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span class="ml-2 text-sm text-gray-700">Require Special Characters in Passwords</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="orgSettings.password_require_numbers" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span class="ml-2 text-sm text-gray-700">Require Numbers in Passwords</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Notification Settings -->
+            <div>
+              <h3 class="text-md font-medium text-gray-700 mb-4">Notifications</h3>
+              <div class="space-y-3">
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="orgSettings.email_notifications" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span class="ml-2 text-sm text-gray-700">Enable Email Notifications</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="orgSettings.browser_notifications" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span class="ml-2 text-sm text-gray-700">Enable Browser Notifications</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="orgSettings.ai_updates" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span class="ml-2 text-sm text-gray-700">Send AI Feature Updates</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- AI Settings -->
+            <div>
+              <h3 class="text-md font-medium text-gray-700 mb-4">AI Configuration</h3>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">AI Model</label>
+                  <input type="text" v-model="orgSettings.ai_model" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    AI Creativity: {{ orgSettings.ai_creativity }}%
+                  </label>
+                  <input type="range" v-model.number="orgSettings.ai_creativity" min="0" max="100" class="w-full">
+                </div>
+                <label class="flex items-center">
+                  <input type="checkbox" v-model="orgSettings.auto_save" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span class="ml-2 text-sm text-gray-700">Enable Auto-Save</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="flex justify-end pt-4">
+              <button 
+                @click="saveSettings" 
+                :disabled="saving"
+                class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+              >
+                {{ saving ? 'Saving...' : 'Save Changes' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Management -->
+        <div class="bg-white rounded-lg shadow">
+          <div class="px-6 py-4 border-b">
+            <h2 class="text-lg font-semibold text-gray-900">User Management</h2>
+          </div>
+          <div class="p-6">
+            <NuxtLink to="/dashboard/settings/users" class="text-blue-600 hover:text-blue-700 font-medium">
+              Manage Users →
+            </NuxtLink>
+          </div>
+        </div>
+
+        <!-- API & Webhooks -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b">
+              <h2 class="text-lg font-semibold text-gray-900">API Tokens</h2>
+            </div>
+            <div class="p-6">
+              <NuxtLink to="/dashboard/settings/api" class="text-blue-600 hover:text-blue-700 font-medium">
+                Manage API Tokens →
+              </NuxtLink>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b">
+              <h2 class="text-lg font-semibold text-gray-900">Webhooks</h2>
+            </div>
+            <div class="p-6">
+              <NuxtLink to="/dashboard/settings/webhooks" class="text-blue-600 hover:text-blue-700 font-medium">
+                Manage Webhooks →
+              </NuxtLink>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Activity -->
+        <div class="bg-white rounded-lg shadow">
+          <div class="px-6 py-4 border-b">
+            <h2 class="text-lg font-semibold text-gray-900">Recent Activity (Last 7 Days)</h2>
+          </div>
+          <div class="p-6">
+            <div v-if="recentActivity && recentActivity.length > 0" class="space-y-2">
+              <div v-for="activity in recentActivity" :key="activity.event_type" class="flex justify-between items-center py-2 border-b last:border-b-0">
+                <span class="text-sm text-gray-700">{{ formatEventType(activity.event_type) }}</span>
+                <div class="text-right">
+                  <span class="text-sm font-medium text-gray-900">{{ activity.count }} events</span>
+                  <span class="text-xs text-gray-500 ml-2">{{ formatDate(activity.last_occurrence) }}</span>
+                </div>
+              </div>
+            </div>
+            <p v-else class="text-sm text-gray-500">No recent activity</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </PortalShell>
+</template>
+
+<script setup>
+import PortalShell from '~/components/PortalShell.vue'
+
+definePageMeta({ 
+  layout: false,
+  middleware: 'auth-guard'
+})
+
+const { isAdmin, requireAdmin } = useAuth()
+const { session } = useSupabaseAuth()
+const loading = ref(true)
+const error = ref(null)
+const errorDebug = ref(null)
+const saving = ref(false)
+
+const stats = ref(null)
+const orgSettings = ref({
+  language: 'de',
+  timezone: 'Europe/Berlin',
+  require_two_factor: false,
+  enable_sso: false,
+  password_require_special: true,
+  password_require_numbers: true,
+  email_notifications: true,
+  browser_notifications: false,
+  ai_updates: true,
+  ai_model: 'qwen_legal_q4_k_m',
+  ai_creativity: 70,
+  auto_save: true
+})
+const recentActivity = ref([])
+
+// Check admin access
+onMounted(async () => {
+  if (!isAdmin.value) {
+    error.value = 'Admin access required'
+    loading.value = false
+    return
+  }
+
+  try {
+    await loadSettings()
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    loading.value = false
+  }
+})
+
+async function loadSettings() {
+  try {
+    const response = await $fetch('/api/admin/settings', {
+      headers: session.value?.access_token ? {
+        Authorization: `Bearer ${session.value.access_token}`
+      } : {}
+    })
+    
+    // Validate response structure
+    if (!response || typeof response !== 'object') {
+      throw new Error('Invalid response format from server')
+    }
+    
+    // Set statistics with fallback
+    stats.value = response.statistics || {
+      active_users: 0,
+      connected_emails: 0,
+      total_documents: 0,
+      total_templates: 0,
+      active_tokens: 0,
+      active_webhooks: 0
+    }
+    
+    // Merge organization settings with defaults
+    if (response.organization && typeof response.organization === 'object' && Object.keys(response.organization).length > 0) {
+      orgSettings.value = { ...orgSettings.value, ...response.organization }
+    }
+    
+    // Set recent activity
+    recentActivity.value = Array.isArray(response.recent_activity) ? response.recent_activity : []
+    
+    console.log('✅ Settings loaded successfully:', {
+      stats: stats.value,
+      hasOrgSettings: Object.keys(response.organization || {}).length > 0,
+      activityCount: recentActivity.value.length
+    })
+  } catch (e) {
+    console.error('❌ Failed to load settings:', e)
+    
+    // Store debug info with token information
+    errorDebug.value = {
+      message: e.message,
+      status: e.status,
+      statusText: e.statusText,
+      data: e.data,
+      hasToken: !!session.value?.access_token,
+      tokenPreview: session.value?.access_token ? session.value.access_token.substring(0, 20) + '...' : 'none',
+      timestamp: new Date().toISOString()
+    }
+    
+    // Provide detailed error message
+    if (e.status === 403) {
+      throw new Error('Access denied: Admin privileges required')
+    } else if (e.status === 401) {
+      throw new Error('Authentication failed: Please login again')
+    } else if (e.status === 500) {
+      throw new Error('Server error: Please contact administrator')
+    } else {
+      throw new Error(`Failed to load settings: ${e.message || e.statusMessage || 'Unknown error'}`)
+    }
+  }
+}
+
+async function retryLoad() {
+  error.value = null
+  errorDebug.value = null
+  loading.value = true
+  try {
+    await loadSettings()
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    loading.value = false
+  }
+}
+
+async function saveSettings() {
+  saving.value = true
+  try {
+    await $fetch('/api/admin/settings/organization', {
+      method: 'PUT',
+      headers: session.value?.access_token ? {
+        Authorization: `Bearer ${session.value.access_token}`
+      } : {},
+      body: orgSettings.value
+    })
+    
+    // Show success notification
+    alert('Settings saved successfully!')
+  } catch (e) {
+    alert('Failed to save settings: ' + (e.message || 'Unknown error'))
+  } finally {
+    saving.value = false
+  }
+}
+
+function formatEventType(type) {
+  return type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
+function formatDate(date) {
+  return new Date(date).toLocaleDateString()
+}
+</script>

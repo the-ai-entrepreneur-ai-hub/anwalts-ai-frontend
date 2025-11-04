@@ -1,0 +1,1 @@
+[{"Type":"volume","Name":"root_redis_data","Source":"/var/lib/docker/volumes/root_redis_data/_data","Destination":"/data","Driver":"local","Mode":"rw","RW":true,"Propagation":""}]

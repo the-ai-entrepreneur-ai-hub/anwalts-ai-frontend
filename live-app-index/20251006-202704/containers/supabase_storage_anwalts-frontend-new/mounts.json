@@ -1,0 +1,1 @@
+[{"Type":"volume","Name":"supabase_storage_anwalts-frontend-new","Source":"/var/lib/docker/volumes/supabase_storage_anwalts-frontend-new/_data","Destination":"/mnt","Driver":"local","Mode":"z","RW":true,"Propagation":""}]

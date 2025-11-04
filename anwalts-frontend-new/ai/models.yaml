@@ -1,0 +1,9 @@
+models:
+  # Abdel model alias (Open Source code LLM)
+  - name: abdel-coder
+    url: huggingface://Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+    parameters:
+      model: Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+      f16: false
+      # Temperature and other runtime params may be tuned via API
+

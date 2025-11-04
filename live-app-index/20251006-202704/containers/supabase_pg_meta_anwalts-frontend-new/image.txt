@@ -1,0 +1,1 @@
+public.ecr.aws/supabase/postgres-meta:v0.91.6

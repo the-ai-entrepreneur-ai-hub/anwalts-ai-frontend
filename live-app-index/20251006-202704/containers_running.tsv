@@ -1,0 +1,17 @@
+1b66691cd61e	anwalts_frontend	root-frontend	Up 9 minutes (healthy)	0.0.0.0:3000->3000/tcp, :::3000->3000/tcp
+09428803c3ce	anwalts_backend	root-backend	Up 11 hours (healthy)	0.0.0.0:8000->8000/tcp, :::8000->8000/tcp, 0.0.0.0:8010->8010/tcp, :::8010->8010/tcp
+00936d087c4e	00936d087c4e_anwalts_redis	redis:7-alpine	Up 10 hours (healthy)	0.0.0.0:6379->6379/tcp, :::6379->6379/tcp
+526d20217b50	526d20217b50_anwalts_postgres	pgvector/pgvector:pg15	Up 10 hours (healthy)	0.0.0.0:5432->5432/tcp, :::5432->5432/tcp
+5fafecb35990	supabase_studio_anwalts-frontend-new	public.ecr.aws/supabase/studio:2025.10.01-sha-8460121	Up 11 hours (healthy)	0.0.0.0:54323->3000/tcp, [::]:54323->3000/tcp
+9280e2d017fd	supabase_pg_meta_anwalts-frontend-new	public.ecr.aws/supabase/postgres-meta:v0.91.6	Up 11 hours (healthy)	8080/tcp
+751469dfce74	supabase_edge_runtime_anwalts-frontend-new	public.ecr.aws/supabase/edge-runtime:v1.69.12	Up 11 hours	8081/tcp
+993df1d143e0	supabase_storage_anwalts-frontend-new	public.ecr.aws/supabase/storage-api:v1.28.0	Up 11 hours (healthy)	5000/tcp
+ac881e0b3bf2	supabase_rest_anwalts-frontend-new	public.ecr.aws/supabase/postgrest:v13.0.7	Up 11 hours	3000/tcp
+6d2be97a1aaa	supabase_realtime_anwalts-frontend-new	public.ecr.aws/supabase/realtime:v2.51.11	Up 11 hours (healthy)	4000/tcp
+27454101cb9d	supabase_inbucket_anwalts-frontend-new	public.ecr.aws/supabase/mailpit:v1.22.3	Up 11 hours (healthy)	1025/tcp, 1110/tcp, 0.0.0.0:54324->8025/tcp, [::]:54324->8025/tcp
+30b08aaebe4e	supabase_auth_anwalts-frontend-new	public.ecr.aws/supabase/gotrue:v2.180.0	Up 11 hours (healthy)	9999/tcp
+8e6404c6b9ed	supabase_kong_anwalts-frontend-new	public.ecr.aws/supabase/kong:2.8.1	Up 11 hours (healthy)	8001/tcp, 8088/tcp, 8443-8444/tcp, 0.0.0.0:54321->8000/tcp, [::]:54321->8000/tcp
+750635f2d6a3	supabase_vector_anwalts-frontend-new	public.ecr.aws/supabase/vector:0.28.1-alpine	Up 11 hours (healthy)	
+b31a8dc63005	supabase_analytics_anwalts-frontend-new	public.ecr.aws/supabase/logflare:1.22.4	Up 11 hours (healthy)	0.0.0.0:54327->4000/tcp, [::]:54327->4000/tcp
+8ae82653f4ac	supabase_db_anwalts-frontend-new	public.ecr.aws/supabase/postgres:17.6.1.011	Up 11 hours (healthy)	0.0.0.0:54322->5432/tcp, [::]:54322->5432/tcp
+688d541f3681	688d541f3681_anwalts_mailhog	mailhog/mailhog:v1.0.1	Up 11 hours	0.0.0.0:1025->1025/tcp, :::1025->1025/tcp, 0.0.0.0:8025->8025/tcp, :::8025->8025/tcp

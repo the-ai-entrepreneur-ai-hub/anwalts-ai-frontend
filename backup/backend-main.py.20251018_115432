@@ -1,0 +1,3669 @@
+"""
+AnwaltsAI FastAPI Backend Server
+Complete backend with PostgreSQL, Redis, and Together AI integration
+"""
+
+from fastapi import FastAPI, HTTPException, Depends, status, Request, Response, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from contextlib import asynccontextmanager
+import uvicorn
+import os
+from typing import Optional, List, Dict, Any, Tuple
+import logging
+from datetime import datetime, timedelta
+import uuid
+import hashlib
+import re
+import asyncio
+import httpx
+import json
+from PIL import Image
+import io
+
+from database import Database, get_database
+from models import *
+from ai_service import AIService
+from cache_service import CacheService
+from smtp_utils import send_email
+from fastapi.responses import Response as FastAPIResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse, StreamingResponse
+import httpx
+from auth_service import AuthService
+import base64
+import secrets
+import string
+from supabase import create_client, Client as SupabaseClient
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    # Keep running even if python-dotenv is not available
+    pass
+
+# ===== Feedback feature flag =====
+import os as _os
+FEEDBACK_V1_ENABLED = (_os.getenv("FEEDBACK_V1", "true").lower() == "true")
+
+DASHBOARD_SERVICE_KEY = os.getenv("DASHBOARD_SERVICE_KEY", "").strip()
+
+# Optional uploads subsystem
+try:
+    import upload_processor  # local module we added
+except Exception:
+    upload_processor = None
+
+# ===== Pydantic models for feedback/edit =====
+from pydantic import BaseModel, Field
+from typing import List as _List, Optional as _Optional
+
+class FeedbackRequest(BaseModel):
+    conversation_id: _Optional[str] = None
+    message_id: str
+    model: _Optional[str] = None
+    rating: int = Field(..., description="-1 or +1")
+    reasons: _Optional[_List[str]] = None
+    note: _Optional[str] = None
+    message_hash: _Optional[str] = None
+    client_ts: _Optional[str] = None
+
+class EditRequest(BaseModel):
+    conversation_id: _Optional[str] = None
+    message_id: str
+    edited_content: str
+    allow_training: bool = False
+    message_hash: _Optional[str] = None
+    client_ts: _Optional[str] = None
+
+# ===== Rate limit helper using Redis =====
+async def _rate_limit(user_id: str, route: str, max_count: int, window_sec: int = 3600) -> bool:
+    try:
+        key = f"rl:{route}:{user_id}:{datetime.utcnow().strftime('%Y%m%d%H')}"
+        async with cache_service.redis_client.pipeline(transaction=True) as pipe:
+            await pipe.incr(key)
+            await pipe.expire(key, window_sec)
+            cnt, _ = await pipe.execute()
+        return int(cnt) <= max_count
+    except Exception:
+        # Fail-open to avoid blocking core flows
+        return True
+
+def _sha256(s: str) -> str:
+    return hashlib.sha256(s.encode()).hexdigest()
+
+
+def _http_error_detail(exc: httpx.HTTPStatusError) -> str:
+    try:
+        data = exc.response.json()
+        if isinstance(data, dict):
+            inner = data.get("error")
+            if isinstance(inner, dict):
+                message = inner.get("message")
+                if isinstance(message, str) and message.strip():
+                    return message.strip()
+            for key in ("message", "detail", "error"):
+                value = data.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        text = exc.response.text
+        if text:
+            return text.strip()
+    except Exception:
+        pass
+    return str(exc)
+
+def _hash_ip(ip: str) -> str:
+    salt = _os.getenv("FEEDBACK_SALT", "anwaltsai-feedback-salt")
+    return _sha256(salt + (ip or ""))
+
+async def _ensure_message_exists(msg_id: str, user_id: str, content: str = None, model: str = None, conversation_id: str = None):
+    try:
+        async with db.get_connection() as conn:
+            row = await conn.fetchrow("SELECT id FROM assistant_messages WHERE id = $1", uuid.UUID(msg_id))
+            if row:
+                return True
+            # Insert skeleton if content provided
+            if content is None:
+                content = ""
+            await conn.execute(
+                """
+                INSERT INTO assistant_messages (id, conversation_id, user_id, role, content, model, message_hash)
+                VALUES ($1, $2, $3, 'assistant', $4, $5, $6)
+                """,
+                uuid.UUID(msg_id), uuid.UUID(conversation_id) if conversation_id else None,
+                uuid.UUID(user_id), content, model, _sha256(content)
+            )
+            return True
+    except Exception as e:
+        logger.warning(f"ensure_message_exists failed: {e}")
+        return False
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Global services
+db: Database = None
+ai_service: AIService = None
+cache_service: CacheService = None
+auth_service: AuthService = None
+
+
+def _set_auth_cookies(response: Response, token: str) -> None:
+    """Set primary (HttpOnly) and public session cookies."""
+    try:
+        cookie_domain = os.getenv("SESSION_DOMAIN", "portal-anwalts.ai")
+        cookie_samesite = os.getenv("COOKIE_SAMESITE", "none").lower()
+        response.set_cookie(
+            key=os.getenv("SESSION_COOKIE_NAME", "sid"),
+            value=token,
+            httponly=True,
+            secure=True,
+            samesite=cookie_samesite,
+            domain=cookie_domain,
+            max_age=86400,
+            path="/",
+        )
+        response.set_cookie(
+            key=os.getenv("PUBLIC_SESSION_COOKIE", "sat"),
+            value=token,
+            httponly=False,
+            secure=True,
+            samesite=cookie_samesite,
+            domain=cookie_domain,
+            max_age=86400,
+            path="/",
+        )
+    except Exception as exc:  # pragma: no cover - defensive logging only
+        logger.warning(f"Set-Cookie failed: {exc}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize and cleanup application resources"""
+    global db, ai_service, cache_service, auth_service
+    
+    # Initialize services
+    db = Database()
+    await db.connect()
+    
+    cache_service = CacheService()
+    try:
+        await cache_service.connect()
+        logger.info("Cache service connected successfully")
+    except Exception as e:
+        logger.warning(f"Cache service unavailable, continuing without cache: {e}")
+        cache_service = None
+    
+    ai_service = AIService()
+    auth_service = AuthService()
+    
+    logger.info("AnwaltsAI Backend started successfully")
+    
+    yield
+    
+    # Cleanup
+    await db.disconnect()
+    if cache_service:
+        await cache_service.disconnect()
+    logger.info("AnwaltsAI Backend shutdown complete")
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="AnwaltsAI Backend API",
+    description="Complete backend for AnwaltsAI with PostgreSQL, Redis, and Together AI integration",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Middleware
+cors_origin = os.getenv("CORS_ORIGIN", "https://portal-anwalts.ai")
+
+
+def _get_supabase_admin() -> SupabaseClient:
+    """Get Supabase admin client for user management"""
+    supabase_url = os.getenv("SUPABASE_URL", "https://portal-anwalts.ai/supabase")
+    supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not supabase_service_key:
+        raise ValueError("SUPABASE_SERVICE_ROLE_KEY not configured")
+    return create_client(supabase_url, supabase_service_key)
+
+def _build_google_redirect_uri() -> str:
+    """Construct a redirect URI even when GOOGLE_REDIRECT_URI is missing."""
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
+    if redirect_uri:
+        return redirect_uri
+
+    base_origin = (os.getenv("PUBLIC_BASE_URL") or cors_origin or "").strip()
+    if not base_origin:
+        base_origin = "https://portal-anwalts.ai"
+    base_origin = base_origin.rstrip("/")
+
+    default_path = (os.getenv("GOOGLE_REDIRECT_PATH") or "/api/auth/google/callback").strip() or "/api/auth/google/callback"
+    if not default_path.startswith("/"):
+        default_path = "/" + default_path
+
+    return f"{base_origin}{default_path}"
+
+
+def _ensure_google_config(require_secret: bool = False) -> Tuple[str, Optional[str], str]:
+    """Return Google OAuth configuration, raising helpful errors when missing."""
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    if client_id.lower().startswith(("http://", "https://")):
+        client_id = client_id.split("://", 1)[-1]
+    client_id = client_id.rstrip("/")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+    redirect_uri = _build_google_redirect_uri()
+
+    if not client_id:
+        logger.error("Google OAuth missing client ID")
+        raise HTTPException(status_code=500, detail="Google OAuth provider is not configured")
+    if require_secret and not client_secret:
+        logger.error("Google OAuth missing client secret")
+        raise HTTPException(status_code=500, detail="Google OAuth provider is not fully configured")
+
+    return client_id, (client_secret or None), redirect_uri
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[cors_origin],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
+)
+app.add_middleware(GZipMiddleware, minimum_size=5000)
+
+# Security
+security = HTTPBearer()
+
+# Flexible auth dependency: accept Authorization: Bearer or JWT cookies (auth_token/sid/sat)
+async def get_current_user_flexible(request: Request) -> UserInDB:
+    try:
+        # 1) Authorization header (preferred)
+        auth_header = request.headers.get("authorization") or ""
+        token = None
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header.split(" ", 1)[1]
+
+        # 2) Fallback to cookies issued by backend OAuth/login
+        if not token:
+            # Primary backend cookie set by Google OAuth callback
+            token = request.cookies.get("auth_token")
+        if not token:
+            # Session cookie name is configurable; also try public cookie as a last resort
+            token = request.cookies.get(os.getenv("SESSION_COOKIE_NAME", "sid"))
+        if not token:
+            token = request.cookies.get(os.getenv("PUBLIC_SESSION_COOKIE", "sat"))
+
+        if not token:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authentication")
+
+        payload = auth_service.verify_token(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+        user = await db.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"flex-auth error: {e}")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
+# Admin guard middleware: block /api/admin/* unless role is admin
+@app.middleware("http")
+async def admin_guard(request: Request, call_next):
+    path = request.url.path or ""
+    if path.startswith("/api/admin"):
+        # Require admin
+        try:
+            auth_header = request.headers.get("authorization") or request.cookies.get(os.getenv("SESSION_COOKIE_NAME", "sid"))
+            if not auth_header:
+                return FastAPIResponse(content='{"detail":"forbidden"}', media_type="application/json", status_code=403)
+            token = auth_header.split(" ")[-1] if " " in auth_header else auth_header
+            payload = auth_service.verify_token(token)
+            user = await db.get_user_by_id(payload.get("sub"))
+            if not user or user.role != "admin":
+                return FastAPIResponse(content='{"detail":"forbidden"}', media_type="application/json", status_code=403)
+        except Exception:
+            return FastAPIResponse(content='{"detail":"forbidden"}', media_type="application/json", status_code=403)
+    return await call_next(request)
+
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> UserInDB:
+    """Get current authenticated user"""
+    try:
+        payload = auth_service.verify_token(credentials.credentials)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials"
+            )
+        
+        user = await db.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found"
+            )
+        
+        return user
+    except Exception as e:
+        logger.error(f"Authentication error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+# ============ AUTHENTICATION ENDPOINTS ============
+
+# Lightweight authorize endpoints to kick off OAuth in a reliable full-page redirect
+def _b64url_no_pad(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _generate_compliant_password(length: int = 48) -> str:
+    """Generate a strong password with multiple chars per category and no edge chars.
+
+    - At least 4 uppercase, 4 lowercase, 4 digits, 4 specials
+    - Remaining filled from a safe pool
+    - Length >= 32
+    """
+    length = max(length, 32)
+    safe_specials = "!@#$%^&*()-_=+[]{}:,./?"  # Avoid quotes, backslashes, spaces
+
+    rng = secrets.SystemRandom()
+
+    uppers = [rng.choice(string.ascii_uppercase) for _ in range(4)]
+    lowers = [rng.choice(string.ascii_lowercase) for _ in range(4)]
+    digits = [rng.choice(string.digits) for _ in range(4)]
+    specials = [rng.choice(safe_specials) for _ in range(4)]
+
+    base = uppers + lowers + digits + specials
+    pool = string.ascii_letters + string.digits + safe_specials
+    remaining_count = length - len(base)
+    base += [rng.choice(pool) for _ in range(max(0, remaining_count))]
+
+    rng.shuffle(base)
+    return ''.join(base)
+
+
+async def _google_entry_redirect(request: Request) -> RedirectResponse:
+    """Return a prefix-aware redirect so /api routes stay under /api."""
+    path = request.url.path or ""
+    prefix = "/api/auth" if path.startswith("/api/") else "/auth"
+    query = request.url.query
+    target = f"{prefix}/google/authorize"
+    if query:
+        target = f"{target}?{query}"
+    return RedirectResponse(target)
+
+@app.get("/auth/google")
+async def google_auth(request: Request):
+    """Redirect to Google OAuth authorize endpoint"""
+    return await _google_entry_redirect(request)
+
+
+@app.get("/auth/google/authorize")
+async def google_authorize(request: Request):
+    try:
+        import urllib.parse
+        client_id, _, redirect_uri = _ensure_google_config()
+        mode = (request.query_params.get("mode") or "").strip().lower()
+        include_gmail = mode in {"gmail", "email", "mail", "workspace"}
+        base_scopes = ["openid", "email", "profile"]
+        if include_gmail:
+            base_scopes.extend([
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "https://www.googleapis.com/auth/gmail.modify",
+            ])
+        # Preserve caller-provided additional scopes
+        extra_scope = request.query_params.get("scope")
+        if extra_scope:
+            base_scopes.extend(s.strip() for s in extra_scope.split() if s.strip())
+        # Deduplicate while preserving order
+        seen = set()
+        ordered_scopes = []
+        for scope_entry in base_scopes:
+            if scope_entry not in seen:
+                seen.add(scope_entry)
+                ordered_scopes.append(scope_entry)
+        scope = urllib.parse.quote(" ".join(ordered_scopes))
+        state = request.query_params.get("state") or uuid.uuid4().hex
+        base = "https://accounts.google.com/o/oauth2/v2/auth"
+        access_type = request.query_params.get("access_type")
+        if not access_type:
+            access_type = "offline" if include_gmail else "online"
+        prompt = request.query_params.get("prompt")
+        if not prompt:
+            prompt = "consent" if include_gmail else "select_account"
+        url = (f"{base}?response_type=code&client_id={urllib.parse.quote(client_id)}"
+               f"&redirect_uri={urllib.parse.quote(redirect_uri)}&scope={scope}&state={state}"
+               f"&access_type={urllib.parse.quote(access_type)}&prompt={urllib.parse.quote(prompt)}")
+        from fastapi.responses import RedirectResponse
+        response = RedirectResponse(url)
+        try:
+            response.set_cookie(
+                key="oauth_flow_mode",
+                value="gmail" if include_gmail else "login",
+                httponly=True,
+                secure=True,
+                samesite="lax",
+                max_age=600,
+                path="/",
+            )
+        except Exception as cookie_error:  # pragma: no cover - defensive logging only
+            logger.warning(f"Failed to set oauth_flow_mode cookie: {cookie_error}")
+        return response
+    except Exception as e:
+        logger.error(f"Google authorize error: {e}")
+        raise HTTPException(status_code=500, detail="Authorization init failed")
+
+@app.get("/api/auth/google")
+async def google_auth_api_alias(request: Request):
+    return await _google_entry_redirect(request)
+
+@app.get("/api/auth/google/authorize")
+async def google_authorize_api_alias(request: Request):
+    return await google_authorize(request)
+
+@app.get("/auth/twitter/authorize")
+async def twitter_authorize():
+    try:
+        import urllib.parse
+        client_id = os.getenv("TWITTER_CLIENT_ID", "")
+        redirect_uri = os.getenv("TWITTER_REDIRECT_URI", "")
+        raw_scopes = os.getenv("TWITTER_SCOPES", "tweet.read users.read")
+        scope = urllib.parse.quote(raw_scopes)
+        state = uuid.uuid4().hex
+        # PKCE (S256)
+        code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("=")
+        code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).decode().rstrip("=")
+        try:
+            await cache_service.redis_client.setex(f"oauth:pkce:{state}", 600, code_verifier)
+        except Exception as e:
+            logger.warning(f"PKCE store failed: {e}")
+        base = "https://twitter.com/i/oauth2/authorize"
+        url = (f"{base}?response_type=code&client_id={urllib.parse.quote(client_id)}"
+               f"&redirect_uri={urllib.parse.quote(redirect_uri)}&scope={scope}&state={state}"
+               f"&code_challenge={code_challenge}&code_challenge_method=S256")
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url)
+    except Exception as e:
+        logger.error(f"Twitter authorize error: {e}")
+        raise HTTPException(status_code=500, detail="Authorization init failed")
+
+
+# ============ OAUTH CALLBACKS ============
+
+async def _redirect(path: str, clear_flow_cookie: bool = True) -> RedirectResponse:
+    response = RedirectResponse(url=path, status_code=302)
+    if clear_flow_cookie:
+        try:
+            response.delete_cookie("oauth_flow_mode", path="/")
+        except Exception as err:  # pragma: no cover - defensive logging only
+            logger.debug(f"Failed to clear oauth_flow_mode cookie on redirect: {err}")
+    return response
+
+@app.get("/auth/google/callback")
+async def google_callback(request: Request, code: Optional[str] = None, state: Optional[str] = None):
+    flow_mode = "login"
+    try:
+        cookie_mode = request.cookies.get("oauth_flow_mode")
+        if cookie_mode in {"gmail", "login"}:
+            flow_mode = cookie_mode
+    except Exception as cookie_read_error:  # pragma: no cover - defensive logging only
+        logger.debug(f"oauth_flow_mode cookie read failed: {cookie_read_error}")
+    # CRITICAL FIX: Handle duplicate callback requests gracefully
+    if not code:
+        # Check if this is a duplicate request and user is already authenticated
+        try:
+            auth_token = request.cookies.get("auth_token")
+            if auth_token:
+                payload = auth_service.verify_token(auth_token)
+                user_id = payload.get("sub")
+                # Check if user already has Gmail connected
+                gmail_status = await db.get_gmail_connection_status(uuid.UUID(user_id))
+                if gmail_status.get("connected"):
+                    target = "/email" if flow_mode == "gmail" else "/dashboard"
+                    logger.info(
+                        "Duplicate OAuth callback - user %s already connected, redirecting to %s",
+                        user_id,
+                        target,
+                    )
+                    return await _redirect(target)
+        except Exception as e:
+            logger.debug(f"Could not check existing connection: {e}")
+
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+    try:
+        token_url = "https://oauth2.googleapis.com/token"
+        client_id, client_secret, redirect_uri = _ensure_google_config(require_secret=True)
+        async with httpx.AsyncClient(timeout=10) as client:
+            token_res = await client.post(token_url, data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+            }, headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"})
+            token_res.raise_for_status()
+            tokens = token_res.json()
+            id_token = tokens.get("id_token")
+            access_token = tokens.get("access_token")
+            refresh_token = tokens.get("refresh_token")  # Extract refresh token for Gmail
+
+            # Get profile
+            userinfo_res = await client.get(
+                "https://openidconnect.googleapis.com/v1/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            userinfo_res.raise_for_status()
+            profile = userinfo_res.json()
+
+        email = (profile.get("email") or "").lower().strip()
+        given = (profile.get("given_name") or "").strip()
+        family = (profile.get("family_name") or "").strip()
+        name = (profile.get("name") or "").strip() or (given + (" " if given and family else "") + family)
+        if not email:
+            return await _redirect("/onboarding")
+
+        # Determine role by email allowlist/domain
+        admin_domains = (os.getenv("ADMIN_EMAIL_DOMAINS", "").strip() or "").split(",")
+        admin_emails = set((os.getenv("ADMIN_EMAILS", "").strip() or "").lower().split(","))
+        email_domain = email.split("@")[-1] if "@" in email else ""
+        is_admin = (email.lower() in admin_emails) or (email_domain in [d.strip().lower() for d in admin_domains if d.strip()])
+
+        # Find or create user
+        existing_user = await db.get_user_by_email(email)
+        if existing_user:
+            user = existing_user
+            # Update name/role if changed
+            try:
+                if (name and user.name != name) or (is_admin and user.role != "admin"):
+                    await db.update_user_basic(user.id, name=name or user.name, role=("admin" if is_admin else user.role))
+                    user = await db.get_user_by_id(user.id)
+            except Exception as _:
+                pass
+        else:
+            compliant_pwd = _generate_compliant_password()
+            password_hash = auth_service.hash_password(compliant_pwd)
+            user = await db.create_user(email=email, name=name or email, role=("admin" if is_admin else "assistant"), password_hash=password_hash)
+
+        # Store Gmail refresh token if present (for email integration)
+        has_gmail_token = False
+        if flow_mode == "gmail" and refresh_token:
+            try:
+                await db.set_gmail_refresh_token(user.id, refresh_token)
+                logger.info(f"Gmail refresh token stored for user {email}")
+                has_gmail_token = True
+            except Exception as e:
+                logger.warning(f"Failed to store Gmail refresh token for {email}: {e}")
+        
+        # Create simple JWT token session
+        token = auth_service.create_access_token(data={"sub": str(user.id), "email": email, "name": name, "role": user.role})
+        session_id = str(uuid.uuid4())
+        if cache_service:
+            await cache_service.store_session(session_id, str(user.id), expires_in=86400)
+        
+        # Simple redirect with token in localStorage - check for return path
+        # CRITICAL FIX: Use sessionStorage flag to prevent duplicate processing
+        html = (
+            "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>"
+            "<title>Signing in…</title></head><body>"
+            "<script>"
+            "try {"
+            f"  var oauthState = {json.dumps(state or '')};"
+            "  var processedStateKey = 'oauth_processed_state';"
+            f"  var flowMode = {json.dumps(flow_mode)};"
+            "  var returnKey = 'gmail_oauth_return';"
+            "  var redirectWindow = window;"
+            "  try {"
+            "    if (window.top && window.top !== window) {"
+            "      redirectWindow = window.top;"
+            "    }"
+            "  } catch (frameErr) {"
+            "    console.warn('Unable to access top window, falling back to self', frameErr);"
+            "    redirectWindow = window;"
+            "  }"
+            "  var computeReturnPath = function() {"
+            "    if (flowMode === 'gmail') {"
+            "      try {"
+            "        var sessionVal = sessionStorage.getItem(returnKey);"
+            "        if (sessionVal && sessionVal.trim()) { return sessionVal; }"
+            "      } catch (err) {"
+            "        console.warn('Session return lookup failed', err);"
+            "      }"
+            "      try {"
+            "        var legacyVal = localStorage.getItem(returnKey);"
+            "        if (legacyVal && legacyVal.trim()) { return legacyVal; }"
+            "      } catch (legacyErr) {"
+            "        console.warn('Legacy return lookup failed', legacyErr);"
+            "      }"
+            "      return '/email';"
+            "    }"
+            "    return '/dashboard';"
+            "  };"
+            "  var clearReturnPath = function() {"
+            "    try { sessionStorage.removeItem(returnKey); } catch (err) {}"
+            "    try { localStorage.removeItem(returnKey); } catch (err2) {}"
+            "  };"
+            "  var isDuplicate = false;"
+            "  try {"
+            "    var lastState = sessionStorage.getItem(processedStateKey);"
+            "    if (oauthState && lastState === oauthState) {"
+            "      isDuplicate = true;"
+            "    } else if (!oauthState && sessionStorage.getItem('oauth_processed') === 'true') {"
+            "      isDuplicate = true;"
+            "    }"
+            "  } catch (stateErr) {"
+            "    console.warn('State tracking check failed', stateErr);"
+            "  }"
+            "  if (isDuplicate) {"
+            "    var existingToken = null;"
+            "    try {"
+            "      existingToken = localStorage.getItem('auth_token') || localStorage.getItem('anwalts_auth_token') || localStorage.getItem('access_token');"
+            "    } catch (existingErr) {"
+            "      console.warn('Token lookup failed', existingErr);"
+            "    }"
+            "    if (!existingToken) {"
+            "      console.warn('Duplicate detected without stored token, treating as fresh login');"
+            "      isDuplicate = false;"
+            "    }"
+            "  }"
+            "  if (isDuplicate) {"
+            "    console.log('OAuth already processed for state', oauthState);"
+            "    var returnPath = computeReturnPath();"
+            "    clearReturnPath();"
+            "    redirectWindow.location.replace(returnPath);"
+            "  } else {"
+            "    try { sessionStorage.setItem(processedStateKey, oauthState || ''); } catch (persistErr) { console.warn('State persist failed', persistErr); }"
+            "    try { sessionStorage.removeItem('oauth_processed'); } catch (_) {}"
+            "    sessionStorage.setItem('oauth_processed', 'true');"
+            "    localStorage.setItem('auth_token', %s);"
+            "    localStorage.setItem('anwalts_auth_token', %s);"
+            "    var authPayload = { id: %s, email: %s, name: %s, role: %s };"
+            "    try {"
+            "      localStorage.setItem('auth_user', JSON.stringify(authPayload));"
+            "      localStorage.setItem('anwalts_user', JSON.stringify(authPayload));"
+            "    } catch (jsonErr) {"
+            "      console.warn('Failed to persist structured auth payload', jsonErr);"
+            "    }"
+            "    try {"
+            "      localStorage.setItem('user_id', authPayload.id || '');"
+            "      localStorage.setItem('user_email', authPayload.email || '');"
+            "      localStorage.setItem('user_name', authPayload.name || '');"
+            "      localStorage.setItem('user_role', authPayload.role || '');"
+            "    } catch (legacyStoreErr) {"
+            "      console.warn('Legacy storage update failed', legacyStoreErr);"
+            "    }"
+            "    console.log('Auth data stored successfully', authPayload);"
+            "    var finalReturn = computeReturnPath();"
+            "    clearReturnPath();"
+            "    redirectWindow.location.replace(finalReturn);"
+            "  }"
+            "} catch (e) { console.error('Storage error:', e); try { redirectWindow.location.replace('/dashboard'); } catch (_e) { window.location.replace('/dashboard'); } }"
+            "</script>"
+            "Signing in…</body></html>"
+        ) % (
+            repr(token),
+            repr(token),
+            repr(str(user.id)),
+            repr(email),
+            repr(name),
+            repr(user.role)
+        )
+        response = HTMLResponse(content=html, status_code=200)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Content-Type"] = "text/html; charset=utf-8"
+        response.headers["Content-Encoding"] = "identity"
+        
+        # Set auth cookies
+        response.set_cookie(
+            key="auth_token",
+            value=token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            max_age=86400,
+            path="/",
+        )
+        response.set_cookie(
+            key="user_id",
+            value=str(user.id),
+            httponly=False,
+            secure=True,
+            samesite="lax",
+            max_age=86400,
+            path="/",
+        )
+        
+        # Set Gmail refresh token cookie for frontend API routes compatibility
+        if has_gmail_token and refresh_token:
+            response.set_cookie(
+                key="gmail_rt",
+                value=refresh_token,
+                httponly=True,
+                secure=True,
+                samesite="lax",
+                max_age=365*24*3600,  # 1 year
+                path="/",
+            )
+            logger.info(f"Gmail refresh token cookie set for user {email}")
+        try:
+            response.delete_cookie("oauth_flow_mode", path="/")
+        except Exception as clear_err:  # pragma: no cover - defensive logging only
+            logger.debug(f"Failed to clear oauth_flow_mode cookie: {clear_err}")
+
+        logger.info(f"OAuth login successful for: {email}")
+        return response
+    except httpx.HTTPError as e:
+        try:
+            detail = e.response.text
+            # CRITICAL FIX: Handle invalid_grant (reused OAuth code) gracefully
+            try:
+                error_json = e.response.json()
+                if error_json.get("error") == "invalid_grant":
+                    logger.warning(f"OAuth code already used (invalid_grant) - checking existing connection")
+                    # Try to identify user from previous successful auth
+                    try:
+                        auth_token = request.cookies.get("auth_token")
+                        if auth_token:
+                            payload = auth_service.verify_token(auth_token)
+                            user_id = payload.get("sub")
+                            gmail_status = await db.get_gmail_connection_status(uuid.UUID(user_id))
+                            if gmail_status.get("connected"):
+                                # Already connected, redirect to success page
+                                target = "/email" if flow_mode == "gmail" else "/dashboard"
+                                logger.info(f"User {user_id} already has Gmail connected, redirecting to {target}")
+                                return await _redirect(target)
+                    except Exception as check_error:
+                        logger.debug(f"Error checking existing connection: {check_error}")
+                    
+                    # If we can't verify existing connection, show friendly error
+                        error_response = HTMLResponse(content="""
+                            <!doctype html><html><head><meta charset='utf-8'>
+                            <meta name='viewport' content='width=device-width, initial-scale=1'>
+                            <title>Authentication Issue</title></head><body style='font-family: sans-serif; max-width: 600px; margin: 100px auto; padding: 20px; text-align: center;'>
+                            <h2>Authentication Link Expired</h2>
+                            <p>This authorization link has already been used or has expired.</p>
+                            <p>If you just connected your Gmail, your emails should already be accessible.</p>
+                            <p><a href='/email' style='display: inline-block; margin-top: 20px; padding: 10px 20px; background: #5b7ce6; color: white; text-decoration: none; border-radius: 8px;'>Go to Email</a></p>
+                            </body></html>
+                        """, status_code=400)
+                        try:
+                            error_response.delete_cookie("oauth_flow_mode", path="/")
+                        except Exception:
+                            pass
+                        return error_response
+            except ValueError:
+                # Response is not JSON, continue with original error handling
+                pass
+        except Exception:
+            detail = str(e)
+        logger.error(f"Google callback HTTP error: {e} | {detail}")
+        raise HTTPException(status_code=502, detail="OAuth exchange failed")
+    except Exception as e:
+        logger.error(f"Google callback error: {e}")
+        raise HTTPException(status_code=500, detail="Callback failed")
+
+
+@app.get("/api/auth/google/callback")
+async def google_callback_api_alias(code: Optional[str] = None, state: Optional[str] = None):
+    return await google_callback(code=code, state=state)
+
+@app.get("/auth/oauth/google/callback")
+async def google_callback_legacy_auth(code: Optional[str] = None, state: Optional[str] = None):
+    return await google_callback(code=code, state=state)
+
+@app.get("/api/auth/oauth/google/callback")
+async def google_callback_api_legacy_auth(code: Optional[str] = None, state: Optional[str] = None):
+    return await google_callback(code=code, state=state)
+
+@app.get("/auth/twitter/callback")
+async def twitter_callback(code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+    if error:
+        logger.warning(f"Twitter callback error param: {error}")
+        return await _redirect("/")
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+    try:
+        token_url = "https://api.twitter.com/2/oauth2/token"
+        client_id = os.getenv("TWITTER_CLIENT_ID", "")
+        client_secret = os.getenv("TWITTER_CLIENT_SECRET", "")
+        redirect_uri = os.getenv("TWITTER_REDIRECT_URI", "")
+        # Twitter requires Basic auth for token exchange with client_id:client_secret base64
+        basic = httpx.BasicAuth(client_id, client_secret)
+        async with httpx.AsyncClient(timeout=10, auth=basic) as client:
+            token_res = await client.post(token_url, data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "code_verifier": state or "",
+                "client_id": client_id,
+            }, headers={"Content-Type": "application/x-www-form-urlencoded"})
+            token_res.raise_for_status()
+            tokens = token_res.json()
+            access_token = tokens.get("access_token")
+        # Get user info (v2)
+        async with httpx.AsyncClient(timeout=10) as client:
+            me = await client.get("https://api.twitter.com/2/users/me?user.fields=profile_image_url,name,username", headers={"Authorization": f"Bearer {access_token}"})
+            me.raise_for_status()
+            data = me.json().get("data", {})
+        username = data.get("username") or "twitter_user"
+        name = data.get("name") or username
+        # Twitter usually does not return email; use username@twitter.local placeholder
+        email = f"{username}@twitter.local"
+
+        # Find or create
+        existing_user = await db.get_user_by_email(email)
+        if existing_user:
+            user = existing_user
+        else:
+            compliant_pwd = _generate_compliant_password()
+            password_hash = auth_service.hash_password(compliant_pwd)
+            user = await db.create_user(email=email, name=name, role="assistant", password_hash=password_hash)
+
+        token = auth_service.create_access_token(data={"sub": str(user.id)})
+        session_id = str(uuid.uuid4())
+        if cache_service:
+            await cache_service.store_session(session_id, str(user.id), expires_in=86400)
+
+        return await _redirect("/dashboard")
+    except httpx.HTTPError as e:
+        logger.error(f"Twitter callback HTTP error: {e}")
+        raise HTTPException(status_code=502, detail="OAuth exchange failed")
+    except Exception as e:
+        logger.error(f"Twitter callback error: {e}")
+        raise HTTPException(status_code=500, detail="Callback failed")
+
+@app.post("/auth/login-test")
+async def login_test(request: dict):
+    """Test login endpoint with simple parameters"""
+    email = request.get("email")
+    password = request.get("password")
+    logger.info(f"Login test called with email: {email}")
+    
+    try:
+        user = await db.get_user_by_email(email)
+        logger.info(f"User found: {user is not None}")
+        
+        if not user:
+            return {"error": "User not found"}
+        
+        password_valid = auth_service.verify_password(password, user.password_hash)
+        logger.info(f"Password valid: {password_valid}")
+        
+        if not password_valid:
+            return {"error": "Invalid password"}
+        
+        if not user.is_active:
+            return {"error": "User not active"}
+        
+        # Create JWT token
+        token = auth_service.create_access_token(data={"sub": str(user.id)})
+        logger.info("Token created successfully")
+        
+        payload = {
+            "success": True,
+            "token": token,
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name,
+                "role": user.role
+            }
+        }
+        response = JSONResponse(content=payload)
+        _set_auth_cookies(response, token)
+        return response
+    except Exception as e:
+        logger.error(f"Login test error: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return {"error": f"Exception: {str(e)}"}
+
+@app.post("/auth/login")
+async def login(request: dict, response: Response):
+    """Authenticate user and return JWT token"""
+    try:
+        # Extract email and password from request
+        email = request.get("email")
+        password = request.get("password")
+        
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and password are required")
+        
+        logger.info(f"Login attempt for email: {email}")
+        
+        # Get user from database
+        user = await db.get_user_by_email(email)
+        if not user:
+            logger.warning(f"User not found: {email}")
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+        # Verify password
+        if not auth_service.verify_password(password, user.password_hash):
+            logger.warning(f"Invalid password for user: {email}")
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+        # Check if user is active
+        if not user.is_active:
+            logger.warning(f"Inactive user login attempt: {email}")
+            raise HTTPException(status_code=401, detail="Account is disabled")
+        
+        # Create JWT token
+        token = auth_service.create_access_token(data={"sub": str(user.id)})
+        logger.info(f"JWT token created for user: {user.id}")
+        
+        # Store session
+        session_id = str(uuid.uuid4())
+        if cache_service:
+            try:
+                await cache_service.store_session(session_id, str(user.id), expires_in=86400)
+                logger.info(f"Session stored for user: {user.id}")
+            except Exception as e:
+                logger.warning(f"Failed to store session in cache: {e}")
+        
+        # Set auth cookies
+        _set_auth_cookies(response, token)
+        
+        # Return successful response
+        return {
+            "success": True,
+            "token": token,
+            "token_type": "bearer",
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name,
+                "role": user.role
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+
+@app.post("/auth/register", response_model=UserResponse)
+async def register(user_data: UserCreate):
+    """Register new user"""
+    try:
+        # Check if user already exists
+        existing_user = await db.get_user_by_email(user_data.email)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        
+        # Hash password and create user
+        password_hash = auth_service.hash_password(user_data.password)
+        user = await db.create_user(
+            email=user_data.email,
+            name=user_data.name,
+            role=user_data.role or "assistant",
+            password_hash=password_hash
+        )
+        
+        return UserResponse(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            role=user.role
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registration failed"
+        )
+
+@app.post("/auth/register-full", response_model=LoginResponse)
+async def register_full(payload: dict):
+    """Register user with extended profile and return token in one step.
+    Backward compatible: only creates profile fields if provided."""
+    try:
+        email = (payload.get("email") or "").strip().lower()
+        name = (payload.get("name") or "").strip()
+        password = payload.get("password") or ""
+        profile_data = payload.get("profile") or {}
+
+        if not email or not name or not password:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing required fields: email, name, password")
+
+        # Enforce key lawyer profile fields
+        required_profile_fields = ["firm", "phone", "roleTitle"]
+        missing = [f for f in required_profile_fields if not (profile_data.get(f) or "").strip()]
+        if missing:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Missing required profile fields: {', '.join(missing)}")
+
+        # Prevent duplicates
+        existing_user = await db.get_user_by_email(email)
+        if existing_user:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+
+        # Create user
+        password_hash = auth_service.hash_password(password)
+        user = await db.create_user(
+            email=email,
+            name=name,
+            role="assistant",
+            password_hash=password_hash
+        )
+
+        # Upsert profile if any fields provided
+        from models import UserProfileUpdate
+        try:
+            profile = UserProfileUpdate(**{
+                "first_name": profile_data.get("firstName"),
+                "last_name": profile_data.get("lastName"),
+                "firm": profile_data.get("firm"),
+                "role_title": profile_data.get("roleTitle"),
+                "bar_id": profile_data.get("barId"),
+                "jurisdictions": profile_data.get("jurisdictions") or [],
+                "practice_areas": profile_data.get("practiceAreas") or [],
+                "phone": profile_data.get("phone"),
+                "website": profile_data.get("website"),
+                "marketing_opt_in": profile_data.get("marketingOptIn"),
+                "consent_at": profile_data.get("consentAt"),
+                "terms_accepted_at": profile_data.get("termsAcceptedAt"),
+            })
+            # Only persist if at least one value set
+            if any(v not in (None, [], "") for v in profile.model_dump().values()):
+                await db.upsert_user_profile(user.id, profile)
+        except Exception as e:
+            logger.warning(f"Profile upsert skipped: {e}")
+
+        # Create token and session
+        token = auth_service.create_access_token(data={"sub": str(user.id)})
+        session_id = str(uuid.uuid4())
+        if cache_service:
+            await cache_service.store_session(session_id, str(user.id), expires_in=86400)
+
+        payload = LoginResponse(
+            token=token,
+            user=UserResponse(id=user.id, email=user.email, name=user.name, role=user.role)
+        )
+        response = JSONResponse(content=json.loads(payload.model_dump_json()))
+        _set_auth_cookies(response, token)
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Register full error: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Registration failed")
+
+@app.get("/api/user/profile", response_model=UserProfileResponse)
+async def get_user_profile(current_user: UserInDB = Depends(get_current_user)):
+    profile = await db.get_user_profile(current_user.id)
+    if not profile:
+        return UserProfileResponse(user_id=current_user.id)
+    return profile
+
+@app.post("/api/user/profile", response_model=UserProfileResponse)
+async def upsert_user_profile(profile_data: UserProfileUpdate, current_user: UserInDB = Depends(get_current_user)):
+    return await db.upsert_user_profile(current_user.id, profile_data)
+
+# Profile Picture Endpoints
+@app.post("/api/user/profile/picture")
+async def upload_profile_picture(
+    file: UploadFile = File(...),
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Upload and validate profile picture"""
+    try:
+        # Validate file type
+        allowed_types = ["image/jpeg", "image/png", "image/webp"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400,
+                detail="Ungültiges Format. Nur JPEG, PNG, WebP erlaubt."
+            )
+        
+        # Read file content
+        contents = await file.read()
+        
+        # Validate file size (2MB max)
+        if len(contents) > 2 * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail="Datei zu groß. Maximum 2MB."
+            )
+        
+        # Validate and process image with PIL
+        try:
+            image = Image.open(io.BytesIO(contents))
+            
+            # Verify it's actually an image by checking magic numbers
+            image.verify()
+            
+            # Reopen for processing (verify closes the file)
+            image = Image.open(io.BytesIO(contents))
+            
+            # Convert to RGB if necessary
+            if image.mode not in ('RGB', 'RGBA'):
+                image = image.convert('RGB')
+            
+            # Resize to 400x400 maintaining aspect ratio
+            image.thumbnail((400, 400), Image.Resampling.LANCZOS)
+            
+            # Create a square canvas
+            canvas = Image.new('RGB', (400, 400), (255, 255, 255))
+            
+            # Calculate position to center image
+            offset = ((400 - image.size[0]) // 2, (400 - image.size[1]) // 2)
+            canvas.paste(image, offset)
+            
+            # Save as JPEG with optimization
+            output = io.BytesIO()
+            canvas.save(output, format='JPEG', quality=85, optimize=True)
+            output.seek(0)
+            
+            # Convert to base64
+            base64_image = base64.b64encode(output.read()).decode('utf-8')
+            picture_data = f"data:image/jpeg;base64,{base64_image}"
+            
+        except Exception as e:
+            logger.error(f"Error processing image: {e}")
+            raise HTTPException(
+                status_code=400,
+                detail="Ungültige Bilddatei. Bitte eine gültige Bilddatei hochladen."
+            )
+        
+        # Store in database
+        success = await db.set_profile_picture(current_user.id, picture_data)
+        
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Fehler beim Speichern des Profilbilds."
+            )
+        
+        return {
+            "success": True,
+            "message": "Profilbild erfolgreich hochgeladen",
+            "profile_picture": picture_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading profile picture: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Upload fehlgeschlagen. Bitte erneut versuchen."
+        )
+
+@app.get("/api/user/profile/picture")
+async def get_profile_picture(current_user: UserInDB = Depends(get_current_user)):
+    """Get current user's profile picture"""
+    try:
+        picture_data = await db.get_profile_picture(current_user.id)
+        
+        if not picture_data:
+            raise HTTPException(
+                status_code=404,
+                detail="Kein Profilbild gefunden"
+            )
+        
+        return {
+            "success": True,
+            "profile_picture": picture_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting profile picture: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Fehler beim Laden des Profilbilds"
+        )
+
+@app.delete("/api/user/profile/picture")
+async def delete_profile_picture(current_user: UserInDB = Depends(get_current_user)):
+    """Delete user's profile picture"""
+    try:
+        success = await db.delete_profile_picture(current_user.id)
+        
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Fehler beim Löschen des Profilbilds"
+            )
+        
+        return {
+            "success": True,
+            "message": "Profilbild entfernt"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting profile picture: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Fehler beim Löschen des Profilbilds"
+        )
+
+# ============ GMAIL INTEGRATION ============
+
+@app.get("/api/user/gmail/status")
+async def get_gmail_status(current_user: UserInDB = Depends(get_current_user)):
+    """Get Gmail connection status for current user"""
+    try:
+        status = await db.get_gmail_connection_status(current_user.id)
+        return status
+    except Exception as e:
+        logger.error(f"Error getting Gmail status: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Fehler beim Abrufen des Gmail-Status"
+        )
+
+@app.post("/api/user/gmail/revoke")
+async def revoke_gmail_access(current_user: UserInDB = Depends(get_current_user)):
+    """Revoke Gmail access for current user"""
+    try:
+        success = await db.revoke_gmail_access(current_user.id)
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Fehler beim Widerrufen des Gmail-Zugriffs"
+            )
+        
+        from fastapi.responses import JSONResponse
+        response = JSONResponse(content={
+            "success": True,
+            "message": "Gmail-Zugriff widerrufen"
+        })
+        
+        # Delete the gmail_rt cookie
+        response.delete_cookie(key="gmail_rt", path="/")
+        logger.info(f"Gmail refresh token cookie deleted for user {current_user.id}")
+        
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error revoking Gmail access: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Fehler beim Widerrufen des Gmail-Zugriffs"
+        )
+
+@app.post("/api/email/process")
+async def process_email_with_ai(
+    request: dict,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Process email with AI for summarization and categorization"""
+    try:
+        email_id = request.get("email_id")
+        if not email_id:
+            raise HTTPException(status_code=400, detail="email_id erforderlich")
+        
+        # Check if user has Gmail connected
+        gmail_status = await db.get_gmail_connection_status(current_user.id)
+        if not gmail_status.get("connected"):
+            raise HTTPException(
+                status_code=403,
+                detail="Gmail nicht verbunden"
+            )
+        
+        # Get Gmail refresh token
+        refresh_token = await db.get_gmail_refresh_token(current_user.id)
+        if not refresh_token:
+            raise HTTPException(
+                status_code=401,
+                detail="Gmail-Token nicht gefunden"
+            )
+        
+        # Exchange refresh token for access token
+        import os
+        client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+        client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+        
+        async with httpx.AsyncClient(timeout=30) as client:
+            token_res = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "refresh_token": refresh_token,
+                    "grant_type": "refresh_token"
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+            
+            if not token_res.is_success:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Gmail-Token-Aktualisierung fehlgeschlagen"
+                )
+            
+            tokens = token_res.json()
+            access_token = tokens.get("access_token")
+            
+            # Fetch full email from Gmail API
+            gmail_res = await client.get(
+                f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{email_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={"format": "full"}
+            )
+            
+            if not gmail_res.is_success:
+                raise HTTPException(
+                    status_code=502,
+                    detail="Fehler beim Abrufen der E-Mail von Gmail"
+                )
+            
+            email_data = gmail_res.json()
+            
+            # Extract email body text
+            def extract_body(payload):
+                if "body" in payload and payload["body"].get("data"):
+                    import base64
+                    return base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="ignore")
+                if "parts" in payload:
+                    for part in payload["parts"]:
+                        if part.get("mimeType") == "text/plain":
+                            if "data" in part.get("body", {}):
+                                import base64
+                                return base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="ignore")
+                        result = extract_body(part)
+                        if result:
+                            return result
+                return ""
+            
+            body_text = extract_body(email_data.get("payload", {}))
+            
+            # Extract subject
+            headers = email_data.get("payload", {}).get("headers", [])
+            subject = next((h["value"] for h in headers if h["name"].lower() == "subject"), "")
+            
+            # Truncate body if too long (legal-rag-api may have limits)
+            max_length = 4000
+            if len(body_text) > max_length:
+                body_text = body_text[:max_length] + "..."
+            
+            # Prepare AI prompt
+            email_content = f"Betreff: {subject}\n\n{body_text}"
+            
+            # Call legal-rag-api for AI processing
+            ai_url = os.getenv("LOCAL_AI_URL", "http://legal-rag-api:9000")
+            ai_res = await client.post(
+                f"{ai_url}/v1/legal/answer_v2",
+                json={"question": email_content, "k": 6},
+                timeout=30
+            )
+            
+            if not ai_res.is_success:
+                raise HTTPException(
+                    status_code=502,
+                    detail="AI-Verarbeitung fehlgeschlagen"
+                )
+            
+            ai_data = ai_res.json()
+            summary = ai_data.get("answer", "Keine Zusammenfassung verfügbar")
+            
+            # Categorize based on subject/content
+            content_lower = (subject + " " + body_text).lower()
+            category = "General"
+            if any(kw in content_lower for kw in ["vertrag", "contract", "agreement", "vereinbarung"]):
+                category = "Contracts"
+            elif any(kw in content_lower for kw in ["kündigung", "termination", "severance"]):
+                category = "Terminations"
+            elif any(kw in content_lower for kw in ["termin", "reminder", "erinnerung", "deadline"]):
+                category = "Reminders"
+            elif any(kw in content_lower for kw in ["gericht", "court", ".gov"]):
+                category = "Court"
+            
+            return {
+                "success": True,
+                "summary": summary,
+                "category": category,
+                "processed_at": datetime.utcnow().isoformat()
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing email with AI: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Fehler bei der E-Mail-Verarbeitung"
+        )
+
+@app.get("/auth/me", response_model=UserResponse)
+async def get_current_user_info(request: Request, response: Response):
+    """Get current user information with cookie or Authorization fallback."""
+    # Prefer Authorization header; fallback to sid cookie set during OAuth
+    token = None
+    auth_header = request.headers.get("authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        token = auth_header.split(" ", 1)[1]
+    if not token:
+        token = request.cookies.get("auth_token")
+    if not token:
+        token = request.cookies.get("anwalts_auth_token")
+    session_cookie_name = os.getenv("SESSION_COOKIE_NAME", "sid")
+    public_cookie_name = os.getenv("PUBLIC_SESSION_COOKIE", "sat")
+    if not token:
+        token = request.cookies.get(session_cookie_name)
+    if not token:
+        # Fallback to non-HttpOnly public session cookie
+        token = request.cookies.get(public_cookie_name)
+    cookie_token_present = any(
+        [
+            bool(request.cookies.get("auth_token")),
+            bool(request.cookies.get("anwalts_auth_token")),
+            bool(request.cookies.get(session_cookie_name)),
+        ]
+    )
+    logger.info(
+        "[auth_me] has_auth_header=%s has_token_cookie=%s has_sat_cookie=%s",
+        bool(auth_header),
+        cookie_token_present,
+        bool(request.cookies.get(public_cookie_name)),
+    )
+    if not token:
+        logger.warning("[auth_me] no token found in header or cookies")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
+    try:
+        payload = auth_service.verify_token(token)
+        user = await db.get_user_by_id(payload.get("sub"))
+        if not user:
+            logger.warning("[auth_me] user not found for sub=%s", payload.get("sub"))
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("[auth_me] token verification failed")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
+
+    # Best-effort avatar from email (identicon)
+    avatar = None
+    try:
+        import hashlib
+        md5 = hashlib.md5(user.email.strip().lower().encode()).hexdigest()
+        avatar = f"https://www.gravatar.com/avatar/{md5}?d=identicon"
+    except Exception:
+        pass
+    # No-store to avoid stale identity
+    response.headers["Cache-Control"] = "no-store"
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        role=user.role,
+        avatarUrl=avatar
+    )
+
+@app.get("/api/auth/me", response_model=UserResponse)
+async def get_current_user_info_api(request: Request, response: Response):
+    """API alias to support frontend fetches under /api namespace."""
+    return await get_current_user_info(request, response)
+
+# Lightweight guard endpoint for client-side check
+@app.get("/auth/validate")
+async def validate_token(current_user: UserInDB = Depends(get_current_user)):
+    return {"valid": True, "user": {"id": str(current_user.id), "email": current_user.email, "name": current_user.name, "role": current_user.role}}
+
+# Dashboard helper: lightweight user roster (admin/assistant overview)
+@app.get("/api/auth/users")
+async def list_recent_users(
+    limit: int = 5,
+    current_user: UserInDB = Depends(get_current_user_flexible),
+):
+    try:
+        limit = max(1, min(limit, 25))
+        rows = await db.list_recent_users(limit)
+        users = []
+        for row in rows:
+            avatar = None
+            try:
+                md5 = hashlib.md5(row["email"].strip().lower().encode()).hexdigest()
+                avatar = f"https://www.gravatar.com/avatar/{md5}?d=identicon"
+            except Exception:
+                pass
+            user_payload = UserResponse(
+                id=row["id"],
+                email=row["email"],
+                name=row.get("name") or row["email"],
+                role=row.get("role") or "assistant",
+                avatarUrl=avatar,
+            ).model_dump()
+            users.append(user_payload)
+        return {"users": users}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"list_recent_users error: {exc}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load users")
+
+# ============ TEMPLATE ENDPOINTS ============
+
+# Logout endpoint to revoke token (blacklist) and clear auth cookies
+@app.post("/auth/logout")
+async def logout(response: Response, request: Request, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Revoke token and clear cookies to fully sign the user out."""
+    try:
+        token = credentials.credentials
+        # Blacklist the token (access token)
+        auth_service.blacklist_token(token)
+
+        # Clear cookies set during OAuth login
+        session_cookie = os.getenv("SESSION_COOKIE_NAME", "sid")
+        public_cookie = os.getenv("PUBLIC_SESSION_COOKIE", "sat")
+        cookie_domain = os.getenv("SESSION_DOMAIN", "portal-anwalts.ai")
+
+        # Primary delete with explicit domain
+        response.delete_cookie(key=session_cookie, domain=cookie_domain, path="/")
+        response.delete_cookie(key=public_cookie, domain=cookie_domain, path="/")
+        response.delete_cookie(key="auth_token", domain=cookie_domain, path="/")
+        response.delete_cookie(key="anwalts_auth_token", domain=cookie_domain, path="/")
+        response.delete_cookie(key="user_id", domain=cookie_domain, path="/")
+        response.delete_cookie(key="gmail_rt", domain=cookie_domain, path="/")
+
+        # Best-effort delete without domain (host-only), in case attributes differ
+        try:
+            response.delete_cookie(key=session_cookie, path="/")
+            response.delete_cookie(key=public_cookie, path="/")
+            response.delete_cookie(key="auth_token", path="/")
+            response.delete_cookie(key="anwalts_auth_token", path="/")
+            response.delete_cookie(key="user_id", path="/")
+            response.delete_cookie(key="gmail_rt", path="/")
+        except Exception:
+            pass
+
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Logout error: {e}")
+        return {"success": False}
+
+@app.get("/api/templates", response_model=List[TemplateResponse])
+async def get_templates(
+    category: Optional[str] = None,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Get user templates with optional category filter"""
+    try:
+        templates = await db.get_templates(current_user.id, category)
+        results: List[TemplateResponse] = []
+        for item in templates:
+            title = (item.get("title") or "").strip()
+            results.append(
+                TemplateResponse(
+                    id=item.get("id"),
+                    title=title,
+                    name=title or item.get("name"),
+                    content=item.get("content", ""),
+                    category=item.get("category"),
+                    type="document",
+                    created_at=item.get("created_at") or datetime.utcnow(),
+                    updated_at=item.get("updated_at"),
+                )
+            )
+        return results
+    except Exception as e:
+        logger.error(f"Get templates error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve templates"
+        )
+
+@app.get("/api/documents/templates", response_model=List[TemplateResponse])
+async def get_documents_templates_alias(
+    category: Optional[str] = None,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Alias for /api/templates to support newer frontend routes."""
+    return await get_templates(category=category, current_user=current_user)
+
+@app.post("/api/templates", response_model=TemplateResponse)
+async def create_template(
+    template_data: TemplateCreate,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Create new template"""
+    try:
+        title = (template_data.title or template_data.name or "").strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="Template title is required")
+        category = (template_data.category or "").strip() or None
+        created = await db.create_template(
+            user_id=current_user.id,
+            title=title,
+            content=template_data.content,
+            category=category,
+        )
+        return TemplateResponse(
+            id=created.get("id"),
+            title=created.get("title", title),
+            name=created.get("title", title),
+            content=created.get("content", template_data.content),
+            category=created.get("category"),
+            type=(template_data.type or "document"),
+            created_at=created.get("created_at") or datetime.utcnow(),
+            updated_at=created.get("updated_at"),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Create template error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create template"
+        )
+
+@app.put("/api/templates/{template_id}", response_model=TemplateResponse)
+async def update_template(
+    template_id: uuid.UUID,
+    template_data: TemplateUpdate,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Update existing template"""
+    try:
+        payload = template_data.dict(exclude_unset=True)
+        if "name" in payload and "title" not in payload:
+            payload["title"] = payload.pop("name")
+        updated = await db.update_template(
+            template_id=template_id,
+            user_id=current_user.id,
+            title=payload.get("title"),
+            content=payload.get("content"),
+            category=payload.get("category"),
+        )
+
+        if not updated:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Template not found"
+            )
+
+        title = (updated.get("title") or "").strip()
+        return TemplateResponse(
+            id=updated.get("id"),
+            title=title,
+            name=title or payload.get("title"),
+            content=updated.get("content", payload.get("content", "")),
+            category=updated.get("category"),
+            type=(payload.get("type") or "document"),
+            created_at=updated.get("created_at") or datetime.utcnow(),
+            updated_at=updated.get("updated_at"),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update template error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update template"
+        )
+
+@app.delete("/api/templates/{template_id}")
+async def delete_template(
+    template_id: uuid.UUID,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Delete template"""
+    try:
+        success = await db.delete_template(template_id, current_user.id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Template not found"
+            )
+        
+        return {"message": "Template deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete template error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete template"
+        )
+
+# ============ CLAUSE ENDPOINTS ============
+
+@app.get("/api/clauses", response_model=List[ClauseResponse])
+async def get_clauses(
+    category: Optional[str] = None,
+    language: Optional[str] = "de",
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Get user clauses with optional filters"""
+    try:
+        clauses = await db.get_clauses(current_user.id, category, language)
+        results: List[ClauseResponse] = []
+        for clause in clauses:
+            results.append(
+                ClauseResponse(
+                    id=clause.get("id"),
+                    title=clause.get("title", ""),
+                    content=clause.get("content", ""),
+                    category=clause.get("category"),
+                    language=clause.get("language"),
+                    created_at=clause.get("created_at") or datetime.utcnow(),
+                )
+            )
+        return results
+    except Exception as e:
+        logger.error(f"Get clauses error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve clauses"
+        )
+
+@app.get("/api/documents/clauses", response_model=List[ClauseResponse])
+async def get_documents_clauses_alias(
+    category: Optional[str] = None,
+    language: Optional[str] = "de",
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Alias for /api/clauses for legacy/newer client routes."""
+    return await get_clauses(category=category, language=language, current_user=current_user)
+
+@app.post("/api/clauses", response_model=ClauseResponse)
+async def create_clause(
+    clause_data: ClauseCreate,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Create new clause"""
+    try:
+        clause = await db.create_clause(
+            user_id=current_user.id,
+            category=clause_data.category,
+            title=clause_data.title,
+            content=clause_data.content,
+            tags=clause_data.tags,
+            language=clause_data.language
+        )
+        return ClauseResponse(
+            id=clause.get("id"),
+            title=clause.get("title", clause_data.title),
+            content=clause.get("content", clause_data.content),
+            category=clause.get("category", clause_data.category),
+            language=clause.get("language", clause_data.language),
+            created_at=clause.get("created_at") or datetime.utcnow(),
+        )
+    except Exception as e:
+        logger.error(f"Create clause error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create clause"
+        )
+
+# ============ CLIPBOARD ENDPOINTS ============
+
+@app.get("/api/clipboard", response_model=List[ClipboardResponse])
+async def get_clipboard_entries(
+    limit: int = 50,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Get user clipboard entries"""
+    try:
+        entries = await db.get_clipboard_entries(current_user.id, limit)
+        return [
+            ClipboardResponse(
+                id=e.id,
+                content=e.content,
+                source_type=e.source_type,
+                metadata=e.metadata,
+                created_at=e.created_at
+            ) for e in entries
+        ]
+    except Exception as e:
+        logger.error(f"Get clipboard error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve clipboard entries"
+        )
+
+@app.post("/api/clipboard", response_model=ClipboardResponse)
+async def add_clipboard_entry(
+    entry_data: ClipboardCreate,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Add entry to clipboard"""
+    try:
+        entry = await db.create_clipboard_entry(
+            user_id=current_user.id,
+            content=entry_data.content,
+            source_type=entry_data.source_type,
+            metadata=entry_data.metadata,
+            expires_at=entry_data.expires_at
+        )
+        
+        return ClipboardResponse(
+            id=entry.id,
+            content=entry.content,
+            source_type=entry.source_type,
+            metadata=entry.metadata,
+            created_at=entry.created_at
+        )
+    except Exception as e:
+        logger.error(f"Add clipboard error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to add clipboard entry"
+        )
+
+# ============ AI ENDPOINTS ============
+
+@app.post("/api/ai/complete", response_model=AIResponse)
+async def ai_complete(
+    request_data: AIRequest,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Generate AI completion using Together API with Redis caching."""
+    try:
+        # Build deterministic cache key using user + params
+        ptxt = (request_data.prompt or "").strip()
+        ctxt = (request_data.context or "").strip()
+        model = request_data.model or ""
+        temp = request_data.temperature if request_data.temperature is not None else ""
+        key_raw = f"u:{current_user.id}|m:{model}|t:{temp}|p:{_sha256(ptxt)}|c:{_sha256(ctxt)}"
+        cache_key = f"ai:complete:v1:{_sha256(key_raw)}"
+
+        # Try cache first
+        try:
+            cached = await cache_service.redis_client.get(cache_key)
+            if cached:
+                data = json.loads(cached)
+                # Return as dict; response_model will validate/serialize
+                return data
+        except Exception as ce:
+            logger.warning(f"AI cache get failed: {ce}")
+
+        # No cache hit: generate
+        response = await ai_service.generate_completion(
+            prompt=ptxt,
+            model=model,
+            max_tokens=request_data.max_tokens,
+            temperature=request_data.temperature,
+            context=ctxt,
+        )
+
+        # Track usage (best-effort)
+        try:
+            await db.create_analytics_event(
+                user_id=current_user.id,
+                event_type="ai_completion",
+                data={
+                    "model": model,
+                    "tokens_used": getattr(response, "tokens_used", None),
+                    "cost_estimate": getattr(response, "cost_estimate", None),
+                },
+            )
+        except Exception as te:
+            logger.warning(f"Analytics event failed: {te}")
+
+        # Store in cache (TTL 1 day) when response is healthy
+        response_usage = getattr(response, "usage", {}) or {}
+        if not response_usage.get("error"):
+            try:
+                payload = {
+                    "content": getattr(response, "content", None),
+                    "tokens_used": getattr(response, "tokens_used", None),
+                    "model_used": getattr(response, "model_used", None),
+                    "generation_time_ms": getattr(response, "generation_time_ms", None),
+                    "cost_estimate": getattr(response, "cost_estimate", None),
+                    "prompt_used": getattr(response, "prompt_used", None),
+                }
+                await cache_service.redis_client.setex(cache_key, 86400, json.dumps(payload))
+            except Exception as se:
+                logger.warning(f"AI cache set failed: {se}")
+
+        return response
+    except Exception as e:
+        logger.error(f"AI completion error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI completion failed"
+        )
+
+@app.post("/api/assistant/feedback")
+async def submit_feedback(req: FeedbackRequest, request: Request, current_user: UserInDB = Depends(get_current_user)):
+    if not FEEDBACK_V1_ENABLED:
+        raise HTTPException(status_code=404, detail="Not enabled")
+    # Rate limit: 60/hour
+    ok = await _rate_limit(str(current_user.id), "fb", 60)
+    if not ok:
+        raise HTTPException(status_code=429, detail="rate limit")
+    if req.rating not in (-1, 1):
+        raise HTTPException(status_code=400, detail="invalid rating")
+    if req.rating == -1 and not (req.reasons and isinstance(req.reasons, list) and len(req.reasons)>0):
+        raise HTTPException(status_code=400, detail="reasons required for negative rating")
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    try:
+        # ensure message row
+        await _ensure_message_exists(req.message_id, str(current_user.id), conversation_id=req.conversation_id, model=req.model)
+        async with db.get_connection() as conn:
+            await conn.execute(
+                """
+                INSERT INTO message_feedback (message_id, user_id, rating, reasons, note, model, message_hash, ip_hash, user_agent)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                ON CONFLICT (user_id, message_id) DO UPDATE SET
+                    rating = EXCLUDED.rating,
+                    reasons = EXCLUDED.reasons,
+                    note = EXCLUDED.note,
+                    model = EXCLUDED.model,
+                    message_hash = EXCLUDED.message_hash,
+                    ip_hash = EXCLUDED.ip_hash,
+                    user_agent = EXCLUDED.user_agent,
+                    updated_at = NOW()
+                """,
+                uuid.UUID(req.message_id), current_user.id, req.rating, req.reasons, req.note,
+                req.model, req.message_hash, _hash_ip(ip), ua
+            )
+        return {"ok": True, "feedback_id": str(uuid.uuid4())}
+    except Exception as e:
+        logger.error(f"feedback error: {e}")
+        raise HTTPException(status_code=500, detail="feedback failed")
+
+@app.post("/api/assistant/edit")
+async def submit_edit(req: EditRequest, request: Request, current_user: UserInDB = Depends(get_current_user)):
+    if not FEEDBACK_V1_ENABLED:
+        raise HTTPException(status_code=404, detail="Not enabled")
+    # Rate limit: 30/hour
+    ok = await _rate_limit(str(current_user.id), "edit", 30)
+    if not ok:
+        raise HTTPException(status_code=429, detail="rate limit")
+    if not req.edited_content or len(req.edited_content.strip()) < 20:
+        raise HTTPException(status_code=400, detail="edited_content too short")
+    try:
+        await _ensure_message_exists(req.message_id, str(current_user.id), conversation_id=req.conversation_id)
+        async with db.get_connection() as conn:
+            await conn.execute(
+                """
+                INSERT INTO message_edits (message_id, user_id, edited_content, allow_training, message_hash, diff)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                """,
+                uuid.UUID(req.message_id), current_user.id, req.edited_content, req.allow_training, req.message_hash, None
+            )
+        return {"ok": True, "edit_id": str(uuid.uuid4())}
+    except Exception as e:
+        logger.error(f"edit error: {e}")
+        raise HTTPException(status_code=500, detail="edit failed")
+
+class AbuseRequest(BaseModel):
+    message_id: str
+    category: str
+    note: _Optional[str] = None
+
+@app.post("/api/assistant/abuse")
+async def report_abuse(req: AbuseRequest, request: Request, current_user: UserInDB = Depends(get_current_user)):
+    if not FEEDBACK_V1_ENABLED:
+        raise HTTPException(status_code=404, detail="Not enabled")
+    ok = await _rate_limit(str(current_user.id), "abuse", 10)
+    if not ok:
+        raise HTTPException(status_code=429, detail="rate limit")
+    try:
+        await db.create_analytics_event(
+            user_id=current_user.id,
+            event_type="assistant_abuse",
+            event_data={"message_id": req.message_id, "category": req.category, "note": req.note},
+            ip_address=(request.client.host if request.client else None),
+            user_agent=request.headers.get("user-agent")
+        )
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"abuse report error: {e}")
+        raise HTTPException(status_code=500, detail="abuse report failed")
+
+class ChatRequest(BaseModel):
+    message: str
+    conversation_id: _Optional[str] = None
+    model: _Optional[str] = None
+    max_tokens: _Optional[int] = 1000
+    temperature: _Optional[float] = 0.7
+
+@app.post("/api/assistant/chat")
+async def assistant_chat(
+    req: ChatRequest,
+    request: Request,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Conversational AI chat endpoint with context awareness"""
+    try:
+        # Validate message length
+        if not req.message or not req.message.strip():
+            raise HTTPException(status_code=400, detail="Nachricht darf nicht leer sein")
+        if len(req.message) > 4000:
+            raise HTTPException(
+                status_code=400,
+                detail="Ihre Nachricht ist zu lang. Maximal 4000 Zeichen erlaubt."
+            )
+        
+        # Rate limiting: 10 messages per minute
+        ok = await _rate_limit(str(current_user.id), "assistant_chat", 10)
+        if not ok:
+            raise HTTPException(
+                status_code=429,
+                detail="Sie haben das Nachrichtenlimit überschritten. Bitte warten Sie einen Moment."
+            )
+        
+        # Retrieve conversation history if conversation_id provided
+        conversation_uuid = None
+        context_text = ""
+        if req.conversation_id:
+            try:
+                conversation_uuid = uuid.UUID(req.conversation_id)
+                history = await db.get_conversation_history(
+                    conversation_id=conversation_uuid,
+                    user_id=current_user.id,
+                    limit=5  # Last 5 messages for context
+                )
+                
+                if not history:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Diese Konversation wurde nicht gefunden."
+                    )
+                
+                # Build context from conversation history
+                context_parts = []
+                for msg in history[-5:]:  # Take last 5 messages
+                    role = "User" if msg['role'] == 'user' else "Assistant"
+                    context_parts.append(f"{role}: {msg['content']}")
+                context_text = "\n\n".join(context_parts)
+                
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Ungültige Konversations-ID."
+                )
+        
+        # Save user message to database (before AI generation)
+        user_msg_result = await db.create_conversation_message(
+            user_id=current_user.id,
+            role="user",
+            content=req.message,
+            conversation_id=conversation_uuid,
+            model=None
+        )
+        
+        # Use the returned conversation_id (new or existing)
+        conversation_id_str = user_msg_result['conversation_id']
+        conversation_uuid = uuid.UUID(conversation_id_str)
+        
+        # Generate AI response with context
+        start_time = datetime.utcnow()
+        try:
+            ai_response = await ai_service.generate_completion(
+                prompt=req.message,
+                model=req.model,
+                max_tokens=req.max_tokens,
+                temperature=req.temperature,
+                context=context_text
+            )
+            generation_time_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+            # Log empty/short responses for monitoring
+            try:
+                content_preview = (ai_response.content or "").strip()
+                if not content_preview or len(content_preview) < 20:
+                    logger.warning(
+                        "assistant_chat: sidecar returned empty/short text",
+                        extra={
+                            "conversation_id": conversation_id_str,
+                            "user_id": str(current_user.id),
+                            "model": ai_response.model_used or req.model or "qwen_legal_q4_k_m",
+                            "latency_ms": generation_time_ms,
+                        }
+                    )
+            except Exception:
+                pass
+            
+            # Save assistant response to database
+            assistant_msg_result = await db.create_conversation_message(
+                user_id=current_user.id,
+                role="assistant",
+                content=ai_response.content,
+                conversation_id=conversation_uuid,
+                model=ai_response.model_used or req.model or "qwen_legal_q4_k_m"
+            )
+            
+            # Return response with metadata
+            return {
+                "content": ai_response.content,
+                "conversation_id": conversation_id_str,
+                "message_id": assistant_msg_result['message_id'],
+                "model": ai_response.model_used or req.model or "qwen_legal_q4_k_m",
+                "usage": ai_response.usage if hasattr(ai_response, 'usage') else {},
+                "generation_time_ms": generation_time_ms
+            }
+            
+        except Exception as ai_error:
+            logger.error(f"AI service error in chat: {ai_error}")
+            raise HTTPException(
+                status_code=503,
+                detail="Ich konnte die Antwort gerade nicht fertigstellen. Bitte stellen Sie Ihre Frage gleich noch einmal – ich helfe sofort weiter."
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Assistant chat error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
+        )
+
+@app.get("/api/rag/test")
+async def rag_test(query: str = "§ 823 BGB"):
+    """Test RAG retrieval endpoint"""
+    try:
+        from rag_service import rag_service
+        
+        start_time = time.time()
+        results = rag_service.retrieve(query)
+        retrieval_time = int((time.time() - start_time) * 1000)
+        
+        return {
+            "query": query,
+            "results": results,
+            "count": len(results),
+            "retrieval_time_ms": retrieval_time
+        }
+    except Exception as e:
+        logger.error(f"RAG test failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ai/complete-test")
+async def ai_complete_test(request_data: dict):
+    """Temporary unauthenticated endpoint for on-box quality testing.
+    Caps max_tokens to 512 to avoid overload.
+    """
+    try:
+        prompt = (request_data.get("prompt") or "").strip()
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Missing prompt")
+        model = request_data.get("model")
+        max_tokens = min(int(request_data.get("max_tokens") or 256), 512)
+        temperature = request_data.get("temperature")
+        context = request_data.get("context") or "general"
+
+        response = await ai_service.generate_completion(
+            prompt=prompt,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            context=context,
+        )
+        return {
+            "content": response.content,
+            "tokens_used": response.tokens_used,
+            "model_used": response.model_used,
+            "generation_time_ms": response.generation_time_ms,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"complete-test error: {e}")
+        raise HTTPException(status_code=500, detail="AI test failed")
+
+@app.post("/api/ai/generate-document", response_model=DocumentResponse)
+async def generate_document(
+    request_data: DocumentGenerateRequest,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Generate legal document using AI"""
+    try:
+        upload_excerpt = ""
+        if request_data.upload_id and upload_processor:
+            try:
+                upload_excerpt = upload_processor.get_file_content(request_data.upload_id) or ""
+            except Exception as _ue:
+                logger.warning(f"upload text retrieval failed for {request_data.upload_id}: {_ue}")
+
+        try:
+            ai_response = await ai_service.generate_document(
+                document_type=request_data.document_type,
+                title=request_data.title,
+                instructions=request_data.instructions,
+                tone=request_data.tone,
+                template_content=request_data.template_content or "",
+                variables=request_data.variables,
+                upload_excerpt=upload_excerpt,
+                model=request_data.model,
+                fail_hard=True,
+            )
+        except httpx.HTTPStatusError as exc:
+            detail = _http_error_detail(exc)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
+        except Exception as exc:
+            logger.error(f"AI provider failure: {exc}")
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI provider unavailable")
+
+        try:
+            rendered_html = ai_service.format_document_json(ai_response.content)
+        except Exception:
+            rendered_html = None
+        safe_content = rendered_html if rendered_html else ai_service._normalize_document_output(ai_response.content)
+
+        if not safe_content or not safe_content.strip():
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI response did not contain usable content")
+
+        document = await db.create_document(
+            user_id=current_user.id,
+            title=request_data.title or f"{request_data.document_type.title()} ({datetime.utcnow().strftime('%d.%m.%Y')})",
+            content=safe_content,
+            document_type=request_data.document_type,
+        )
+        
+        metadata = {
+            "model_used": ai_response.model_used or request_data.model,
+            "generation_time_ms": ai_response.generation_time_ms,
+            "redactions": (ai_response.usage or {}).get("redactions"),
+            "sanitized": (ai_response.usage or {}).get("sanitized"),
+        }
+
+        resp = DocumentResponse(
+            id=str(document.get("id")),
+            title=document.get("title", request_data.title or request_data.document_type),
+            content=document.get("content", safe_content),
+            document_type=document.get("document_type") or document.get("type") or request_data.document_type,
+            created_at=document.get("created_at") or datetime.utcnow(),
+            metadata=metadata,
+            processing_state="generated",
+        )
+        return resp
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Document generation error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document generation failed"
+        )
+
+# ============ FILE UPLOAD ENDPOINTS ============
+
+@app.get("/api/files")
+async def list_files(current_user: UserInDB = Depends(get_current_user_flexible)):
+    if not upload_processor:
+        raise HTTPException(status_code=500, detail="Upload subsystem not available")
+    try:
+        items = upload_processor.list_user_files(str(current_user.id))
+        return {"files": items}
+    except Exception as e:
+        logger.error(f"List files error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list files")
+
+
+@app.post("/api/files/upload")
+async def upload_file(file: UploadFile = File(...), current_user: UserInDB = Depends(get_current_user_flexible)):
+    if not upload_processor:
+        raise HTTPException(status_code=500, detail="Upload subsystem not available")
+    try:
+        result = await upload_processor.handle_upload(file, str(current_user.id), db=db)
+        normalized = {**result, "id": result.get("file_id"), "fileId": result.get("file_id"), "name": result.get("filename")}
+        return {"success": True, **normalized}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"File upload error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/files/{file_id}/content")
+async def get_file_content_endpoint(file_id: str, current_user: UserInDB = Depends(get_current_user_flexible)):
+    if not upload_processor:
+        raise HTTPException(status_code=500, detail="Upload subsystem not available")
+    content = upload_processor.get_file_content(file_id)
+    if content is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {"success": True, "file_id": file_id, "content": content}
+
+
+@app.get("/api/files/{file_id}/metadata")
+async def get_file_metadata_endpoint(file_id: str, current_user: UserInDB = Depends(get_current_user_flexible)):
+    if not upload_processor:
+        raise HTTPException(status_code=500, detail="Upload subsystem not available")
+    meta = upload_processor.get_file_metadata(file_id)
+    if not meta or str(meta.get("user_id")) != str(current_user.id):
+        raise HTTPException(status_code=404, detail="File not found")
+    return meta
+
+
+@app.delete("/api/files/{file_id}")
+async def delete_file_endpoint(file_id: str, current_user: UserInDB = Depends(get_current_user_flexible)):
+    if not upload_processor:
+        raise HTTPException(status_code=500, detail="Upload subsystem not available")
+    ok = upload_processor.delete_file(file_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {"success": True}
+
+
+@app.post("/api/files/{file_id}/process")
+async def process_file_endpoint(file_id: str, current_user: UserInDB = Depends(get_current_user_flexible)):
+    if not upload_processor:
+        raise HTTPException(status_code=500, detail="Upload subsystem not available")
+    try:
+        result = await upload_processor.process_existing(file_id, db=db)
+        return {"success": True, **result}
+    except Exception as e:
+        logger.error(f"Process file error: {e}")
+        raise HTTPException(status_code=500, detail="Processing failed")
+
+
+# ============ DOCUMENT PROCESSING HELPERS ============
+
+def _coerce_document_generation_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
+    payload: Dict[str, Any] = dict(raw or {})
+    upload_id = payload.get("uploadId") or payload.get("upload_id") or payload.get("uploadedFileId")
+    if upload_id:
+        payload["uploadId"] = upload_id
+        payload["upload_id"] = upload_id
+    template_content = (
+        payload.get("template_content")
+        or payload.get("templateContent")
+        or payload.get("template")
+    )
+    if template_content is not None:
+        payload["template_content"] = template_content
+    document_type = (payload.get("document_type") or payload.get("docType") or "custom").strip() or "custom"
+    payload["document_type"] = document_type
+    title = payload.get("title") or document_type or "Rechtsdokument"
+    payload["title"] = title
+    instructions = (
+        payload.get("instructions")
+        or payload.get("prompt")
+        or payload.get("requirements")
+        or ""
+    )
+    payload["instructions"] = instructions
+    tone = (payload.get("tone") or "neutral").strip() or "neutral"
+    payload["tone"] = tone
+    if "variables" not in payload or payload["variables"] is None:
+        payload["variables"] = {}
+    return payload
+
+
+def _normalize_document_process_result(raw: Any, default_state: str = "generated") -> Dict[str, Any]:
+    if isinstance(raw, BaseModel):
+        data = raw.model_dump()
+    elif isinstance(raw, dict):
+        data = dict(raw)
+    else:
+        data = {}
+
+    document = data.get("document")
+    if isinstance(document, BaseModel):
+        document = document.model_dump()
+    if not isinstance(document, dict):
+        document = {}
+
+    doc_source = document if document else data
+    if isinstance(doc_source, BaseModel):
+        doc_source = doc_source.model_dump()
+    if not isinstance(doc_source, dict):
+        doc_source = {}
+
+    raw_doc_id = doc_source.get("id") or data.get("id") or data.get("documentId")
+    doc_id = str(raw_doc_id) if raw_doc_id else None
+
+    download = data.get("download") or doc_source.get("download")
+    if not download and doc_id:
+        download = {
+            "docx": f"/api/documents/{doc_id}/export?format=docx",
+            "pdf": f"/api/documents/{doc_id}/export?format=pdf",
+        }
+
+    metadata = doc_source.get("metadata") or data.get("metadata") or {}
+    processing_state = (
+        doc_source.get("processing_state")
+        or data.get("processing_state")
+        or default_state
+    )
+    status_value = (
+        doc_source.get("status")
+        or data.get("status")
+        or ("submitted" if processing_state == "submitted" else "generated")
+    )
+    title = (
+        doc_source.get("title")
+        or data.get("title")
+        or doc_source.get("document_type")
+        or "Rechtsdokument"
+    )
+    content = doc_source.get("content") or data.get("content") or ""
+    doc_type = (
+        doc_source.get("document_type")
+        or doc_source.get("type")
+        or data.get("document_type")
+        or "custom"
+    )
+    created_at = doc_source.get("created_at") or data.get("created_at")
+    if isinstance(created_at, datetime):
+        created_at = created_at.isoformat()
+    if created_at is None:
+        created_at = datetime.utcnow().isoformat()
+
+    normalized_document = {
+        "id": doc_id,
+        "title": title,
+        "content": content,
+        "document_type": doc_type,
+        "created_at": created_at,
+        "metadata": metadata,
+        "status": status_value,
+        "processing_state": processing_state,
+        "download": download,
+    }
+
+    return {
+        "success": bool(data.get("success", True)),
+        "document": normalized_document,
+        "metadata": metadata,
+        "processing_state": processing_state,
+        "status": status_value,
+        "documentId": doc_id,
+        "id": doc_id,
+        "download": download,
+    }
+
+
+@app.post("/api/documents/process")
+async def process_document_action(
+    request: Request,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    action = str((body.get("action") or "generate")).strip().lower()
+    raw_payload = body.get("payload") or body or {}
+
+    if action not in {"generate", "submit"}:
+        raise HTTPException(status_code=400, detail=f"Unsupported action '{action}'")
+
+    if action == "generate":
+        payload = _coerce_document_generation_payload(raw_payload)
+        try:
+            simple_result = await generate_document_working(payload, current_user)  # type: ignore[arg-type]
+            return _normalize_document_process_result(simple_result, "generated")
+        except HTTPException as exc:
+            if exc.status_code != status.HTTP_403_FORBIDDEN:
+                raise
+
+        try:
+            full_request = DocumentGenerateRequest(
+                document_type=payload.get("document_type") or "custom",
+                title=payload.get("title"),
+                instructions=payload.get("instructions"),
+                tone=payload.get("tone"),
+                variables=payload.get("variables"),
+                model=payload.get("model"),
+                template_id=payload.get("template_id") or payload.get("templateId"),
+                template_content=payload.get("template_content"),
+                upload_id=payload.get("uploadId") or payload.get("upload_id"),
+            )
+        except Exception as validation_error:
+            raise HTTPException(status_code=400, detail=f"Invalid payload: {validation_error}")
+
+        full_result = await generate_document(full_request, current_user)
+        return _normalize_document_process_result(full_result, full_result.processing_state or "generated")
+
+    submission_payload = dict(raw_payload or {})
+    submission_result = await save_document_endpoint(submission_payload, current_user)
+    doc_id = submission_result.get("id") or submission_result.get("documentId")
+    desired_status = submission_payload.get("status")
+    if doc_id and desired_status:
+        try:
+            await update_document_status_endpoint(str(doc_id), {"status": desired_status}, current_user)
+        except Exception as status_error:
+            logger.warning(f"Document status update failed: {status_error}")
+    return _normalize_document_process_result(submission_result, submission_result.get("processing_state") or "submitted")
+
+
+# ============ DOCUMENT SAVE/EXPORT/STATUS ENDPOINTS ============
+
+@app.post("/api/documents/save")
+async def save_document_endpoint(payload: dict, current_user: UserInDB = Depends(get_current_user_flexible)):
+    try:
+        title = (payload.get("title") or "Unbenanntes Dokument").strip()
+        content = payload.get("content") or payload.get("html") or ""
+        doc_type = payload.get("document_type") or "custom"
+        template_id = payload.get("template_id")
+        metadata = payload.get("metadata")
+        requested_status = (payload.get("status") or "").strip().lower()
+        processing_state = payload.get("processing_state")
+
+        document = await db.create_document(
+            user_id=current_user.id,
+            title=title,
+            content=content,
+            document_type=doc_type,
+        )
+        raw_id = document.get("id")
+        doc_id = str(raw_id) if raw_id else None
+        status_value = requested_status or document.get("status") or "saved"
+        normalized_processing_state = processing_state or ("submitted" if status_value in {"submitted", "sent", "final"} else "saved")
+        download_links = {}
+        if doc_id:
+            download_links = {
+                "docx": f"/api/documents/{doc_id}/export?format=docx",
+                "pdf": f"/api/documents/{doc_id}/export?format=pdf",
+            }
+        # Normalize mapping from DB result (dict)
+        return {
+            "success": True,
+            "id": doc_id,
+            "documentId": doc_id,
+            "status": status_value,
+            "processing_state": normalized_processing_state,
+            "download": download_links,
+            "document": {
+                "id": doc_id,
+                "title": document.get("title", title),
+                "content": document.get("content", content),
+                "document_type": document.get("document_type") or document.get("type") or doc_type,
+                "created_at": document.get("created_at") or datetime.utcnow().isoformat(),
+                "metadata": metadata or {},
+                "status": status_value,
+                "processing_state": normalized_processing_state,
+                "download": download_links,
+            },
+        }
+    except Exception as e:
+        logger.error(f"Save document error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save document")
+
+
+@app.get("/api/documents/{doc_id}/export")
+async def export_document_endpoint(doc_id: str, format: str = "docx", current_user: UserInDB = Depends(get_current_user_flexible)):
+    try:
+        import export_utils  # type: ignore
+    except Exception:
+        raise HTTPException(status_code=500, detail="Export utilities not available")
+    try:
+        async with db.get_connection() as conn:
+            row = await conn.fetchrow("SELECT id, title, content FROM documents WHERE id = $1 AND user_id = $2", uuid.UUID(doc_id), current_user.id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Document not found")
+        data, filename, media_type = export_utils.export_document(format=format, title=row["title"], content=row["content"])
+        return StreamingResponse(iter([data]), media_type=media_type, headers={"Content-Disposition": f"attachment; filename=\"{filename}\""})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Export document error: {e}")
+        raise HTTPException(status_code=500, detail="Export failed")
+
+
+@app.post("/api/documents/{doc_id}/status")
+async def update_document_status_endpoint(doc_id: str, payload: dict, current_user: UserInDB = Depends(get_current_user_flexible)):
+    try:
+        new_status = (payload.get("status") or "").strip().lower()
+        async with db.get_connection() as conn:
+            try:
+                await conn.execute(
+                    "UPDATE documents SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3",
+                    new_status, uuid.UUID(doc_id), current_user.id
+                )
+            except Exception as e:
+                # Auto-heal: add missing status column and retry once
+                if "column \"status\" of relation \"documents\" does not exist" in str(e).lower():
+                    try:
+                        await conn.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS status TEXT")
+                        await conn.execute(
+                            "UPDATE documents SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3",
+                            new_status, uuid.UUID(doc_id), current_user.id
+                        )
+                    except Exception as e2:
+                        logger.error(f"Auto-heal status column failed: {e2}")
+                        raise
+                else:
+                    raise
+        return {"success": True, "status": new_status}
+    except Exception as e:
+        logger.error(f"Update document status error: {e}")
+        raise HTTPException(status_code=500, detail="Status update failed")
+
+
+@app.post("/api/documents/status")
+async def update_document_status_noid_endpoint(payload: dict, current_user: UserInDB = Depends(get_current_user_flexible)):
+    doc_id = payload.get("doc_id") or payload.get("document_id") or payload.get("id")
+    if not doc_id:
+        raise HTTPException(status_code=400, detail="Missing doc_id")
+    return await update_document_status_endpoint(str(doc_id), payload, current_user)
+
+
+@app.get("/internal/dashboard-summary/{user_id}")
+async def internal_dashboard_summary(user_id: str, request: Request):
+    """Return aggregated dashboard metrics for the specified user."""
+    key_required = DASHBOARD_SERVICE_KEY
+    provided_key = (request.headers.get("x-service-key") or "").strip()
+
+    if key_required:
+        if not provided_key or not secrets.compare_digest(provided_key, key_required):
+            logger.warning("Dashboard summary access denied: invalid service key")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user id")
+
+    if not db:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+
+    try:
+        summary = await db.get_dashboard_summary(user_uuid)
+        return summary
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to compute dashboard summary", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Dashboard summary unavailable") from exc
+
+# ============ WORKING LOGIN ENDPOINT ============
+
+@app.post("/auth/login-working")
+async def login_working(request: dict):
+    """Working login endpoint for frontend"""
+    try:
+        email = request.get("email", "").strip().lower()
+        password = request.get("password", "")
+        
+        logger.info(f"Login attempt for: {email}")
+        
+        if not email or not password:
+            return {"error": "Email and password required", "success": False}
+        
+        # Get user
+        user = await db.get_user_by_email(email)
+        if not user:
+            logger.warning(f"User not found: {email}")
+            return {"error": "Invalid credentials", "success": False}
+        
+        # Verify password  
+        if not auth_service.verify_password(password, user.password_hash):
+            logger.warning(f"Invalid password for: {email}")
+            return {"error": "Invalid credentials", "success": False}
+        
+        # Check active status
+        if hasattr(user, "is_active") and not user.is_active:
+            logger.warning(f"Inactive user: {email}")
+            return {"error": "Account disabled", "success": False}
+        
+        # Create token
+        token = auth_service.create_access_token(data={"sub": str(user.id)})
+        
+        # Store session
+        session_id = str(uuid.uuid4())
+        if cache_service:
+            await cache_service.store_session(session_id, str(user.id), expires_in=86400)
+        
+        logger.info(f"Login successful for: {email}")
+        
+        payload = {
+            "success": True,
+            "token": token,
+            "token_type": "bearer", 
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name,
+                "role": user.role
+            }
+        }
+        response = JSONResponse(content=payload)
+        _set_auth_cookies(response, token)
+        return response
+        
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return {"error": f"Server error: {str(e)}", "success": False}
+
+# ============ PASSWORD RESET (OTP) ============
+
+@app.post("/auth/forgot-password")
+async def forgot_password(payload: dict):
+    """Initiate password reset by generating an OTP and sending via email.
+    Non-destructive; stores OTP in Redis with short TTL.
+    """
+    try:
+        email = (payload.get("email") or "").strip().lower()
+        if not email or "@" not in email:
+            raise HTTPException(status_code=400, detail="Gültige E-Mail-Adresse erforderlich")
+
+        user = await db.get_user_by_email(email)
+        if not user:
+            # Do not reveal existence; return success
+            return {"success": True}
+
+        # Generate 6-digit OTP
+        otp = f"{secrets.randbelow(1000000):06d}"
+        key = f"pwd:otp:{email}"
+        try:
+            # Use cache service helper for consistency
+            await cache_service.set(key, otp, ttl=600)  # 10 minutes
+        except Exception as e:
+            logger.error(f"OTP store failed: {e}")
+            raise HTTPException(status_code=500, detail="Reset failed")
+
+        # Send email via SMTP or log
+        sent = send_email(
+            subject="Ihr Anwalts.AI Einmal-Code",
+            to_email=email,
+            body_text=f"Ihr Einmal-Code lautet: {otp}. Er ist 10 Minuten gültig."
+        )
+        if not sent:
+            logger.warning("SMTP send returned False; check SMTP_* env or MailHog availability")
+        resp = {"success": True}
+        if os.getenv("DEBUG_PASSWORD_RESET", "0") == "1":
+            resp["otp"] = otp
+            resp["sent"] = sent
+        return resp
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"forgot-password error: {e}")
+        raise HTTPException(status_code=500, detail="Reset failed")
+
+
+@app.post("/auth/reset-password")
+async def reset_password(payload: dict):
+    """Verify OTP and set a new password."""
+    try:
+        email = (payload.get("email") or "").strip().lower()
+        otp = (payload.get("otp") or "").strip()
+        new_password = payload.get("new_password") or ""
+        if not email or not otp or not new_password:
+            raise HTTPException(status_code=400, detail="Missing fields")
+        if len(new_password) < 8:
+            raise HTTPException(status_code=400, detail="Passwort ist zu kurz")
+
+        user = await db.get_user_by_email(email)
+        if not user:
+            # Don't reveal; pretend success
+            return {"success": True}
+
+        key = f"pwd:otp:{email}"
+        try:
+            stored = await cache_service.get(key)
+        except Exception as e:
+            logger.error(f"OTP get failed: {e}")
+            raise HTTPException(status_code=500, detail="Reset failed")
+        if not stored or stored != otp:
+            raise HTTPException(status_code=400, detail="Ungültiger Code")
+
+        # Update password
+        new_hash = auth_service.hash_password(new_password)
+        ok = await db.update_user_password(user.id, new_hash)
+        if not ok:
+            raise HTTPException(status_code=500, detail="Reset failed")
+
+        try:
+            await cache_service.delete(key)
+        except Exception:
+            pass
+
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"reset-password error: {e}")
+        raise HTTPException(status_code=500, detail="Reset failed")
+
+
+@app.post("/auth/change-password")
+async def change_password(payload: dict, current_user: UserInDB = Depends(get_current_user)):
+    """Change password for authenticated user."""
+    try:
+        current_password = payload.get("current_password") or ""
+        new_password = payload.get("new_password") or ""
+        if not current_password or not new_password:
+            raise HTTPException(status_code=400, detail="Missing fields")
+        if len(new_password) < 8:
+            raise HTTPException(status_code=400, detail="Passwort ist zu kurz")
+
+        # Fetch fresh user and verify current password
+        user = await db.get_user_by_id(str(current_user.id))
+        if not user or not auth_service.verify_password(current_password, user.password_hash):
+            raise HTTPException(status_code=400, detail="Aktuelles Passwort ist falsch")
+
+        new_hash = auth_service.hash_password(new_password)
+        ok = await db.update_user_password(user.id, new_hash)
+        if not ok:
+            raise HTTPException(status_code=500, detail="Änderung fehlgeschlagen")
+
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"change-password error: {e}")
+        raise HTTPException(status_code=500, detail="Änderung fehlgeschlagen")
+
+# ============ HEALTH CHECK ============
+
+@app.post("/test-simple")
+async def test_simple(data: dict):
+    """Simple test endpoint"""
+    logger.info(f"Test endpoint called with data: {data}")
+    return {"status": "success", "received": data}
+
+@app.post("/auth/quick-login")
+async def quick_login():
+    """Quick test login endpoint"""
+    return {
+        "success": True,
+        "token": "test-token-12345",
+        "token_type": "bearer",
+        "user": {
+            "id": "test-id",
+            "email": "admin@anwalts-ai.com", 
+            "name": "Administrator",
+            "role": "admin"
+        }
+    }
+
+
+@app.post("/api/ai/generate-document-simple")
+async def generate_document_working(
+    request: dict,
+    current_user: UserInDB = Depends(get_current_user_flexible)
+):
+    """Lightweight document generation endpoint using Together-backed prompt."""
+    try:
+        title = request.get("title", "Neues Dokument")
+        doc_type = request.get("document_type", "contract")
+        # Frontend sends 'instructions'; keep backward-compat with 'prompt'/'requirements'
+        user_instructions = (
+            request.get("instructions")
+            or request.get("prompt")
+            or request.get("requirements")
+            or ""
+        )
+        template_content = ""
+        upload_id = request.get("uploadId") or request.get("upload_id") or None
+        variables = request.get("variables") or {}
+        tone = (request.get("tone") or "neutral").strip().lower()
+        preferred_model = (request.get("model") or None)
+        # Try to pull OCR/text extracted from uploaded file
+        extracted_text = ""
+        try:
+            if upload_id and upload_processor:
+                extracted_text = upload_processor.get_file_content(upload_id) or ""
+        except Exception as _e:
+            logger.warning(f"Upload text retrieval failed for {upload_id}: {_e}")
+        
+        logger.info(f"🤖 Generating document with AI: {title} ({doc_type})")
+
+        ai_prompt, prompt_meta = ai_service.compose_document_prompt(
+            document_type=doc_type,
+            title=title,
+            instructions=user_instructions,
+            tone=tone,
+            template_content=template_content,
+            variables=variables,
+            upload_excerpt=extracted_text,
+        )
+
+        start_time = time.time()
+
+        # Cache check
+        try:
+            prompt_hash = cache_service.hash_prompt(
+                ai_prompt,
+                preferred_model or (os.getenv("LOCAL_AI_MODEL") or ai_service.local_default_model),
+                max_tokens=1800,
+                temperature=0.2,
+                mode="docgen_simple_v1",
+                tone=tone,
+            )
+            cached = await cache_service.get_cached_ai_response(prompt_hash)
+        except Exception as _ce:
+            logger.warning(f"simple docgen cache get failed: {_ce}")
+            cached = None
+
+        if cached and isinstance(cached, dict) and cached.get("content"):
+            generation_time = int((time.time() - start_time) * 1000)
+            # Sanitize or render cached content
+            try:
+                rendered_html = ai_service.format_document_json(cached.get("content", ""))
+            except Exception:
+                rendered_html = None
+            safe_cached = rendered_html if rendered_html else ai_service._sanitize_output_text(cached.get("content", ""))
+            metadata = {
+                "model_used": cached.get("model_used") or preferred_model,
+                "generation_time_ms": generation_time,
+                "redactions": dict(prompt_meta.get("redactions", {})),
+                "sanitized": {
+                    "instructions": prompt_meta.get("sanitized_instructions"),
+                    "upload_excerpt": prompt_meta.get("sanitized_upload"),
+                    "template": prompt_meta.get("sanitized_template"),
+                    "variables": prompt_meta.get("sanitized_variables"),
+                },
+            }
+            return {
+                "success": True,
+                "document": {
+                    "id": f"doc_{uuid.uuid4().hex[:8]}",
+                    "title": title,
+                    "content": safe_cached,
+                    "document_type": doc_type,
+                    "created_at": datetime.utcnow().isoformat(),
+                    "tokens_used": int(cached.get("tokens_used") or 0),
+                    "model_used": cached.get("model_used") or preferred_model,
+                    "generation_time_ms": generation_time,
+                    "processing_time": generation_time / 1000,
+                    "confidence": 0.95,
+                    "cost_estimate": float(cached.get("cost_estimate") or 0.0),
+                    "metadata": metadata,
+                    "processing_state": "generated",
+                },
+            }
+        
+        # Call AI service (prefer model from request, fallback to LOCAL_AI_MODEL)
+        from os import getenv as _getenv
+        if not preferred_model:
+            preferred_model = _getenv("LOCAL_AI_MODEL") or None
+        try:
+            ai_response = await ai_service.generate_completion(
+                prompt=ai_prompt,
+                model=preferred_model,
+                max_tokens=getattr(ai_service, "llm_max_tokens_default", 900),
+                temperature=0.2,
+                fail_hard=True,
+            )
+        except httpx.HTTPStatusError as exc:
+            detail = _http_error_detail(exc)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
+        except Exception as exc:
+            logger.error(f"Together completion failed: {exc}")
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI provider unavailable")
+        ai_response.prompt_used = ai_prompt
+        try:
+            ai_response.usage = ai_response.usage or {}
+            ai_response.usage["redactions"] = dict(prompt_meta.get("redactions", {}))
+            ai_response.usage["sanitized"] = {
+                "instructions": prompt_meta.get("sanitized_instructions"),
+                "upload_excerpt": prompt_meta.get("sanitized_upload"),
+                "template": prompt_meta.get("sanitized_template"),
+                "variables": prompt_meta.get("sanitized_variables"),
+            }
+        except Exception:
+            pass
+        
+        generation_time = int((time.time() - start_time) * 1000)
+        
+        logger.info(f"✅ AI generation completed in {generation_time}ms")
+
+        # Write to cache (best-effort)
+        try:
+            await cache_service.cache_ai_response(prompt_hash, {
+                "content": ai_response.content,
+                "tokens_used": ai_response.tokens_used,
+                "model_used": ai_response.model_used,
+                "generation_time_ms": generation_time,
+                "cost_estimate": ai_response.cost_estimate,
+                "redactions": dict(prompt_meta.get("redactions", {})),
+                "sanitized": {
+                    "instructions": prompt_meta.get("sanitized_instructions"),
+                    "upload_excerpt": prompt_meta.get("sanitized_upload"),
+                    "template": prompt_meta.get("sanitized_template"),
+                    "variables": prompt_meta.get("sanitized_variables"),
+                },
+            }, ttl=3600)
+        except Exception as _se:
+            logger.warning(f"simple docgen cache set failed: {_se}")
+        
+        # Try structured rendering to HTML; fallback to sanitized text
+        try:
+            rendered_html = ai_service.format_document_json(ai_response.content)
+        except Exception:
+            rendered_html = None
+        safe_content = rendered_html if rendered_html else ai_service._normalize_document_output(ai_response.content)
+        if not safe_content or not safe_content.strip():
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI response did not contain usable content")
+
+        return {
+            "success": True,
+            "document": {
+                "id": f"doc_{uuid.uuid4().hex[:8]}",
+                "title": title,
+                "content": safe_content,
+                "document_type": doc_type,
+                "created_at": datetime.utcnow().isoformat(),
+                "tokens_used": ai_response.tokens_used,
+                "model_used": ai_response.model_used,
+                "generation_time_ms": generation_time,
+                "processing_time": generation_time / 1000,
+                "confidence": 0.95,
+                "cost_estimate": ai_response.cost_estimate,
+                "metadata": {
+                    "model_used": ai_response.model_used or preferred_model,
+                    "generation_time_ms": generation_time,
+                    "redactions": ai_response.usage.get("redactions") if ai_response.usage else None,
+                    "sanitized": ai_response.usage.get("sanitized") if ai_response.usage else None,
+                },
+                "processing_state": "generated",
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ AI document generation error: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="AI generation failed")
+
+# Add missing import
+import time
+
+@app.get("/api/generate-test-doc")
+async def generate_test_document():
+    """Simple GET endpoint for document generation testing"""
+    content = f"""# Testdokument
+
+## Automatisch generiert am {datetime.utcnow().strftime('%d.%m.%Y um %H:%M Uhr')}
+
+### Inhalt
+
+Dies ist ein Testdokument von AnwaltsAI.
+
+**Funktionen:**
+- ✅ Backend-Verbindung
+- ✅ Dokumentenerstellung  
+- ✅ Deutsche Rechtsinhalte
+
+### Rechtlicher Hinweis
+
+Dieses Dokument dient nur zu Testzwecken.
+
+---
+*AnwaltsAI - Ihr KI-Partner für deutsche Rechtsdokumente*"""
+
+    return {
+        "success": True,
+        "document": {
+            "id": f"test_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+            "title": "AnwaltsAI Testdokument",
+            "content": content,
+            "document_type": "test",
+            "created_at": datetime.utcnow().isoformat(),
+            "model_used": "Backend Template"
+        }
+    }
+
+# =========================
+# NOTIFICATIONS ENDPOINTS
+# =========================
+
+async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """Helper function to get current user ID"""
+    global auth_service
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service not initialized"
+        )
+    return auth_service.get_current_user_id(credentials)
+
+@app.get("/api/notifications")
+async def get_notifications(
+    limit: int = 50,
+    unread: bool = False,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Get user notifications"""
+    try:
+        # For demo purposes, return mock notifications
+        # In real implementation, query database for user-specific notifications
+        mock_notifications = [
+            {
+                "id": 1,
+                "title": "Dokument erstellt",
+                "message": "Ihr Kaufvertrag wurde erfolgreich generiert.",
+                "type": "success",
+                "timestamp": datetime.utcnow() - timedelta(minutes=5),
+                "read": False,
+                "icon": "file-check"
+            },
+            {
+                "id": 2,
+                "title": "E-Mail verarbeitet",
+                "message": "Neue E-Mail von Mandant Müller eingetroffen.",
+                "type": "info",
+                "timestamp": datetime.utcnow() - timedelta(minutes=15),
+                "read": False,
+                "icon": "mail"
+            },
+            {
+                "id": 3,
+                "title": "Template gespeichert",
+                "message": "Neue Vorlage \"Mietvertrag\" wurde hinzugefügt.",
+                "type": "info",
+                "timestamp": datetime.utcnow() - timedelta(hours=1),
+                "read": True,
+                "icon": "bookmark"
+            },
+            {
+                "id": 4,
+                "title": "System Update",
+                "message": "AnwaltsAI wurde auf Version 2.1.0 aktualisiert.",
+                "type": "warning",
+                "timestamp": datetime.utcnow() - timedelta(days=1),
+                "read": True,
+                "icon": "alert-circle"
+            }
+        ]
+        
+        if unread:
+            mock_notifications = [n for n in mock_notifications if not n['read']]
+            
+        if limit:
+            mock_notifications = mock_notifications[:limit]
+            
+        return {
+            "success": True,
+            "notifications": mock_notifications,
+            "total": len(mock_notifications),
+            "unread_count": len([n for n in mock_notifications if not n['read']])
+        }
+        
+    except Exception as e:
+        logger.error(f"Get notifications error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Fehler beim Laden der Benachrichtigungen"
+        )
+
+@app.post("/api/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: int,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Mark a notification as read"""
+    try:
+        # In real implementation, update notification in database
+        logger.info(f"Marking notification {notification_id} as read for user {user_id}")
+        
+        return {
+            "success": True,
+            "message": "Benachrichtigung als gelesen markiert"
+        }
+        
+    except Exception as e:
+        logger.error(f"Mark notification read error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Fehler beim Markieren der Benachrichtigung"
+        )
+
+@app.post("/api/notifications/mark-all-read")
+async def mark_all_notifications_read(
+    user_id: str = Depends(get_current_user_id)
+):
+    """Mark all notifications as read for user"""
+    try:
+        # In real implementation, update all user notifications in database
+        logger.info(f"Marking all notifications as read for user {user_id}")
+        
+        return {
+            "success": True,
+            "message": "Alle Benachrichtigungen als gelesen markiert"
+        }
+        
+    except Exception as e:
+        logger.error(f"Mark all notifications read error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Fehler beim Markieren aller Benachrichtigungen"
+        )
+
+# =========================
+# USER SETTINGS ENDPOINTS
+# =========================
+
+@app.get("/api/user/settings")
+async def get_user_settings(
+    user_id: str = Depends(get_current_user_id)
+):
+    """Get user settings"""
+    try:
+        # In real implementation, fetch from database
+        # For now, return default settings
+        default_settings = {
+            "language": "de",
+            "theme": "dark",
+            "emailNotifications": True,
+            "browserNotifications": False,
+            "aiUpdates": True,
+            "aiModel": "deepseek-v3",
+            "aiCreativity": 70,
+            "autoSave": True
+        }
+        
+        return {
+            "success": True,
+            "settings": default_settings
+        }
+        
+    except Exception as e:
+        logger.error(f"Get user settings error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Fehler beim Laden der Benutzereinstellungen"
+        )
+
+@app.post("/api/user/settings")
+async def update_user_settings(
+    settings: dict,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Update user settings"""
+    try:
+        # In real implementation, validate and save to database
+        logger.info(f"Updating settings for user {user_id}: {settings}")
+        
+        # Validate settings structure (simplified)
+        allowed_keys = {
+            'language', 'theme', 'emailNotifications', 'browserNotifications',
+            'aiUpdates', 'aiModel', 'aiCreativity', 'autoSave'
+        }
+        
+        invalid_keys = set(settings.keys()) - allowed_keys
+        if invalid_keys:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Ungültige Einstellungsschlüssel: {invalid_keys}"
+            )
+        
+        # In real implementation: await db.update_user_settings(user_id, settings)
+        
+        return {
+            "success": True,
+            "message": "Benutzereinstellungen erfolgreich aktualisiert",
+            "settings": settings
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update user settings error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Fehler beim Speichern der Benutzereinstellungen"
+        )
+
+@app.put("/api/user/profile")
+async def update_user_profile(
+    profile_data: dict,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Update user profile information"""
+    try:
+        # In real implementation, validate and update user profile
+        logger.info(f"Updating profile for user {user_id}: {profile_data}")
+        
+        # Validate required fields
+        if 'name' in profile_data and not profile_data['name'].strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Name darf nicht leer sein"
+            )
+        
+        if 'email' in profile_data:
+            email = profile_data['email'].strip()
+            if not email or '@' not in email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Gültige E-Mail-Adresse erforderlich"
+                )
+        
+        # In real implementation: await db.update_user_profile(user_id, profile_data)
+        
+        return {
+            "success": True,
+            "message": "Profil erfolgreich aktualisiert",
+            "profile": profile_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update user profile error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Fehler beim Aktualisieren des Profils"
+        )
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    try:
+        # Check database connection
+        await db.health_check()
+        
+        # Check cache connection (optional)
+        if cache_service:
+            await cache_service.health_check()
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "services": {
+                "database": "healthy",
+                "cache": "healthy",
+                "ai_service": "healthy"
+            }
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service unhealthy"
+        )
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
+    
+# ============ API TOKENS (reuse sessions table) ============
+
+@app.get("/api/tokens")
+async def list_tokens(current_user: UserInDB = Depends(get_current_user)):
+    try:
+        tokens = await db.list_api_tokens(current_user.id)
+        return {"tokens": tokens}
+    except Exception as e:
+        logger.error(f"List tokens error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list tokens")
+
+@app.post("/api/tokens")
+async def create_token(payload: dict, current_user: UserInDB = Depends(get_current_user)):
+    try:
+        expires_days = int(payload.get("expires_in_days") or 365)
+        expires_at = datetime.utcnow() + timedelta(days=expires_days)
+
+        raw = uuid.uuid4().hex + uuid.uuid4().hex
+        token = f"anw_{raw}"
+        last4 = token[-4:]
+
+        rec = await db.create_api_token(current_user.id, token, expires_at, last4)
+        return {"token": token, "metadata": rec}
+    except Exception as e:
+        logger.error(f"Create token error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create token")
+
+@app.delete("/api/tokens/{token_id}")
+async def revoke_token(token_id: str, current_user: UserInDB = Depends(get_current_user)):
+    try:
+        tid = uuid.UUID(token_id)
+        ok = await db.revoke_api_token(current_user.id, tid)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Token not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Revoke token error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to revoke token")
+
+# ============ PUBLIC ALIAS PROXY ============
+
+_ALLOWED_ALIAS: List[str] = []
+
+def _is_allowed_target(url: str) -> bool:
+    try:
+        from urllib.parse import urlparse
+        u = urlparse(url)
+        if u.scheme not in ("http", "https"):
+            return False
+        if not u.hostname:
+            return False
+        if not _ALLOWED_ALIAS:
+            return True
+        host = u.hostname.lower()
+        return host in _ALLOWED_ALIAS
+    except Exception:
+        return False
+
+_user_aliases: Dict[str, Dict[str, Any]] = {}
+
+def _alias_key(user_id: str, slug: str) -> str:
+    return f"{user_id}:{slug}"
+
+@app.get("/api/aliases")
+async def list_aliases(current_user: UserInDB = Depends(get_current_user)):
+    try:
+        result = []
+        prefix = f"{current_user.id}:"
+        for key, val in _user_aliases.items():
+            if key.startswith(prefix):
+                result.append({
+                    "id": hashlib.sha1(key.encode()).hexdigest()[:16],
+                    "slug": key.split(":", 1)[1],
+                    "method": val["method"],
+                    "targetUrl": val["target"],
+                    "forwardHeaders": val.get("headers", []),
+                    "enabled": True,
+                    "createdAt": val.get("created_at"),
+                })
+        return {"aliases": result}
+    except Exception as e:
+        logger.error(f"List aliases error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list aliases")
+
+@app.post("/api/aliases")
+async def create_alias(payload: dict, current_user: UserInDB = Depends(get_current_user)):
+    try:
+        slug = (payload.get("slug") or "").strip()
+        method = (payload.get("method") or "POST").upper()
+        target = (payload.get("targetUrl") or "").strip()
+        headers = payload.get("forwardHeaders") or []
+
+        if not re.fullmatch(r"[a-z0-9-]{3,64}", slug or ""):
+            raise HTTPException(status_code=400, detail="Invalid slug")
+        if method not in {"GET","POST","PUT","PATCH","DELETE"}:
+            raise HTTPException(status_code=400, detail="Invalid method")
+        if not _is_allowed_target(target):
+            raise HTTPException(status_code=400, detail="Target URL not allowed")
+
+        key = _alias_key(str(current_user.id), slug)
+        _user_aliases[key] = {
+            "method": method,
+            "target": target,
+            "headers": [h for h in headers if isinstance(h, str) and h],
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        return {"alias": {
+            "id": hashlib.sha1(key.encode()).hexdigest()[:16],
+            "slug": slug,
+            "method": method,
+            "targetUrl": target,
+            "forwardHeaders": headers,
+            "enabled": True,
+            "createdAt": _user_aliases[key]["created_at"],
+        }}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Create alias error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create alias")
+
+@app.delete("/api/aliases")
+async def delete_alias(payload: dict, current_user: UserInDB = Depends(get_current_user)):
+    try:
+        alias_id = payload.get("id")
+        if not alias_id:
+            raise HTTPException(status_code=400, detail="Missing id")
+        to_delete = None
+        prefix = f"{current_user.id}:"
+        for key in list(_user_aliases.keys()):
+            if key.startswith(prefix):
+                if hashlib.sha1(key.encode()).hexdigest()[:16] == alias_id:
+                    to_delete = key
+                    break
+        if not to_delete:
+            raise HTTPException(status_code=404, detail="Not found")
+        _user_aliases.pop(to_delete, None)
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete alias error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete alias")
+
+# =========================
+# CALL REQUEST ENDPOINTS
+# =========================
+
+@app.post("/api/call-requests", response_model=CallRequestResponse)
+async def create_call_request(request_data: CallRequestCreate, request: Request):
+    """Submit a call request from the landing page"""
+    try:
+        # Get client IP and user agent
+        client_ip = request.client.host
+        user_agent = request.headers.get("user-agent", "")
+        
+        # Create call request
+        call_request = await db.create_call_request(
+            name=request_data.name,
+            phone=request_data.phone,
+            email=request_data.email,
+            preferred_time=request_data.preferred_time,
+            consultation_type=request_data.consultation_type,
+            notes=request_data.notes,
+            ip_address=client_ip,
+            user_agent=user_agent
+        )
+        
+        # Trigger webhook for n8n integration
+        try:
+            webhook_data = {
+                "id": str(call_request['id']),
+                "name": call_request['name'],
+                "phone": call_request['phone'],
+                "email": call_request['email'],
+                "preferred_time": call_request['preferred_time'],
+                "consultation_type": call_request['consultation_type'],
+                "notes": call_request['notes'],
+                "created_at": call_request['created_at'].isoformat(),
+                "source": "website"
+            }
+            
+            # Send to webhook asynchronously (don't block response)
+            asyncio.create_task(send_webhook(webhook_data))
+            
+        except Exception as webhook_error:
+            logger.error(f"Webhook error: {webhook_error}")
+            # Don't fail the request if webhook fails
+        
+        logger.info(f"Call request created: {call_request['id']} for {call_request['name']}")
+        
+        return CallRequestResponse(
+            id=call_request['id'],
+            name=call_request['name'],
+            phone=call_request['phone'],
+            email=call_request['email'],
+            status=call_request['status'],
+            preferred_time=call_request['preferred_time'],
+            consultation_type=call_request['consultation_type'],
+            notes=call_request['notes'],
+            created_at=call_request['created_at'],
+            updated_at=call_request['updated_at']
+        )
+        
+    except Exception as e:
+        logger.error(f"Call request creation error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create call request"
+        )
+
+# =========================
+# WEBHOOK ENDPOINTS  
+# =========================
+
+async def send_webhook(data: dict):
+    """Send webhook to n8n for call request processing"""
+    webhook_url = os.getenv("N8N_WEBHOOK_URL")
+    if not webhook_url:
+        logger.warning("N8N_WEBHOOK_URL not configured")
+        return
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                webhook_url,
+                json=data,
+                timeout=10.0
+            )
+            if response.status_code == 200:
+                logger.info(f"Webhook sent successfully for call request {data['id']}")
+            else:
+                logger.error(f"Webhook failed with status {response.status_code}")
+    except Exception as e:
+        logger.error(f"Webhook send error: {e}")
+
+@app.api_route("/alias/{slug}", methods=["GET","POST","PUT","PATCH","DELETE"])
+async def alias_proxy(slug: str, request: Request):
+    """Public alias endpoint: Authorization: Bearer <API token> required."""
+    try:
+        auth = request.headers.get("authorization") or ""
+        token = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
+        if not token:
+            raise HTTPException(status_code=401, detail="Missing bearer token")
+
+        owner = await db.get_api_token_owner(token)
+        if not owner:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+        key = _alias_key(owner["user_id"], slug)
+        cfg = _user_aliases.get(key)
+        if not cfg:
+            raise HTTPException(status_code=404, detail="Alias not found")
+        if request.method != cfg["method"]:
+            raise HTTPException(status_code=405, detail=f"Method not allowed; use {cfg['method']}")
+
+        # Prepare outbound request
+        headers: Dict[str, str] = {}
+        for h in cfg.get("headers", []):
+            val = request.headers.get(h)
+            if val:
+                headers[h] = val
+        ct = request.headers.get("content-type")
+        if ct:
+            headers["content-type"] = ct
+
+        body = await request.body() if request.method not in ("GET", "HEAD") else None
+        timeout = httpx.Timeout(60.0, read=300.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+            resp = await client.request(cfg["method"], cfg["target"], headers=headers, content=body)
+            safe_headers = {k: v for k, v in resp.headers.items() if k.lower() not in {"transfer-encoding", "connection"}}
+            return FastAPIResponse(content=resp.content, status_code=resp.status_code, headers=safe_headers)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Alias proxy error for {slug}: {e}")
+        raise HTTPException(status_code=500, detail="Proxy failed")
