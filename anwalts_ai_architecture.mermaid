@@ -1,0 +1,79 @@
+graph TD
+    subgraph "User"
+        A[Legal Professional]
+    end
+
+    subgraph "Frontend (Anwalts AI Portal)"
+        B(Nuxt.js / Vue 3)
+        C{Nuxt UI / Tailwind CSS}
+        D[Pinia State Management]
+        E(Supabase Auth Client)
+    end
+
+    subgraph "Web Server / Reverse Proxy"
+        F(Nginx)
+    end
+
+    subgraph "Backend (FastAPI)"
+        G[API Endpoints]
+        H(Authentication Service)
+        I(AI Service)
+        J(Cache Service)
+        K(Database Service)
+    end
+
+    subgraph "AI & ML"
+        L(Qwen Legal Model)
+        M(RAG System / llama.cpp)
+        N[Legal Document Corpus]
+    end
+
+    subgraph "Data Stores"
+        O(PostgreSQL with pgvector)
+        P(Redis)
+    end
+
+    subgraph "External Services"
+        Q(Supabase Auth)
+        R(Google OAuth)
+    end
+
+    subgraph "Development & CI/CD"
+        S(Docker / Docker Compose)
+        T(Playwright / Vitest)
+        U(Pytest)
+    end
+
+    %% Connections
+    A -->|"Interacts with"| B
+    B -->|"Uses UI components"| C
+    B -->|"Manages state with"| D
+    B -->|"Handles auth with"| E
+
+    E -->|"Communicates with"| Q
+
+    B -->|"Sends requests through"| F
+    F -->|"Routes to"| G
+    G -->|"Uses"| H
+    G -->|"Uses"| I
+    G -->|"Uses"| J
+    G -->|"Uses"| K
+
+    H -->|"Validates credentials with"| O
+    H -->|"Handles OAuth with"| R
+    R -->|"Authenticates user"| A
+
+    I -->|"Queries AI model"| L
+    I -->|"Enhances context with"| M
+    M -->|"Retrieves from"| N
+
+    J -->|"Caches data in"| P
+    K -->|"Interacts with"| O
+
+    S -->|"Builds and deploys"| B
+    S -->|"Builds and deploys"| G
+    S -->|"Manages"| O
+    S -->|"Manages"| P
+
+    T -->|"Tests"| B
+    U -->|"Tests"| G
